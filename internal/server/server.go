@@ -120,7 +120,9 @@ func spaHandler() (http.HandlerFunc, error) {
 
 	index, err := fs.ReadFile(dist, "index.html")
 	if err != nil {
-		return nil, err
+		// The frontend has not been built yet; serve a minimal placeholder so
+		// that the API stays usable during development.
+		index = []byte(placeholderIndex)
 	}
 
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -150,3 +152,17 @@ func spaHandler() (http.HandlerFunc, error) {
 		_, _ = w.Write(index)
 	}, nil
 }
+
+const placeholderIndex = `<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Wedwise</title>
+  </head>
+  <body>
+    <h1>Wedwise</h1>
+    <p>The frontend has not been built yet. Run <code>make build</code> to build it.</p>
+  </body>
+</html>
+`

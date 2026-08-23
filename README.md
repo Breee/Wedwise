@@ -107,21 +107,36 @@ Admin users are managed via the `wedding` CLI rather than a public sign-up
 flow:
 
 ```bash
-# Create an admin user
-./bin/wedding users create --username admin --email admin@example.com
+# Create a user (roles: couple, witness, admin)
+./bin/wedding user create --username admin --role admin --email admin@example.com
 
 # List users
-./bin/wedding users list
+./bin/wedding user list
 
-# Reset a user's password
-./bin/wedding users set-password --username admin
+# Reset a user's password (also invalidates that user's sessions)
+./bin/wedding user passwd --username admin
 
-# Deactivate a user
-./bin/wedding users disable --username admin
+# Deactivate / reactivate a user
+./bin/wedding user disable --username admin
+./bin/wedding user enable --username admin
 ```
 
-Run `./bin/wedding users --help` for the full list of subcommands and flags
-available in your build.
+Passwords are hashed with argon2id and are prompted for interactively when
+`--password` is omitted. Run `./bin/wedding help` for the full list of
+commands and flags.
+
+### Roles and permissions
+
+| Role | Permissions |
+|------|-------------|
+| `couple` | content read/write, guest read/write, invitation read/write, RSVP read/manage |
+| `witness` | contribution read/manage, RSVP read, guest read, invitation read |
+| `admin` | user read/manage, content read/write, guest read/write, invitation read/write, RSVP read/manage |
+
+Contributions are surprises for the couple: neither the `couple` nor the
+`admin` role can read or manage them — only witnesses can. Guests submit
+contributions through their personal RSVP link, and the RSVP summary
+deliberately contains no contribution data.
 
 ## Kubernetes Deployment
 
@@ -166,6 +181,12 @@ docker cp wedwise:/data/wedding.db ./backups/wedding-$(date +%F).db
 
 # Kubernetes: copy from the running pod
 kubectl cp <namespace>/<pod-name>:/data/wedding.db ./backups/wedding-$(date +%F).db
+```
+
+The CLI can also write a consistent snapshot while the server is running:
+
+```bash
+./bin/wedding backup ./backups/wedding-$(date +%F).db
 ```
 
 Restoring is the reverse: stop the container/pod, replace the file at
