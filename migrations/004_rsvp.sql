@@ -1,0 +1,21 @@
+CREATE TABLE IF NOT EXISTS rsvps (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    invitation_id INTEGER NOT NULL UNIQUE REFERENCES invitations(id) ON DELETE CASCADE,
+    status TEXT NOT NULL DEFAULT 'pending',
+    message TEXT NOT NULL DEFAULT '',
+    submitted_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS rsvp_attendees (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    invitation_id INTEGER NOT NULL REFERENCES invitations(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    attending INTEGER NOT NULL DEFAULT 0,
+    is_child INTEGER NOT NULL DEFAULT 0,
+    diet TEXT NOT NULL DEFAULT 'none',
+    allergies TEXT NOT NULL DEFAULT '',
+    notes TEXT NOT NULL DEFAULT ''
+);
+
+CREATE INDEX IF NOT EXISTS idx_rsvp_attendees_invitation_id ON rsvp_attendees(invitation_id);

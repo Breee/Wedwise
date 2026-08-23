@@ -1,0 +1,20 @@
+# Botanical theme - warm ivory and forest green palette
+
+colors:
+  background: "#F7F4F0"
+  surface: "#FDFCFA"
+  surfaceMuted: "#E7E2D4"
+  primary: "#4A5033"
+  primaryDark: "#293117"
+  secondary: "#7D7C59"
+  accent: "#A98C4A"
+  text: "#293117"
+  textMuted: "#7D7C59"
+
+typography:
+  headingFont: "system-ui, sans-serif"
+  bodyFont: "Georgia, 'Times New Roman', serif"
+  scriptFont: "Georgia, serif"
+
+radius: "4px"
+spacing: "1.25rem"

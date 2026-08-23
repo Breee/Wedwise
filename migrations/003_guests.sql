@@ -1,0 +1,11 @@
+CREATE TABLE IF NOT EXISTS guests (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    display_name TEXT NOT NULL,
+    email TEXT NOT NULL DEFAULT '',
+    invitation_id INTEGER NOT NULL REFERENCES invitations(id) ON DELETE CASCADE,
+    notes TEXT NOT NULL DEFAULT '',
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_guests_invitation_id ON guests(invitation_id);

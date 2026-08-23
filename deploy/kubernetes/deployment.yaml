@@ -1,0 +1,66 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: wedwise
+  labels:
+    app: wedwise
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: wedwise
+  template:
+    metadata:
+      labels:
+        app: wedwise
+    spec:
+      containers:
+      - name: wedwise
+        image: wedwise:latest
+        ports:
+        - containerPort: 8080
+        env:
+        - name: LISTEN_ADDRESS
+          value: ":8080"
+        - name: DATABASE_PATH
+          value: "/data/wedding.db"
+        - name: CONFIG_PATH
+          value: "/config/config.yaml"
+        - name: SESSION_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: wedwise-secrets
+              key: session-secret
+        volumeMounts:
+        - name: data
+          mountPath: /data
+        - name: config
+          mountPath: /config
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "50m"
+          limits:
+            memory: "256Mi"
+            cpu: "500m"
+      volumes:
+      - name: data
+        persistentVolumeClaim:
+          claimName: wedwise-data
+      - name: config
+        configMap:
+          name: wedwise-config

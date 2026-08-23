@@ -1,0 +1,27 @@
+# Wedwise Configuration Example
+# Copy to /config/config.yaml and customize
+
+listenAddress: ":8080"
+databasePath: "/data/wedding.db"
+baseUrl: "https://wedding.example.com"
+configPath: "/config/config.yaml"
+themePath: "/config/theme.yaml"
+
+event:
+  title: "Alex & Sam's Wedding"
+  couple:
+    - name: "Alex"
+    - name: "Sam"
+  date: "2027-06-25"
+  venue:
+    name: "Example Garden Venue"
+    address: "123 Garden Lane, Exampletown"
+    description: "A beautiful garden venue in the heart of Exampletown."
+    navigationUrl: "https://maps.example.com/example-venue"
+    transport: "Take bus line 42 to Garden Stop."
+    parking: "Free parking available on site."
+  hero:
+    eyebrow: "SAVE THE DATE"
+    headline: "We're Getting Married!"
+    subtitle: "Ceremony & Celebration"
+    note: "We can't wait to celebrate with you."
