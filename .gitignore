@@ -1,0 +1,22 @@
+# Go
+bin/
+*.exe
+*.test
+*.out
+
+# Node
+web/node_modules/
+web/dist/
+
+# SQLite
+*.db
+*.db-shm
+*.db-wal
+
+# Config with secrets
+config/production*.yaml
+
+# IDE
+.vscode/
+.idea/
+*.swp

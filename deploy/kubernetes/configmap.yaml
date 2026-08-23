@@ -1,0 +1,25 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: wedwise-config
+data:
+  config.yaml: |
+    listenAddress: ":8080"
+    databasePath: "/data/wedding.db"
+    baseUrl: "https://wedding.example.com"
+    
+    event:
+      title: "Our Wedding"
+      couple:
+        - name: "Partner A"
+        - name: "Partner B"
+      date: "2027-06-25"
+      venue:
+        name: "Example Venue"
+        address: "123 Example Street, City"
+        navigationUrl: ""
+      hero:
+        eyebrow: "SAVE THE DATE"
+        headline: "We're Getting Married!"
+        subtitle: "Ceremony & Celebration"
+        note: "More details coming soon"

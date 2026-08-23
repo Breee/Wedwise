@@ -1,0 +1,24 @@
+{
+  "name": "wedwise-web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vue-tsc && vite build",
+    "preview": "vite preview",
+    "type-check": "vue-tsc --noEmit"
+  },
+  "dependencies": {
+    "pinia": "^2.1.0",
+    "vue": "^3.4.0",
+    "vue-router": "^4.3.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.12.0",
+    "@vitejs/plugin-vue": "^6.0.8",
+    "typescript": "^5.4.0",
+    "vite": "^7.3.6",
+    "vue-tsc": "^2.0.0"
+  }
+}
