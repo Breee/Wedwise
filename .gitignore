@@ -6,7 +6,8 @@ bin/
 
 # Node
 web/node_modules/
-web/dist/
+web/dist/*
+!web/dist/.gitkeep
 
 # SQLite
 *.db

@@ -19,10 +19,14 @@ type CoupleEntry struct {
 
 // VenueConfig describes the wedding venue.
 type VenueConfig struct {
-	Name    string `yaml:"name" json:"name"`
-	Address string `yaml:"address" json:"address"`
-	City    string `yaml:"city" json:"city"`
-	MapURL  string `yaml:"mapUrl" json:"mapUrl"`
+	Name          string `yaml:"name" json:"name"`
+	Address       string `yaml:"address" json:"address"`
+	City          string `yaml:"city" json:"city"`
+	MapURL        string `yaml:"mapUrl" json:"mapUrl"`
+	Description   string `yaml:"description" json:"description"`
+	NavigationURL string `yaml:"navigationUrl" json:"navigationUrl"`
+	Transport     string `yaml:"transport" json:"transport"`
+	Parking       string `yaml:"parking" json:"parking"`
 }
 
 // HeroConfig describes the hero section of the public website.
@@ -54,6 +58,24 @@ type Config struct {
 	Environment   string `yaml:"environment" json:"environment"`
 
 	Event EventConfig `yaml:"event" json:"event"`
+
+	// baseURLAlias accepts the alternative "baseUrl" spelling used in the
+	// example configuration files.
+	baseURLAlias string `yaml:"-" json:"-"`
+}
+
+// UnmarshalYAML accepts both "baseURL" and "baseUrl" as keys.
+func (c *Config) UnmarshalYAML(node *yaml.Node) error {
+	type plain Config
+	alias := struct {
+		*plain  `yaml:",inline"`
+		BaseUrl string `yaml:"baseUrl"`
+	}{plain: (*plain)(c)}
+	if err := node.Decode(&alias); err != nil {
+		return err
+	}
+	c.baseURLAlias = alias.BaseUrl
+	return nil
 }
 
 // Default returns a configuration populated with sane defaults.
@@ -96,6 +118,9 @@ func Load(path string) (Config, error) {
 	case err == nil:
 		if err := yaml.Unmarshal(data, &cfg); err != nil {
 			return Config{}, fmt.Errorf("parse config %s: %w", path, err)
+		}
+		if cfg.baseURLAlias != "" && (cfg.BaseURL == "" || cfg.BaseURL == Default().BaseURL) {
+			cfg.BaseURL = cfg.baseURLAlias
 		}
 		cfg.ConfigPath = path
 	case errors.Is(err, os.ErrNotExist):
