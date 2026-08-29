@@ -5,16 +5,14 @@ import { api, errorMessage, unwrap } from '@/composables/useApi'
 
 const props = defineProps<{ token: string }>()
 
-type AttendanceStatus = 'yes' | 'no' | 'maybe' | 'pending'
+type AttendanceStatus = 'yes' | 'no' | 'pending'
 
 interface Attendee {
   id?: number | string
   name: string
-  attending: boolean
   is_child: boolean
   diet: string
   allergies: string
-  notes: string
 }
 
 interface RsvpResponse {
@@ -32,34 +30,18 @@ interface RsvpResponse {
     status?: string
   }
   rsvp?: RsvpResponse
-  contributions_enabled?: boolean
 }
 
 const DIET_OPTIONS = [
-  { value: '', label: 'No preference' },
-  { value: 'vegetarian', label: 'Vegetarian' },
-  { value: 'vegan', label: 'Vegan' },
-  { value: 'pescetarian', label: 'Pescetarian' },
+  { value: '', label: 'No preference / standard menu' },
+  { value: 'vegetarian', label: '🥗 Vegetarian' },
+  { value: 'vegan', label: '🌱 Vegan' },
+  { value: 'pescetarian', label: '🐟 Pescetarian' },
   { value: 'halal', label: 'Halal' },
   { value: 'kosher', label: 'Kosher' },
-  { value: 'gluten_free', label: 'Gluten free' },
-  { value: 'lactose_free', label: 'Lactose free' },
-  { value: 'other', label: 'Other (see notes)' },
-]
-
-const CONTRIBUTION_CATEGORIES = [
-  { value: 'speech', label: 'Speech' },
-  { value: 'music', label: 'Music' },
-  { value: 'performance', label: 'Performance' },
-  { value: 'game', label: 'Game' },
-  { value: 'slideshow', label: 'Slideshow / video' },
-  { value: 'other', label: 'Other' },
-]
-
-const ATTENDANCE_OPTIONS: Array<{ value: AttendanceStatus; label: string }> = [
-  { value: 'yes', label: 'Yes, we will be there' },
-  { value: 'no', label: 'Sorry, we cannot come' },
-  { value: 'maybe', label: 'Maybe' },
+  { value: 'gluten_free', label: 'Gluten-free' },
+  { value: 'lactose_free', label: 'Lactose-free' },
+  { value: 'other', label: 'Other (describe in notes)' },
 ]
 
 const loading = ref(true)
@@ -74,29 +56,22 @@ const status = ref<AttendanceStatus>('pending')
 const message = ref('')
 const attendees = ref<Attendee[]>([])
 
-const contributionsEnabled = ref(true)
-const showContribution = ref(false)
+// Contribution: inline yes/no + optional fields
+const wantsContribution = ref<boolean | null>(null)
 const contributionSaving = ref(false)
 const contributionError = ref('')
 const contributionSaved = ref(false)
 
 const contribution = reactive({
   title: '',
-  category: 'speech',
   description: '',
-  participants: '',
-  duration_minutes: 5,
+  duration_minutes: 10,
   technical_requirements: '',
-  equipment: '',
-  preferred_time: '',
   contact_info: '',
 })
 
+const isAttending = computed(() => status.value === 'yes')
 const canAddAttendee = computed(() => attendees.value.length < maxGuests.value)
-const attendingCount = computed(
-  () => attendees.value.filter((a) => a.attending).length,
-)
-const isAttending = computed(() => status.value === 'yes' || status.value === 'maybe')
 
 function str(value: unknown, fallback = ''): string {
   if (typeof value === 'string') return value
@@ -112,21 +87,13 @@ function bool(value: unknown, fallback = false): boolean {
 }
 
 function emptyAttendee(): Attendee {
-  return {
-    name: '',
-    attending: true,
-    is_child: false,
-    diet: '',
-    allergies: '',
-    notes: '',
-  }
+  return { name: '', is_child: false, diet: '', allergies: '' }
 }
 
 function normalizeStatus(value: unknown): AttendanceStatus {
   const raw = str(value).toLowerCase()
-  if (['yes', 'accepted', 'attending', 'accept'].includes(raw)) return 'yes'
+  if (['yes', 'accepted', 'attending', 'accept', 'maybe'].includes(raw)) return 'yes'
   if (['no', 'declined', 'decline', 'not_attending'].includes(raw)) return 'no'
-  if (['maybe', 'tentative', 'unsure'].includes(raw)) return 'maybe'
   return 'pending'
 }
 
@@ -134,21 +101,17 @@ function toAttendee(raw: Record<string, unknown>): Attendee {
   return {
     id: (raw.id as number | string | undefined) ?? undefined,
     name: str(raw.name ?? raw.full_name),
-    attending: bool(raw.attending ?? raw.is_attending, true),
     is_child: bool(raw.is_child ?? raw.child),
     diet: str(raw.diet ?? raw.dietary_requirement ?? raw.diet_preference),
     allergies: str(raw.allergies),
-    notes: str(raw.notes ?? raw.note),
   }
 }
 
 function applyResponse(payload: RsvpResponse) {
-  const data: RsvpResponse = payload?.rsvp ? { ...payload, ...payload.rsvp } : payload ?? {}
+  const data: RsvpResponse = payload?.rsvp ? { ...payload, ...payload.rsvp } : (payload ?? {})
   const invitation = payload?.invitation ?? {}
 
-  invitationName.value = str(
-    invitation.name ?? data.invitation_name ?? data.guest_name,
-  )
+  invitationName.value = str(invitation.name ?? data.invitation_name ?? data.guest_name)
   const max = Number(invitation.max_guests ?? data.max_guests ?? 0)
   maxGuests.value = Number.isFinite(max) && max > 0 ? max : 1
 
@@ -156,16 +119,12 @@ function applyResponse(payload: RsvpResponse) {
   message.value = str(data.message)
 
   const rawAttendees = data.attendees ?? data.guests ?? []
-  attendees.value = rawAttendees.map(toAttendee)
+  attendees.value = rawAttendees.map((a) => toAttendee(a as Record<string, unknown>))
 
   if (attendees.value.length === 0) {
     const seed = emptyAttendee()
     seed.name = invitationName.value
     attendees.value = [seed]
-  }
-
-  if (typeof payload?.contributions_enabled === 'boolean') {
-    contributionsEnabled.value = payload.contributions_enabled
   }
 }
 
@@ -178,10 +137,7 @@ async function load() {
     )
     applyResponse(data)
   } catch (err) {
-    loadError.value = errorMessage(
-      err,
-      'This invitation link is not valid or has expired.',
-    )
+    loadError.value = errorMessage(err, 'This invitation link is not valid or has expired.')
   } finally {
     loading.value = false
   }
@@ -194,9 +150,7 @@ function addAttendee() {
 
 function removeAttendee(index: number) {
   attendees.value.splice(index, 1)
-  if (attendees.value.length === 0) {
-    attendees.value.push(emptyAttendee())
-  }
+  if (attendees.value.length === 0) attendees.value.push(emptyAttendee())
 }
 
 async function submitRsvp() {
@@ -208,25 +162,30 @@ async function submitRsvp() {
     const payload = {
       status: status.value,
       message: message.value,
-      attendees: attendees.value
-        .filter((attendee) => attendee.name.trim() !== '')
-        .map((attendee) => ({
-          id: attendee.id,
-          name: attendee.name.trim(),
-          attending: status.value === 'no' ? false : attendee.attending,
-          is_child: attendee.is_child,
-          diet: attendee.diet,
-          allergies: attendee.allergies,
-          notes: attendee.notes,
-        })),
+      attendees: isAttending.value
+        ? attendees.value
+            .filter((a) => a.name.trim() !== '')
+            .map((a) => ({
+              id: a.id,
+              name: a.name.trim(),
+              attending: true,
+              is_child: a.is_child,
+              diet: a.diet,
+              allergies: a.allergies,
+              notes: '',
+            }))
+        : [],
     }
     const data = await unwrap<RsvpResponse>(
       await api.put(`/rsvp/${encodeURIComponent(props.token)}`, payload),
     )
-    if (data && typeof data === 'object') {
-      applyResponse(data)
-    }
+    if (data && typeof data === 'object') applyResponse(data)
     saved.value = true
+
+    // Auto-submit contribution if filled in
+    if (wantsContribution.value && contribution.title.trim()) {
+      await submitContribution()
+    }
   } catch (err) {
     saveError.value = errorMessage(err, 'Your response could not be saved.')
   } finally {
@@ -235,30 +194,23 @@ async function submitRsvp() {
 }
 
 async function submitContribution() {
-  if (contributionSaving.value) return
   contributionSaving.value = true
   contributionError.value = ''
-  contributionSaved.value = false
   try {
     await unwrap<unknown>(
       await api.post(`/rsvp/${encodeURIComponent(props.token)}/contributions`, {
-        ...contribution,
+        title: contribution.title.trim(),
+        description: contribution.description.trim(),
         duration_minutes: Number(contribution.duration_minutes) || 0,
+        technical_requirements: contribution.technical_requirements.trim(),
+        contact_information: contribution.contact_info.trim(),
+        status: 'new',
       }),
     )
     contributionSaved.value = true
-    contribution.title = ''
-    contribution.description = ''
-    contribution.participants = ''
-    contribution.technical_requirements = ''
-    contribution.equipment = ''
-    contribution.preferred_time = ''
-    showContribution.value = false
   } catch (err) {
-    contributionError.value = errorMessage(
-      err,
-      'Your contribution could not be submitted.',
-    )
+    contributionError.value = errorMessage(err, 'Your contribution could not be submitted.')
+    throw err
   } finally {
     contributionSaving.value = false
   }
@@ -277,51 +229,79 @@ onMounted(load)
       </div>
 
       <template v-else>
-        <header class="stack rsvp__header">
+        <header class="rsvp__header stack">
           <RouterLink to="/" class="rsvp__back">← Back</RouterLink>
           <p class="eyebrow">Invitation</p>
-          <h1>{{ invitationName || 'Please respond' }}</h1>
+          <h1>{{ invitationName || 'Your RSVP' }}</h1>
           <p class="text-muted">
-            We would love to know whether you can join us. You can update your answer at
-            any time using this link.
+            We would love to know whether you can join us.
+            You can update your answer any time using this link.
           </p>
         </header>
 
-        <form class="card stack" novalidate @submit.prevent="submitRsvp">
-          <fieldset>
-            <legend>Will you attend?</legend>
-            <div class="radio-group" role="radiogroup" aria-label="Attendance">
-              <label
-                v-for="option in ATTENDANCE_OPTIONS"
-                :key="option.value"
-                class="radio-option"
-                :class="{ 'radio-option--active': status === option.value }"
-              >
-                <input
-                  v-model="status"
-                  type="radio"
-                  name="attendance"
-                  :value="option.value"
-                />
-                <span>{{ option.label }}</span>
-              </label>
-            </div>
-          </fieldset>
+        <!-- Success state after saving -->
+        <div v-if="saved" class="card stack rsvp__success">
+          <div class="rsvp__success-icon">🎉</div>
+          <h2>Thank you!</h2>
+          <p class="text-muted">
+            Your response has been saved. You can return to this page at any time
+            to update it.
+          </p>
+          <p v-if="contributionSaved" class="notice notice--success" role="status">
+            Your contribution has been submitted and will be coordinated for you.
+            The couple will not see this.
+          </p>
+          <p v-if="contributionError" class="notice notice--error" role="alert">
+            {{ contributionError }}
+          </p>
+          <button type="button" class="btn btn--secondary" @click="saved = false">
+            Edit my response
+          </button>
+        </div>
 
-          <fieldset v-if="isAttending">
-            <legend>Who is coming?</legend>
-            <p class="text-muted rsvp__hint">
-              {{ attendees.length }} of {{ maxGuests }} places used ·
-              {{ attendingCount }} attending
-            </p>
+        <form v-else class="stack" novalidate @submit.prevent="submitRsvp">
+
+          <!-- ── Step 1: Attendance ─────────────────────────── -->
+          <div class="card stack">
+            <h2 class="rsvp__section-title">Will you attend?</h2>
+            <div class="attendance-choice">
+              <button
+                type="button"
+                class="attendance-btn"
+                :class="{ 'attendance-btn--active attendance-btn--yes': status === 'yes' }"
+                @click="status = 'yes'"
+              >
+                <span class="attendance-btn__icon">🎉</span>
+                <span class="attendance-btn__label">Yes, I'll be there!</span>
+              </button>
+              <button
+                type="button"
+                class="attendance-btn"
+                :class="{ 'attendance-btn--active attendance-btn--no': status === 'no' }"
+                @click="status = 'no'"
+              >
+                <span class="attendance-btn__icon">😔</span>
+                <span class="attendance-btn__label">Sorry, I can't make it</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- ── Step 2: Guest details (when attending) ──────── -->
+          <div v-if="isAttending" class="card stack">
+            <div class="rsvp__section-header">
+              <h2 class="rsvp__section-title">Who is coming?</h2>
+              <span class="text-muted rsvp__hint">
+                {{ attendees.length }} / {{ maxGuests }} guests added
+              </span>
+            </div>
 
             <div
               v-for="(attendee, index) in attendees"
               :key="index"
-              class="attendee"
+              class="attendee-card"
             >
-              <div class="attendee__head">
-                <h3 class="attendee__title">Guest {{ index + 1 }}</h3>
+              <div class="attendee-card__head">
+                <strong>Guest {{ index + 1 }}</strong>
                 <button
                   v-if="attendees.length > 1"
                   type="button"
@@ -332,231 +312,180 @@ onMounted(load)
                 </button>
               </div>
 
-              <div class="field">
-                <label :for="`attendee-name-${index}`">Name</label>
-                <input
-                  :id="`attendee-name-${index}`"
-                  v-model="attendee.name"
-                  type="text"
-                  autocomplete="name"
-                />
-              </div>
+              <div class="attendee-card__fields">
+                <div class="field">
+                  <label :for="`name-${index}`">Full name <span class="required">*</span></label>
+                  <input
+                    :id="`name-${index}`"
+                    v-model="attendee.name"
+                    type="text"
+                    autocomplete="name"
+                    placeholder="First and last name"
+                    required
+                  />
+                </div>
 
-              <div class="attendee__flags">
-                <label class="checkbox">
-                  <input v-model="attendee.attending" type="checkbox" />
-                  <span>Attending</span>
-                </label>
+                <div class="field">
+                  <label :for="`diet-${index}`">Food preference</label>
+                  <select :id="`diet-${index}`" v-model="attendee.diet">
+                    <option
+                      v-for="opt in DIET_OPTIONS"
+                      :key="opt.value"
+                      :value="opt.value"
+                    >{{ opt.label }}</option>
+                  </select>
+                </div>
+
+                <div class="field">
+                  <label :for="`allergies-${index}`">Allergies or intolerances</label>
+                  <input
+                    :id="`allergies-${index}`"
+                    v-model="attendee.allergies"
+                    type="text"
+                    placeholder="e.g. nuts, shellfish, gluten — leave blank if none"
+                  />
+                </div>
+
                 <label class="checkbox">
                   <input v-model="attendee.is_child" type="checkbox" />
-                  <span>Child</span>
+                  <span>This is a child (under 12)</span>
                 </label>
-              </div>
-
-              <div class="field">
-                <label :for="`attendee-diet-${index}`">Dietary requirement</label>
-                <select :id="`attendee-diet-${index}`" v-model="attendee.diet">
-                  <option
-                    v-for="option in DIET_OPTIONS"
-                    :key="option.value"
-                    :value="option.value"
-                  >
-                    {{ option.label }}
-                  </option>
-                </select>
-              </div>
-
-              <div class="field">
-                <label :for="`attendee-allergies-${index}`">Allergies</label>
-                <input
-                  :id="`attendee-allergies-${index}`"
-                  v-model="attendee.allergies"
-                  type="text"
-                  placeholder="e.g. nuts, shellfish"
-                />
-              </div>
-
-              <div class="field">
-                <label :for="`attendee-notes-${index}`">Notes</label>
-                <input
-                  :id="`attendee-notes-${index}`"
-                  v-model="attendee.notes"
-                  type="text"
-                />
               </div>
             </div>
 
             <button
+              v-if="canAddAttendee"
               type="button"
               class="btn btn--secondary btn--small"
-              :disabled="!canAddAttendee"
               @click="addAttendee"
             >
-              Add guest
+              + Add another guest
             </button>
-            <p v-if="!canAddAttendee" class="text-muted rsvp__hint">
+            <p v-else class="text-muted rsvp__hint">
               Your invitation covers up to {{ maxGuests }}
-              {{ maxGuests === 1 ? 'guest' : 'guests' }}.
-            </p>
-          </fieldset>
-
-          <div class="field">
-            <label for="rsvp-message">Message to the couple</label>
-            <textarea id="rsvp-message" v-model="message"></textarea>
-          </div>
-
-          <p v-if="saveError" class="notice notice--error" role="alert">
-            {{ saveError }}
-          </p>
-          <p v-else-if="saved" class="notice notice--success" role="status">
-            Thank you — your response has been saved.
-          </p>
-
-          <div class="btn-row rsvp__submit-row">
-            <button type="submit" class="btn rsvp__submit-btn" :disabled="saving">
-              {{ saving ? 'Saving…' : 'Send response' }}
-            </button>
-          </div>
-        </form>
-
-        <section
-          v-if="saved && contributionsEnabled && status !== 'no'"
-          class="card stack rsvp__contribution"
-          aria-labelledby="contribution-title"
-        >
-          <div>
-            <p class="eyebrow">Optional</p>
-            <h2 id="contribution-title">Would you like to contribute?</h2>
-            <p class="text-muted">
-              A speech, a song, a game — tell us about your idea and it will be
-              coordinated for you. The couple will not see this.
+              {{ maxGuests === 1 ? 'person' : 'people' }}.
             </p>
           </div>
 
-          <p v-if="contributionSaved" class="notice notice--success" role="status">
-            Thank you — your contribution has been submitted.
-          </p>
-
-          <button
-            v-if="!showContribution"
-            type="button"
-            class="btn btn--secondary"
-            @click="showContribution = true"
-          >
-            Register a contribution
-          </button>
-
-          <form v-else novalidate @submit.prevent="submitContribution">
+          <!-- ── Step 3: Message ─────────────────────────────── -->
+          <div class="card stack">
+            <h2 class="rsvp__section-title">Message to the couple <span class="optional">(optional)</span></h2>
             <div class="field">
-              <label for="contribution-title-input">Title</label>
-              <input
-                id="contribution-title-input"
-                v-model="contribution.title"
-                type="text"
-                required
-              />
-            </div>
-
-            <div class="field">
-              <label for="contribution-category">Category</label>
-              <select id="contribution-category" v-model="contribution.category">
-                <option
-                  v-for="option in CONTRIBUTION_CATEGORIES"
-                  :key="option.value"
-                  :value="option.value"
-                >
-                  {{ option.label }}
-                </option>
-              </select>
-            </div>
-
-            <div class="field">
-              <label for="contribution-description">Description</label>
+              <label for="rsvp-message" class="visually-hidden">Your message</label>
               <textarea
-                id="contribution-description"
-                v-model="contribution.description"
+                id="rsvp-message"
+                v-model="message"
+                placeholder="Leave a note, a wish, or anything you'd like to share…"
               ></textarea>
             </div>
+          </div>
 
-            <div class="field">
-              <label for="contribution-participants">Participants</label>
-              <input
-                id="contribution-participants"
-                v-model="contribution.participants"
-                type="text"
-                placeholder="Who is taking part?"
-              />
+          <!-- ── Step 4: Contribution (only if attending) ──────── -->
+          <div v-if="isAttending && !contributionSaved" class="card stack">
+            <div>
+              <h2 class="rsvp__section-title">Planning a contribution?</h2>
+              <p class="text-muted">
+                A speech, a song, a game — tell us and it will be coordinated for you.
+                <strong>The couple will not see this.</strong>
+              </p>
             </div>
 
-            <div class="field">
-              <label for="contribution-duration">Duration (minutes)</label>
-              <input
-                id="contribution-duration"
-                v-model.number="contribution.duration_minutes"
-                type="number"
-                min="0"
-                step="1"
-              />
-            </div>
-
-            <div class="field">
-              <label for="contribution-technical">Technical requirements</label>
-              <textarea
-                id="contribution-technical"
-                v-model="contribution.technical_requirements"
-              ></textarea>
-            </div>
-
-            <div class="field">
-              <label for="contribution-equipment">Equipment</label>
-              <input
-                id="contribution-equipment"
-                v-model="contribution.equipment"
-                type="text"
-                placeholder="e.g. microphone, projector"
-              />
-            </div>
-
-            <div class="field">
-              <label for="contribution-preferred-time">Preferred time</label>
-              <input
-                id="contribution-preferred-time"
-                v-model="contribution.preferred_time"
-                type="text"
-                placeholder="e.g. after dinner"
-              />
-            </div>
-
-            <div class="field">
-              <label for="contribution-contact">Phone number or contact</label>
-              <input
-                id="contribution-contact"
-                v-model="contribution.contact_info"
-                type="tel"
-                inputmode="tel"
-                autocomplete="tel"
-                placeholder="+49 170 1234567"
-              />
-            </div>
-
-            <p v-if="contributionError" class="notice notice--error" role="alert">
-              {{ contributionError }}
-            </p>
-
-            <div class="btn-row">
-              <button type="submit" class="btn" :disabled="contributionSaving">
-                {{ contributionSaving ? 'Submitting…' : 'Submit contribution' }}
+            <div class="contribution-toggle">
+              <button
+                type="button"
+                class="attendance-btn"
+                :class="{ 'attendance-btn--active attendance-btn--yes': wantsContribution === true }"
+                @click="wantsContribution = true"
+              >
+                <span class="attendance-btn__icon">🎤</span>
+                <span class="attendance-btn__label">Yes, I have an idea!</span>
               </button>
               <button
                 type="button"
-                class="btn btn--ghost"
-                @click="showContribution = false"
+                class="attendance-btn"
+                :class="{ 'attendance-btn--active attendance-btn--no': wantsContribution === false }"
+                @click="wantsContribution = false"
               >
-                Cancel
+                <span class="attendance-btn__icon">—</span>
+                <span class="attendance-btn__label">No, not this time</span>
               </button>
             </div>
-          </form>
-        </section>
+
+            <div v-if="wantsContribution" class="contribution-fields stack">
+              <div class="field">
+                <label for="c-title">What is your contribution? <span class="required">*</span></label>
+                <input
+                  id="c-title"
+                  v-model="contribution.title"
+                  type="text"
+                  placeholder="e.g. Piano duet, Comedy speech, Slideshow"
+                  required
+                />
+              </div>
+
+              <div class="field">
+                <label for="c-description">Description</label>
+                <textarea
+                  id="c-description"
+                  v-model="contribution.description"
+                  placeholder="Tell us a bit about what you're planning…"
+                ></textarea>
+              </div>
+
+              <div class="field">
+                <label for="c-duration">Estimated duration (minutes)</label>
+                <input
+                  id="c-duration"
+                  v-model.number="contribution.duration_minutes"
+                  type="number"
+                  min="1"
+                  step="1"
+                />
+              </div>
+
+              <div class="field">
+                <label for="c-needs">What do you need? <span class="optional">(optional)</span></label>
+                <textarea
+                  id="c-needs"
+                  v-model="contribution.technical_requirements"
+                  placeholder="e.g. microphone, projector, backing track, a moment right after dinner…"
+                ></textarea>
+              </div>
+
+              <div class="field">
+                <label for="c-contact">Your phone number (for coordination)</label>
+                <input
+                  id="c-contact"
+                  v-model="contribution.contact_info"
+                  type="tel"
+                  inputmode="tel"
+                  autocomplete="tel"
+                  placeholder="+49 170 1234567"
+                />
+              </div>
+
+              <p v-if="contributionError" class="notice notice--error" role="alert">
+                {{ contributionError }}
+              </p>
+            </div>
+          </div>
+
+          <!-- ── Errors + Submit ──────────────────────────────── -->
+          <p v-if="saveError" class="notice notice--error" role="alert">{{ saveError }}</p>
+
+          <div class="rsvp__submit-row">
+            <button
+              type="submit"
+              class="btn rsvp__submit-btn"
+              :disabled="saving || status === 'pending'"
+            >
+              <span v-if="saving">Saving…</span>
+              <span v-else-if="status === 'pending'">Select yes or no above</span>
+              <span v-else>Send response</span>
+            </button>
+          </div>
+
+        </form>
       </template>
     </div>
   </section>
@@ -565,17 +494,13 @@ onMounted(load)
 <style scoped>
 .rsvp {
   max-width: 44rem;
-  /* Bottom padding for sticky submit bar on mobile */
-  padding-bottom: calc(72px + env(safe-area-inset-bottom));
+  padding-bottom: calc(80px + env(safe-area-inset-bottom));
 }
 
 @media (min-width: 48rem) {
-  .rsvp {
-    padding-bottom: 0;
-  }
+  .rsvp { padding-bottom: calc(var(--spacing) * 3); }
 }
 
-/* Back link (spec §2.4) */
 .rsvp__back {
   display: inline-flex;
   align-items: center;
@@ -583,40 +508,123 @@ onMounted(load)
   color: var(--color-text-muted);
   text-decoration: none;
   font-size: 0.9rem;
-  margin-bottom: var(--spacing);
   min-height: 44px;
 }
 
-.rsvp__back:hover {
+.rsvp__back:hover { color: var(--color-primary); }
+
+.rsvp__header { margin-bottom: calc(var(--spacing) * 1.5); }
+
+.rsvp__section-title {
+  font-size: 1.05rem;
+  margin: 0 0 0.25rem;
+}
+
+.rsvp__section-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.rsvp__hint { font-size: 0.85rem; }
+
+.optional {
+  font-size: 0.8rem;
+  font-weight: 400;
+  color: var(--color-text-muted);
+}
+
+.required { color: var(--color-danger, #c0392b); }
+
+/* ── Attendance buttons ── */
+.attendance-choice,
+.contribution-toggle {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+.attendance-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 1rem;
+  border: 2px solid var(--color-surface-muted);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  cursor: pointer;
+  font-family: var(--font-heading);
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--color-text);
+  transition: border-color 0.15s, background-color 0.15s;
+  min-height: 80px;
+}
+
+.attendance-btn:hover {
+  border-color: var(--color-primary);
+  background: var(--color-surface-muted);
+}
+
+.attendance-btn--active {
+  border-width: 2px;
+}
+
+.attendance-btn--yes.attendance-btn--active {
+  border-color: var(--color-primary);
+  background: color-mix(in srgb, var(--color-primary) 10%, transparent);
   color: var(--color-primary);
 }
 
-.rsvp__header {
-  margin-bottom: calc(var(--spacing) * 1.5);
+.attendance-btn--no.attendance-btn--active {
+  border-color: var(--color-text-muted);
+  background: color-mix(in srgb, var(--color-text-muted) 10%, transparent);
 }
 
-.rsvp__hint {
-  font-size: 0.85rem;
+.attendance-btn__icon { font-size: 1.5rem; }
+.attendance-btn__label { font-size: 0.85rem; text-align: center; }
+
+/* ── Attendee cards ── */
+.attendee-card {
+  border: 1px solid var(--color-surface-muted);
+  border-radius: var(--radius);
+  padding: calc(var(--spacing) * 0.875);
+  background: var(--color-background);
 }
 
-.rsvp__contribution {
-  margin-top: calc(var(--spacing) * 1.5);
+.attendee-card + .attendee-card { margin-top: var(--spacing); }
+
+.attendee-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: calc(var(--spacing) * 0.75);
 }
 
-/* Sticky submit row on mobile (spec §4.2) */
+.attendee-card__fields { display: grid; gap: 0.75rem; }
+
+/* ── Contribution fields ── */
+.contribution-fields {
+  border-top: var(--border-subtle);
+  padding-top: var(--spacing);
+  margin-top: var(--spacing);
+}
+
+/* ── Submit ── */
 .rsvp__submit-row {
   position: sticky;
   bottom: 0;
   background-color: var(--color-surface);
   border-top: var(--border-subtle);
   padding: 0.75rem var(--spacing);
-  margin: 0 calc(var(--spacing) * -1.25) calc(var(--spacing) * -1.25);
+  margin: 0;
   padding-bottom: calc(0.75rem + env(safe-area-inset-bottom));
 }
 
-.rsvp__submit-btn {
-  width: 100%;
-}
+.rsvp__submit-btn { width: 100%; }
 
 @media (min-width: 48rem) {
   .rsvp__submit-row {
@@ -624,39 +632,13 @@ onMounted(load)
     background: none;
     border-top: none;
     padding: 0;
-    margin: 0;
+    margin-top: var(--spacing);
   }
-
-  .rsvp__submit-btn {
-    width: auto;
-  }
+  .rsvp__submit-btn { width: auto; }
 }
 
-.attendee {
-  border: var(--border-subtle);
-  border-radius: var(--radius);
-  padding: var(--spacing);
-  margin-bottom: var(--spacing);
-  background-color: var(--color-background);
-}
-
-.attendee__head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-  margin-bottom: 0.5rem;
-}
-
-.attendee__title {
-  margin: 0;
-  font-size: 0.95rem;
-}
-
-.attendee__flags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--spacing);
-  margin-bottom: var(--spacing);
-}
+/* ── Success ── */
+.rsvp__success { text-align: center; padding: calc(var(--spacing) * 2); }
+.rsvp__success-icon { font-size: 3rem; }
+.rsvp__success h2 { margin: 0; }
 </style>
