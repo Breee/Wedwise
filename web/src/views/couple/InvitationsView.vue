@@ -12,6 +12,8 @@ interface Invitation {
   rsvp_status?: string
   rsvp?: { status?: string } | null
   max_guests?: number
+  isPublic?: boolean
+  url?: string
 }
 
 const invitations = ref<Invitation[]>([])
@@ -22,6 +24,8 @@ const notice = ref('')
 const showForm = ref(false)
 const formError = ref('')
 const revealed = ref<Record<string, boolean>>({})
+const publicInvitation = ref<Invitation | null>(null)
+const publicLoading = ref(true)
 
 const form = reactive({
   name: '',
@@ -75,22 +79,43 @@ function rsvpLabel(invitation: Invitation): string {
 }
 
 function invitationLink(invitation: Invitation): string {
+  if (invitation.url) return invitation.url
   if (!invitation.token) return ''
   return `${window.location.origin}/rsvp/${invitation.token}`
 }
 
-async function copyLink(invitation: Invitation) {
-  const link = invitationLink(invitation)
-  if (!link) return
+function publicLink(inv: Invitation): string {
+  return invitationLink(inv)
+}
+
+async function copyText(text: string, label: string) {
   try {
     if (navigator.clipboard?.writeText) {
-      await navigator.clipboard.writeText(link)
+      await navigator.clipboard.writeText(text)
     } else {
-      window.prompt('Copy the invitation link', link)
+      window.prompt('Copy link', text)
     }
-    notice.value = 'Invitation link copied.'
+    notice.value = label
   } catch {
-    window.prompt('Copy the invitation link', link)
+    window.prompt('Copy link', text)
+  }
+}
+
+async function copyLink(invitation: Invitation) {
+  await copyText(invitationLink(invitation), 'Invitation link copied.')
+}
+
+async function loadPublic() {
+  publicLoading.value = true
+  try {
+    const data = await unwrap<{ invitation: Invitation | null }>(
+      await api.get('/invitations/public'),
+    )
+    publicInvitation.value = data?.invitation ?? null
+  } catch {
+    publicInvitation.value = null
+  } finally {
+    publicLoading.value = false
   }
 }
 
@@ -142,11 +167,11 @@ async function regenerate(invitation: Invitation) {
   try {
     await unwrap<unknown>(
       await api.post(
-        `/invitations/${encodeURIComponent(String(invitation.id))}/regenerate`,
+        `/invitations/${encodeURIComponent(String(invitation.id))}/regenerate-token`,
         {},
       ),
     )
-    await load()
+    await Promise.all([load(), loadPublic()])
     notice.value = 'A new token has been generated.'
   } catch (err) {
     error.value = errorMessage(err, 'The token could not be regenerated.')
@@ -162,7 +187,7 @@ async function toggleDisabled(invitation: Invitation) {
   try {
     await unwrap<unknown>(
       await api.put(`/invitations/${encodeURIComponent(String(invitation.id))}`, {
-        status: disable ? 'disabled' : 'active',
+        active: !disable,
       }),
     )
     await load()
@@ -174,7 +199,36 @@ async function toggleDisabled(invitation: Invitation) {
   }
 }
 
-onMounted(load)
+async function setAsPublic(invitation: Invitation) {
+  const isAlreadyPublic = publicInvitation.value?.id === invitation.id
+  const confirmMsg = isAlreadyPublic
+    ? 'Remove this invitation as the shared public link?'
+    : `Set "${invitation.name || 'this invitation'}" as the shared link that all guests can use?`
+  if (!window.confirm(confirmMsg)) return
+  busy.value = true
+  error.value = ''
+  try {
+    await unwrap<unknown>(
+      await api.put(
+        `/invitations/${encodeURIComponent(String(invitation.id))}/set-public`,
+        { public: !isAlreadyPublic },
+      ),
+    )
+    await Promise.all([load(), loadPublic()])
+    notice.value = isAlreadyPublic
+      ? 'Public link removed.'
+      : 'Public link updated.'
+  } catch (err) {
+    error.value = errorMessage(err, 'Could not update the public link setting.')
+  } finally {
+    busy.value = false
+  }
+}
+
+onMounted(() => {
+  load()
+  loadPublic()
+})
 </script>
 
 <template>
@@ -191,6 +245,45 @@ onMounted(load)
       </div>
 
       <p v-if="notice" class="notice notice--success" role="status">{{ notice }}</p>
+
+      <!-- Public / shared link banner -->
+      <div v-if="!publicLoading" class="public-link-card card">
+        <div class="public-link-card__header">
+          <div>
+            <h2 class="public-link-card__title">🔗 Shared RSVP link</h2>
+            <p class="public-link-card__subtitle">
+              One link for all guests — no individual invitations needed.
+            </p>
+          </div>
+        </div>
+
+        <div v-if="publicInvitation" class="public-link-card__body">
+          <p class="public-link-card__label">
+            Currently using: <strong>{{ publicInvitation.name || 'Unnamed invitation' }}</strong>
+          </p>
+          <div class="public-link-url">
+            <span class="public-link-url__text">{{ publicLink(publicInvitation) }}</span>
+            <button
+              type="button"
+              class="btn btn--secondary btn--small"
+              @click="copyText(publicLink(publicInvitation), 'Shared link copied!')"
+            >
+              Copy
+            </button>
+          </div>
+          <p class="public-link-card__hint">
+            Share this link on your wedding website, email, or save-the-date card.
+            Guests can use it to RSVP without needing a personal invitation.
+          </p>
+        </div>
+
+        <div v-else class="public-link-card__body">
+          <p class="text-muted">
+            No shared link configured. Select an invitation below and click
+            <em>Set as shared link</em> to enable one.
+          </p>
+        </div>
+      </div>
 
       <form
         v-if="showForm"
@@ -252,8 +345,19 @@ onMounted(load)
             </tr>
           </thead>
           <tbody>
-            <tr v-for="invitation in invitations" :key="invitation.id">
-              <td>{{ invitation.name || '—' }}</td>
+            <tr
+              v-for="invitation in invitations"
+              :key="invitation.id"
+              :class="{ 'row--public': publicInvitation?.id === invitation.id }"
+            >
+              <td>
+                {{ invitation.name || '—' }}
+                <span
+                  v-if="publicInvitation?.id === invitation.id"
+                  class="badge badge--accent"
+                  title="This is the shared public link"
+                >shared</span>
+              </td>
               <td>
                 <button
                   type="button"
@@ -283,6 +387,16 @@ onMounted(load)
                     @click="copyLink(invitation)"
                   >
                     Copy link
+                  </button>
+                  <button
+                    type="button"
+                    class="btn btn--ghost btn--small"
+                    :class="{ 'btn--active': publicInvitation?.id === invitation.id }"
+                    :disabled="busy"
+                    :title="publicInvitation?.id === invitation.id ? 'Remove shared link' : 'Use as shared link for all guests'"
+                    @click="setAsPublic(invitation)"
+                  >
+                    {{ publicInvitation?.id === invitation.id ? '✓ Shared' : 'Set as shared' }}
                   </button>
                   <button
                     type="button"
@@ -324,5 +438,75 @@ onMounted(load)
   color: var(--color-text);
   cursor: pointer;
   text-decoration: underline dotted;
+}
+
+.public-link-card {
+  margin-bottom: calc(var(--spacing) * 1.5);
+  border: 2px solid var(--color-accent, var(--color-primary));
+}
+
+.public-link-card__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--spacing);
+  margin-bottom: calc(var(--spacing) * 0.75);
+}
+
+.public-link-card__title {
+  font-size: 1.1rem;
+  margin: 0 0 0.25rem;
+}
+
+.public-link-card__subtitle {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+}
+
+.public-link-card__label {
+  margin: 0 0 0.5rem;
+  font-size: 0.9rem;
+}
+
+.public-link-card__hint {
+  margin: 0.5rem 0 0;
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+}
+
+.public-link-url {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--color-surface-alt, #f5f5f5);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 0.5rem 0.75rem;
+  flex-wrap: wrap;
+}
+
+.public-link-url__text {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.85rem;
+  word-break: break-all;
+  flex: 1;
+}
+
+.row--public {
+  background: color-mix(in srgb, var(--color-primary) 5%, transparent);
+}
+
+.badge--accent {
+  background: var(--color-accent, var(--color-primary));
+  color: #fff;
+  margin-left: 0.4rem;
+  font-size: 0.7rem;
+}
+
+.btn--active {
+  background: color-mix(in srgb, var(--color-primary) 15%, transparent);
+  color: var(--color-primary);
+  border-color: var(--color-primary);
 }
 </style>

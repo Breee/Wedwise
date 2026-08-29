@@ -22,7 +22,7 @@ func NewStore(db *sql.DB) *Store {
 	return &Store{db: db}
 }
 
-const columns = "id, name, token, max_guests, active, created_at, updated_at"
+const columns = "id, name, token, max_guests, active, is_public, created_at, updated_at"
 
 // Create inserts a new invitation with a freshly generated token.
 func (s *Store) Create(ctx context.Context, name string, maxGuests int, active bool) (Invitation, error) {
@@ -41,8 +41,8 @@ func (s *Store) Create(ctx context.Context, name string, maxGuests int, active b
 
 	now := time.Now().UTC()
 	res, err := s.db.ExecContext(ctx,
-		`INSERT INTO invitations (name, token, max_guests, active, created_at, updated_at)
-		 VALUES (?, ?, ?, ?, ?, ?)`,
+		`INSERT INTO invitations (name, token, max_guests, active, is_public, created_at, updated_at)
+		 VALUES (?, ?, ?, ?, 0, ?, ?)`,
 		name, token, maxGuests, active, now, now)
 	if err != nil {
 		return Invitation{}, fmt.Errorf("insert invitation: %w", err)
@@ -111,6 +111,37 @@ func (s *Store) Update(ctx context.Context, id int64, name string, maxGuests int
 	return s.GetByID(ctx, id)
 }
 
+// SetPublic marks an invitation as the public/shared link, clearing the flag on
+// all other invitations. Passing id=0 clears the flag without setting a new one.
+func (s *Store) SetPublic(ctx context.Context, id int64) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin tx: %w", err)
+	}
+	defer tx.Rollback() //nolint:errcheck
+
+	if _, err = tx.ExecContext(ctx, "UPDATE invitations SET is_public = 0"); err != nil {
+		return fmt.Errorf("clear public flag: %w", err)
+	}
+	if id > 0 {
+		res, err := tx.ExecContext(ctx,
+			"UPDATE invitations SET is_public = 1, updated_at = ? WHERE id = ?",
+			time.Now().UTC(), id)
+		if err != nil {
+			return fmt.Errorf("set public flag: %w", err)
+		}
+		if err := affected(res); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
+}
+
+// GetPublic returns the current public invitation, or ErrNotFound if none is set.
+func (s *Store) GetPublic(ctx context.Context) (Invitation, error) {
+	return s.queryOne(ctx, "SELECT "+columns+" FROM invitations WHERE is_public = 1 LIMIT 1")
+}
+
 // RegenerateToken issues a new token for an invitation, invalidating the old link.
 func (s *Store) RegenerateToken(ctx context.Context, id int64) (Invitation, error) {
 	token, err := GenerateToken()
@@ -145,7 +176,7 @@ type scanner interface {
 func scan(row scanner) (Invitation, error) {
 	var invitation Invitation
 	if err := row.Scan(&invitation.ID, &invitation.Name, &invitation.Token, &invitation.MaxGuests,
-		&invitation.Active, &invitation.CreatedAt, &invitation.UpdatedAt); err != nil {
+		&invitation.Active, &invitation.IsPublic, &invitation.CreatedAt, &invitation.UpdatedAt); err != nil {
 		return Invitation{}, err
 	}
 	return invitation, nil

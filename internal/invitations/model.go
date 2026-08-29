@@ -15,6 +15,7 @@ type Invitation struct {
 	Token     string    `json:"token"`
 	MaxGuests int       `json:"maxGuests"`
 	Active    bool      `json:"active"`
+	IsPublic  bool      `json:"isPublic"`
 	CreatedAt time.Time `json:"createdAt"`
 	UpdatedAt time.Time `json:"updatedAt"`
 }
