@@ -58,6 +58,7 @@ type rsvpView struct {
 // PublicRoutes returns the token authenticated RSVP routes.
 func (h *Handler) PublicRoutes() http.Handler {
 	r := chi.NewRouter()
+	r.Get("/public", h.publicInvitationToken)
 	r.Get("/{token}", h.get)
 	r.Put("/{token}", h.submit)
 	r.Post("/{token}/contributions", h.submitContribution)
@@ -167,6 +168,23 @@ func (h *Handler) submitContribution(w http.ResponseWriter, r *http.Request) {
 		"status":  contribution.Status,
 		"success": true,
 	})
+}
+
+func (h *Handler) publicInvitationToken(w http.ResponseWriter, r *http.Request) {
+	invitation, err := h.invitations.GetPublic(r.Context())
+	if errors.Is(err, invitations.ErrNotFound) {
+		httpx.WriteJSON(w, http.StatusOK, map[string]any{"token": nil})
+		return
+	}
+	if err != nil {
+		httpx.Internal(w, err)
+		return
+	}
+	if !invitation.Active {
+		httpx.WriteJSON(w, http.StatusOK, map[string]any{"token": nil})
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, map[string]any{"token": invitation.Token})
 }
 
 func (h *Handler) resolveInvitation(w http.ResponseWriter, r *http.Request) (invitations.Invitation, bool) {

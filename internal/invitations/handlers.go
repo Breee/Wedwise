@@ -39,10 +39,12 @@ func (h *Handler) Routes() http.Handler {
 	r := chi.NewRouter()
 	r.With(h.auth.RequirePermission(auth.PermInvitationRead)).Get("/", h.list)
 	r.With(h.auth.RequirePermission(auth.PermInvitationWrite)).Post("/", h.create)
+	r.With(h.auth.RequirePermission(auth.PermInvitationRead)).Get("/public", h.getPublic)
 	r.With(h.auth.RequirePermission(auth.PermInvitationRead)).Get("/{id}", h.get)
 	r.With(h.auth.RequirePermission(auth.PermInvitationWrite)).Put("/{id}", h.update)
 	r.With(h.auth.RequirePermission(auth.PermInvitationWrite)).Delete("/{id}", h.delete)
 	r.With(h.auth.RequirePermission(auth.PermInvitationWrite)).Post("/{id}/regenerate-token", h.regenerate)
+	r.With(h.auth.RequirePermission(auth.PermInvitationWrite)).Put("/{id}/set-public", h.setPublic)
 	return r
 }
 
@@ -151,6 +153,49 @@ func (h *Handler) regenerate(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) withURL(invitation Invitation) invitationResponse {
 	base := strings.TrimSuffix(h.baseURL, "/")
 	return invitationResponse{Invitation: invitation, URL: base + "/rsvp/" + invitation.Token}
+}
+
+func (h *Handler) getPublic(w http.ResponseWriter, r *http.Request) {
+	invitation, err := h.store.GetPublic(r.Context())
+	if errors.Is(err, ErrNotFound) {
+		httpx.WriteJSON(w, http.StatusOK, map[string]any{"invitation": nil})
+		return
+	}
+	if err != nil {
+		httpx.Internal(w, err)
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, map[string]any{"invitation": h.withURL(invitation)})
+}
+
+type setPublicRequest struct {
+	Public bool `json:"public"`
+}
+
+func (h *Handler) setPublic(w http.ResponseWriter, r *http.Request) {
+	id, err := httpx.ParseID(chi.URLParam(r, "id"))
+	if err != nil {
+		httpx.BadRequest(w, "Invalid invitation id.")
+		return
+	}
+	var req setPublicRequest
+	if !httpx.DecodeJSON(w, r, &req) {
+		return
+	}
+	var targetID int64
+	if req.Public {
+		targetID = id
+	}
+	if err := h.store.SetPublic(r.Context(), targetID); err != nil {
+		h.writeStoreError(w, err)
+		return
+	}
+	invitation, err := h.store.GetByID(r.Context(), id)
+	if err != nil {
+		h.writeStoreError(w, err)
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, h.withURL(invitation))
 }
 
 func (h *Handler) writeStoreError(w http.ResponseWriter, err error) {
