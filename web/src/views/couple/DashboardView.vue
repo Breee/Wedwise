@@ -3,18 +3,15 @@ import { computed, onMounted, ref } from 'vue'
 import { api, errorMessage, unwrap } from '@/composables/useApi'
 
 interface StatsResponse {
-  total_invited?: number
-  accepted?: number
-  declined?: number
-  maybe?: number
-  no_response?: number
-  pending?: number
-  total_attendees?: number
+  // /api/rsvp-summary fields
+  invitations?: number
+  activeInvitations?: number
+  respondedInvitations?: number
+  statusCounts?: { accepted?: number; declined?: number; no?: number; maybe?: number; pending?: number; yes?: number }
+  attendeesTotal?: number
+  attendeesAttending?: number
   children?: number
-  children_count?: number
-  adults?: number
-  diets?: Record<string, number> | Array<{ diet?: string; count?: number }>
-  dietary_requirements?: Record<string, number>
+  dietCounts?: Record<string, number>
   allergies?: string[] | Array<{ name?: string; allergies?: string }>
   [key: string]: unknown
 }
@@ -47,27 +44,23 @@ function num(...values: unknown[]): number {
   return 0
 }
 
-const totalInvited = computed(() => num(stats.value.total_invited))
-const accepted = computed(() => num(stats.value.accepted))
-const declined = computed(() => num(stats.value.declined))
-const maybe = computed(() => num(stats.value.maybe))
-const noResponse = computed(() => num(stats.value.no_response, stats.value.pending))
-const totalAttendees = computed(() => num(stats.value.total_attendees))
-const children = computed(() => num(stats.value.children, stats.value.children_count))
-const adults = computed(() => Math.max(totalAttendees.value - children.value, 0))
+const totalInvited = computed(() => num(stats.value.invitations))
+const accepted = computed(() => num(stats.value.statusCounts?.accepted, stats.value.statusCounts?.yes))
+const declined = computed(() => num(stats.value.statusCounts?.no, stats.value.statusCounts?.declined))
+const maybe = computed(() => num(stats.value.statusCounts?.maybe))
+const noResponse = computed(() => num(stats.value.statusCounts?.pending))
+const totalAttendees = computed(() => num(stats.value.attendeesTotal))
+const children = computed(() => num(stats.value.children))
+const adults = computed(() => Math.max(num(stats.value.attendeesAttending) - children.value, 0))
 
 const diets = computed<Array<{ label: string; count: number }>>(() => {
-  const source = stats.value.diets ?? stats.value.dietary_requirements
+  const source = stats.value.dietCounts
   if (!source) return []
-  const entries: Array<[string, number]> = Array.isArray(source)
-    ? source.map((item) => [String(item.diet ?? ''), Number(item.count ?? 0)])
-    : Object.entries(source).map(([key, value]) => [key, Number(value)])
-
-  return entries
-    .filter(([, count]) => Number.isFinite(count) && count > 0)
+  return Object.entries(source)
+    .filter(([, count]) => Number.isFinite(Number(count)) && Number(count) > 0)
     .map(([key, count]) => ({
       label: DIET_LABELS[key] ?? key.replace(/_/g, ' '),
-      count,
+      count: Number(count),
     }))
     .sort((a, b) => b.count - a.count)
 })
@@ -90,7 +83,7 @@ async function load() {
   loading.value = true
   error.value = ''
   try {
-    stats.value = await unwrap<StatsResponse>(await api.get('/rsvp/stats'))
+    stats.value = await unwrap<StatsResponse>(await api.get('/rsvp-summary'))
   } catch (err) {
     error.value = errorMessage(err, 'The statistics could not be loaded.')
     stats.value = {}
