@@ -40,7 +40,7 @@ onMounted(() => {
 
 <template>
   <div class="home">
-    <section class="hero" aria-labelledby="hero-title">
+    <section id="start" class="hero" aria-labelledby="hero-title">
       <div class="container hero__inner">
         <p v-if="couple" class="hero__couple script">{{ couple }}</p>
         <h1 id="hero-title" class="hero__title">{{ title }}</h1>
@@ -63,7 +63,7 @@ onMounted(() => {
       </div>
     </section>
 
-    <section class="section section--muted" aria-labelledby="schedule-title">
+    <section id="schedule" class="section section--muted" aria-labelledby="schedule-title">
       <div class="container stack">
         <p class="eyebrow">Programme</p>
         <h2 id="schedule-title">{{ scheduleTitle }}</h2>
@@ -84,7 +84,7 @@ onMounted(() => {
       </div>
     </section>
 
-    <section class="section" aria-labelledby="location-title">
+    <section id="location" class="section" aria-labelledby="location-title">
       <div class="container stack">
         <p class="eyebrow">Getting there</p>
         <h2 id="location-title">{{ locationTitle }}</h2>
@@ -108,7 +108,7 @@ onMounted(() => {
       </div>
     </section>
 
-    <section class="section section--muted" aria-labelledby="faq-title">
+    <section id="faq" class="section section--muted" aria-labelledby="faq-title">
       <div class="container stack">
         <p class="eyebrow">Good to know</p>
         <h2 id="faq-title">{{ faqTitle }}</h2>
@@ -133,17 +133,22 @@ onMounted(() => {
 }
 
 .hero__inner {
-  padding: calc(var(--spacing) * 3.5) var(--spacing);
+  /* Compact on mobile (less wasted space), spacious on desktop */
+  padding: calc(var(--spacing) * 2.5) var(--spacing);
 }
 
 .hero__couple {
   font-family: var(--font-script);
-  font-size: 1.35rem;
+  /* Fluid: ~1.25rem on 360px → ~1.5rem on desktop */
+  font-size: clamp(1.1rem, 4vw, 1.5rem);
   color: var(--color-accent);
   margin-bottom: 0.5rem;
 }
 
 .hero__title {
+  /* Fluid: ~2.2rem on 360px → ~3.6rem on desktop */
+  font-size: clamp(2.2rem, 8vw, 3.6rem) !important;
+  line-height: 1.05;
   margin-bottom: 0.75rem;
 }
 
@@ -159,6 +164,7 @@ onMounted(() => {
   max-width: 34rem;
   margin: var(--spacing) auto 0;
   color: var(--color-text-muted);
+  font-size: clamp(0.9rem, 3vw, 1rem);
 }
 
 .home__prose {

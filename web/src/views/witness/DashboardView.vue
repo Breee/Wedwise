@@ -8,23 +8,22 @@ interface Contribution {
   category?: string
   description?: string
   participants?: string
-  duration_minutes?: number
-  technical_requirements?: string
+  durationMinutes?: number
+  technicalRequirements?: string
   equipment?: string
-  preferred_time?: string
-  contact_info?: string
-  contact?: string
+  preferredTime?: string
+  contactInformation?: string
   status?: string
   notes?: string
 }
 
+// Statuses must match the Go model constants exactly.
 const STATUSES = [
-  { value: 'submitted', label: 'Submitted' },
-  { value: 'in_review', label: 'In review' },
-  { value: 'approved', label: 'Approved' },
-  { value: 'scheduled', label: 'Scheduled' },
-  { value: 'done', label: 'Done' },
-  { value: 'rejected', label: 'Declined' },
+  { value: 'new', label: 'New' },
+  { value: 'needs_clarification', label: 'Needs clarification' },
+  { value: 'planning', label: 'Planning' },
+  { value: 'confirmed', label: 'Confirmed' },
+  { value: 'rejected', label: 'Not included' },
 ]
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -32,8 +31,19 @@ const CATEGORY_LABELS: Record<string, string> = {
   music: 'Music',
   performance: 'Performance',
   game: 'Game',
+  video: 'Slideshow / video',
   slideshow: 'Slideshow / video',
+  surprise: 'Surprise',
   other: 'Other',
+}
+
+// Contributor-friendly status labels (spec §18)
+const STATUS_DISPLAY: Record<string, string> = {
+  new: 'Received',
+  needs_clarification: 'Follow-up needed',
+  planning: 'In planning',
+  confirmed: 'Scheduled',
+  rejected: 'Not included',
 }
 
 const contributions = ref<Contribution[]>([])
@@ -42,6 +52,9 @@ const error = ref('')
 const busyId = ref<string | null>(null)
 const notice = ref('')
 const noteDrafts = ref<Record<string, string>>({})
+
+// Mobile: show flat list; Desktop: show kanban columns
+const viewMode = ref<'list' | 'board'>('list')
 
 function unwrapList(payload: unknown): Contribution[] {
   if (Array.isArray(payload)) return payload as Contribution[]
@@ -56,12 +69,13 @@ function unwrapList(payload: unknown): Contribution[] {
 
 function normalizeStatus(value?: string): string {
   const raw = (value ?? '').toLowerCase()
-  return STATUSES.some((status) => status.value === raw) ? raw : 'submitted'
+  return STATUSES.some((s) => s.value === raw) ? raw : 'new'
 }
 
 const columns = computed(() =>
   STATUSES.map((status) => ({
     ...status,
+    displayLabel: STATUS_DISPLAY[status.value] ?? status.label,
     items: contributions.value.filter(
       (item) => normalizeStatus(item.status) === status.value,
     ),
@@ -74,7 +88,12 @@ function categoryLabel(contribution: Contribution): string {
 }
 
 function contactOf(contribution: Contribution): string {
-  return contribution.contact_info || contribution.contact || '—'
+  return contribution.contactInformation ?? ''
+}
+
+// Detect if contact looks like a phone number
+function isPhone(contact: string): boolean {
+  return /^\+?[\d\s\-().]{7,}$/.test(contact.trim())
 }
 
 function draftFor(contribution: Contribution): string {
@@ -106,13 +125,22 @@ async function patch(contribution: Contribution, body: Record<string, unknown>) 
   try {
     await unwrap<unknown>(
       await api.put(`/contributions/${encodeURIComponent(key)}`, {
+        title: contribution.title ?? '',
+        category: contribution.category ?? 'other',
+        description: contribution.description ?? '',
+        participants: contribution.participants ?? '',
+        durationMinutes: contribution.durationMinutes ?? 0,
+        technicalRequirements: contribution.technicalRequirements ?? '',
+        equipment: contribution.equipment ?? '',
+        preferredTime: contribution.preferredTime ?? '',
+        contactInformation: contribution.contactInformation ?? '',
         status: normalizeStatus(contribution.status),
-        notes: contribution.notes ?? '',
         ...body,
       }),
     )
     await load()
     notice.value = 'Contribution updated.'
+    setTimeout(() => { notice.value = '' }, 3000)
   } catch (err) {
     error.value = errorMessage(err, 'The contribution could not be updated.')
   } finally {
@@ -129,6 +157,10 @@ function saveNotes(contribution: Contribution) {
   void patch(contribution, { notes: draftFor(contribution) })
 }
 
+function copyToClipboard(text: string) {
+  void navigator.clipboard.writeText(text)
+}
+
 onMounted(load)
 </script>
 
@@ -140,15 +172,136 @@ onMounted(load)
           <p class="eyebrow">Witness area</p>
           <h1>Contributions</h1>
         </div>
-        <button type="button" class="btn btn--ghost btn--small" @click="load">
-          Refresh
-        </button>
+        <div class="btn-row">
+          <button
+            type="button"
+            class="btn btn--ghost btn--small"
+            :class="{ 'btn--active': viewMode === 'list' }"
+            title="List view"
+            @click="viewMode = 'list'"
+          >☰ List</button>
+          <button
+            type="button"
+            class="btn btn--ghost btn--small"
+            :class="{ 'btn--active': viewMode === 'board' }"
+            title="Board view"
+            @click="viewMode = 'board'"
+          >⊞ Board</button>
+          <button type="button" class="btn btn--ghost btn--small" @click="load">
+            Refresh
+          </button>
+        </div>
       </div>
 
       <p v-if="notice" class="notice notice--success" role="status">{{ notice }}</p>
       <p v-if="error" class="notice notice--error" role="alert">{{ error }}</p>
       <p v-if="loading" class="text-muted" aria-live="polite">Loading contributions…</p>
 
+      <!-- ── List view (default, works well on mobile) ── -->
+      <div v-else-if="viewMode === 'list'" class="contribution-list">
+        <p v-if="contributions.length === 0" class="text-muted">No contributions yet.</p>
+
+        <article
+          v-for="contribution in contributions"
+          :key="contribution.id"
+          class="card contribution"
+        >
+          <!-- Mobile card header -->
+          <div class="contribution__header">
+            <span class="badge badge--accent">{{ categoryLabel(contribution) }}</span>
+            <span
+              class="badge"
+              :class="{
+                'badge--primary': normalizeStatus(contribution.status) === 'confirmed',
+                'badge--muted': normalizeStatus(contribution.status) === 'rejected',
+              }"
+            >{{ STATUS_DISPLAY[normalizeStatus(contribution.status)] }}</span>
+          </div>
+
+          <h3 class="contribution__title">{{ contribution.title || 'Untitled' }}</h3>
+
+          <!-- Mobile-friendly meta list -->
+          <ul class="list-plain contribution__meta">
+            <li v-if="contribution.participants">
+              <span class="meta__label">Participants</span>
+              <span>{{ contribution.participants }}</span>
+            </li>
+            <li v-if="contribution.durationMinutes">
+              <span class="meta__label">Duration</span>
+              <span>{{ contribution.durationMinutes }} min</span>
+            </li>
+            <li v-if="contribution.preferredTime">
+              <span class="meta__label">Preferred time</span>
+              <span>{{ contribution.preferredTime }}</span>
+            </li>
+            <li v-if="contribution.equipment">
+              <span class="meta__label">Equipment</span>
+              <span>{{ contribution.equipment }}</span>
+            </li>
+            <li v-if="contribution.technicalRequirements">
+              <span class="meta__label">Technical</span>
+              <span>{{ contribution.technicalRequirements }}</span>
+            </li>
+          </ul>
+
+          <p v-if="contribution.description" class="contribution__description">
+            {{ contribution.description }}
+          </p>
+
+          <!-- Contact with call action (spec §17) -->
+          <div v-if="contactOf(contribution)" class="contact-row">
+            <span class="contact-row__value">{{ contactOf(contribution) }}</span>
+            <a
+              v-if="isPhone(contactOf(contribution))"
+              :href="`tel:${contactOf(contribution).replace(/\s/g, '')}`"
+              class="btn btn--secondary btn--small"
+              title="Call"
+            >📞 Call</a>
+            <button
+              type="button"
+              class="btn btn--ghost btn--small"
+              title="Copy contact"
+              @click="copyToClipboard(contactOf(contribution))"
+            >Copy</button>
+          </div>
+
+          <!-- Status change -->
+          <div class="field">
+            <label :for="`status-${contribution.id}`">Status</label>
+            <select
+              :id="`status-${contribution.id}`"
+              :value="normalizeStatus(contribution.status)"
+              :disabled="busyId === String(contribution.id)"
+              @change="changeStatus(contribution, $event)"
+            >
+              <option
+                v-for="status in STATUSES"
+                :key="status.value"
+                :value="status.value"
+              >{{ status.label }}</option>
+            </select>
+          </div>
+
+          <!-- Internal notes -->
+          <div class="field">
+            <label :for="`notes-${contribution.id}`">Internal notes</label>
+            <textarea
+              :id="`notes-${contribution.id}`"
+              :value="draftFor(contribution)"
+              @input="setDraft(contribution, ($event.target as HTMLTextAreaElement).value)"
+            ></textarea>
+          </div>
+
+          <button
+            type="button"
+            class="btn btn--secondary btn--small"
+            :disabled="busyId === String(contribution.id)"
+            @click="saveNotes(contribution)"
+          >Save notes</button>
+        </article>
+      </div>
+
+      <!-- ── Board / kanban view (desktop, spec §24 horizontal scroll ok) ── -->
       <div v-else class="board">
         <section
           v-for="column in columns"
@@ -157,7 +310,7 @@ onMounted(load)
           :aria-label="column.label"
         >
           <h2 class="board__heading">
-            {{ column.label }}
+            {{ column.displayLabel }}
             <span class="badge">{{ column.items.length }}</span>
           </h2>
 
@@ -170,48 +323,41 @@ onMounted(load)
             :key="contribution.id"
             class="card contribution"
           >
-            <h3 class="contribution__title">{{ contribution.title || 'Untitled' }}</h3>
-            <p class="contribution__category">
+            <div class="contribution__header">
               <span class="badge badge--accent">{{ categoryLabel(contribution) }}</span>
-            </p>
+            </div>
 
-            <dl class="contribution__meta">
-              <div>
-                <dt>Contact</dt>
-                <dd>{{ contactOf(contribution) }}</dd>
-              </div>
-              <div>
-                <dt>Participants</dt>
-                <dd>{{ contribution.participants || '—' }}</dd>
-              </div>
-              <div>
-                <dt>Duration</dt>
-                <dd>
-                  {{ contribution.duration_minutes ? `${contribution.duration_minutes} min` : '—' }}
-                </dd>
-              </div>
-              <div v-if="contribution.preferred_time">
-                <dt>Preferred time</dt>
-                <dd>{{ contribution.preferred_time }}</dd>
-              </div>
-              <div v-if="contribution.equipment">
-                <dt>Equipment</dt>
-                <dd>{{ contribution.equipment }}</dd>
-              </div>
-              <div v-if="contribution.technical_requirements">
-                <dt>Technical</dt>
-                <dd>{{ contribution.technical_requirements }}</dd>
-              </div>
-            </dl>
+            <h3 class="contribution__title">{{ contribution.title || 'Untitled' }}</h3>
+
+            <ul class="list-plain contribution__meta">
+              <li v-if="contribution.participants">
+                <span class="meta__label">Participants</span>
+                <span>{{ contribution.participants }}</span>
+              </li>
+              <li v-if="contribution.durationMinutes">
+                <span class="meta__label">Duration</span>
+                <span>{{ contribution.durationMinutes }} min</span>
+              </li>
+            </ul>
 
             <p v-if="contribution.description" class="contribution__description">
               {{ contribution.description }}
             </p>
 
+            <!-- Contact with call action -->
+            <div v-if="contactOf(contribution)" class="contact-row">
+              <span class="contact-row__value">{{ contactOf(contribution) }}</span>
+              <a
+                v-if="isPhone(contactOf(contribution))"
+                :href="`tel:${contactOf(contribution).replace(/\s/g, '')}`"
+                class="btn btn--secondary btn--small"
+              >📞</a>
+            </div>
+
             <div class="field">
-              <label :for="`status-${contribution.id}`">Status</label>
+              <label :for="`board-status-${contribution.id}`">Status</label>
               <select
-                :id="`status-${contribution.id}`"
+                :id="`board-status-${contribution.id}`"
                 :value="normalizeStatus(contribution.status)"
                 :disabled="busyId === String(contribution.id)"
                 @change="changeStatus(contribution, $event)"
@@ -220,16 +366,14 @@ onMounted(load)
                   v-for="status in STATUSES"
                   :key="status.value"
                   :value="status.value"
-                >
-                  {{ status.label }}
-                </option>
+                >{{ status.label }}</option>
               </select>
             </div>
 
             <div class="field">
-              <label :for="`notes-${contribution.id}`">Internal notes</label>
+              <label :for="`board-notes-${contribution.id}`">Internal notes</label>
               <textarea
-                :id="`notes-${contribution.id}`"
+                :id="`board-notes-${contribution.id}`"
                 :value="draftFor(contribution)"
                 @input="setDraft(contribution, ($event.target as HTMLTextAreaElement).value)"
               ></textarea>
@@ -240,9 +384,7 @@ onMounted(load)
               class="btn btn--secondary btn--small"
               :disabled="busyId === String(contribution.id)"
               @click="saveNotes(contribution)"
-            >
-              Save notes
-            </button>
+            >Save notes</button>
           </article>
         </section>
       </div>
@@ -251,6 +393,76 @@ onMounted(load)
 </template>
 
 <style scoped>
+/* ── List view ── */
+.contribution-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing);
+}
+
+.contribution__header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-bottom: 0.5rem;
+}
+
+.contribution__title {
+  margin-bottom: 0.5rem;
+}
+
+.contribution__meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  margin-bottom: var(--spacing);
+  font-size: 0.88rem;
+}
+
+.contribution__meta li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.meta__label {
+  color: var(--color-text-muted);
+  min-width: 7rem;
+  flex-shrink: 0;
+}
+
+.contribution__description {
+  font-size: 0.92rem;
+  white-space: pre-line;
+  margin-bottom: var(--spacing);
+}
+
+/* Contact row with call action (spec §17) */
+.contact-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: var(--spacing);
+  padding: 0.6rem 0.75rem;
+  background-color: var(--color-background);
+  border-radius: var(--radius);
+  border: var(--border-subtle);
+}
+
+.contact-row__value {
+  flex: 1;
+  font-size: 0.95rem;
+  word-break: break-all;
+}
+
+/* View toggle active state */
+.btn--active {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+/* ── Board / kanban view ── */
 .board {
   display: grid;
   gap: calc(var(--spacing) * 1.25);
@@ -272,45 +484,13 @@ onMounted(load)
   font-size: 0.9rem;
 }
 
-.contribution {
+.board .contribution {
   margin-bottom: var(--spacing);
-}
-
-.contribution__title {
-  margin-bottom: 0.35rem;
-}
-
-.contribution__category {
-  margin-bottom: 0.6rem;
-}
-
-.contribution__meta {
-  margin: 0 0 var(--spacing);
-  font-size: 0.88rem;
-}
-
-.contribution__meta > div {
-  display: flex;
-  gap: 0.4rem;
-}
-
-.contribution__meta dt {
-  color: var(--color-text-muted);
-  min-width: 7rem;
-}
-
-.contribution__meta dd {
-  margin: 0;
-}
-
-.contribution__description {
-  font-size: 0.92rem;
-  white-space: pre-line;
 }
 
 @media (min-width: 60rem) {
   .board {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(5, minmax(0, 1fr));
     align-items: start;
   }
 }
