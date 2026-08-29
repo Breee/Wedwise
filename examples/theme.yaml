@@ -1,0 +1,21 @@
+# Wedwise Theme Configuration Example
+# Copy to /config/theme.yaml and customize
+
+colors:
+  background: "#F7F4F0"
+  surface: "#FFFFFF"
+  surfaceMuted: "#EDE9E0"
+  primary: "#4A5033"
+  primaryDark: "#293117"
+  secondary: "#7D7C59"
+  accent: "#A98C4A"
+  text: "#293117"
+  textMuted: "#7D7C59"
+
+typography:
+  headingFont: "system-ui, sans-serif"
+  bodyFont: "Georgia, serif"
+  scriptFont: "Georgia, serif"
+
+radius: "8px"
+spacing: "1rem"
