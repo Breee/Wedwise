@@ -91,12 +91,16 @@
   input[type='tel'],
   select,
   textarea {
-    @apply w-full text-base;
+    @apply w-full;
+    /* Minimum 16px to prevent iOS Safari auto-zoom on focus */
+    font-size: 16px;
     font-family: var(--font-body);
     color: var(--color-text);
     background-color: var(--color-surface);
     border: 1px solid var(--color-surface-muted);
     border-radius: var(--radius);
+    /* Minimum 44px touch target height */
+    min-height: 44px;
     @apply px-3 py-2;
   }
 
@@ -254,7 +258,9 @@
   .btn {
     @apply inline-flex items-center justify-center gap-1 font-semibold cursor-pointer no-underline;
     font-family: var(--font-heading);
-    @apply text-sm tracking-wide px-4 py-2;
+    @apply text-sm tracking-wide px-4;
+    /* Minimum 44px touch target height */
+    min-height: 44px;
     border-radius: var(--radius);
     @apply border border-transparent;
     background-color: var(--color-primary);
@@ -295,7 +301,7 @@
     color: var(--color-surface);
   }
 
-  .btn--small { @apply text-xs px-2 py-1; }
+  .btn--small { @apply text-xs px-2; min-height: 36px; }
 
   .btn-row { @apply flex flex-wrap gap-2; }
 

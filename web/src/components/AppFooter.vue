@@ -1,10 +1,17 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useRoute } from 'vue-router'
+import { useAuthStore } from '@/stores/auth'
 import { useContentStore } from '@/stores/content'
 
+const auth = useAuthStore()
 const content = useContentStore()
+const route = useRoute()
 const year = new Date().getFullYear()
 const footerText = computed(() => content.text('footer_text'))
+const showSignIn = computed(
+  () => !auth.isAuthenticated && route.name !== 'login',
+)
 </script>
 
 <template>
@@ -15,6 +22,10 @@ const footerText = computed(() => content.text('footer_text'))
         <span>&copy; {{ year }}</span>
         <span aria-hidden="true">·</span>
         <span>Made with Wedwise</span>
+        <span v-if="showSignIn" aria-hidden="true">·</span>
+        <RouterLink v-if="showSignIn" to="/login" class="footer__signin">
+          Admin
+        </RouterLink>
       </p>
     </div>
   </footer>
@@ -24,6 +35,8 @@ const footerText = computed(() => content.text('footer_text'))
 .footer {
   background-color: var(--color-surface-muted);
   margin-top: auto;
+  /* On mobile with bottom nav, add extra space so content isn't covered */
+  padding-bottom: env(safe-area-inset-bottom);
 }
 
 .footer__inner {
@@ -41,8 +54,19 @@ const footerText = computed(() => content.text('footer_text'))
 .footer__meta {
   display: flex;
   justify-content: center;
+  flex-wrap: wrap;
   gap: 0.5rem;
   font-size: 0.8rem;
   margin: 0;
+}
+
+.footer__signin {
+  color: var(--color-text-muted);
+  text-decoration: none;
+  font-size: 0.8rem;
+}
+
+.footer__signin:hover {
+  color: var(--color-primary);
 }
 </style>

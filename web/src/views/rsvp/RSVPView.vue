@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
+import { RouterLink } from 'vue-router'
 import { api, errorMessage, unwrap } from '@/composables/useApi'
 
 const props = defineProps<{ token: string }>()
@@ -277,6 +278,7 @@ onMounted(load)
 
       <template v-else>
         <header class="stack rsvp__header">
+          <RouterLink to="/" class="rsvp__back">← Back</RouterLink>
           <p class="eyebrow">Invitation</p>
           <h1>{{ invitationName || 'Please respond' }}</h1>
           <p class="text-muted">
@@ -410,8 +412,8 @@ onMounted(load)
             Thank you — your response has been saved.
           </p>
 
-          <div class="btn-row">
-            <button type="submit" class="btn" :disabled="saving">
+          <div class="btn-row rsvp__submit-row">
+            <button type="submit" class="btn rsvp__submit-btn" :disabled="saving">
               {{ saving ? 'Saving…' : 'Send response' }}
             </button>
           </div>
@@ -526,12 +528,14 @@ onMounted(load)
             </div>
 
             <div class="field">
-              <label for="contribution-contact">Contact info</label>
+              <label for="contribution-contact">Phone number or contact</label>
               <input
                 id="contribution-contact"
                 v-model="contribution.contact_info"
-                type="text"
-                placeholder="Email or phone number"
+                type="tel"
+                inputmode="tel"
+                autocomplete="tel"
+                placeholder="+49 170 1234567"
               />
             </div>
 
@@ -561,6 +565,30 @@ onMounted(load)
 <style scoped>
 .rsvp {
   max-width: 44rem;
+  /* Bottom padding for sticky submit bar on mobile */
+  padding-bottom: calc(72px + env(safe-area-inset-bottom));
+}
+
+@media (min-width: 48rem) {
+  .rsvp {
+    padding-bottom: 0;
+  }
+}
+
+/* Back link (spec §2.4) */
+.rsvp__back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  color: var(--color-text-muted);
+  text-decoration: none;
+  font-size: 0.9rem;
+  margin-bottom: var(--spacing);
+  min-height: 44px;
+}
+
+.rsvp__back:hover {
+  color: var(--color-primary);
 }
 
 .rsvp__header {
@@ -573,6 +601,35 @@ onMounted(load)
 
 .rsvp__contribution {
   margin-top: calc(var(--spacing) * 1.5);
+}
+
+/* Sticky submit row on mobile (spec §4.2) */
+.rsvp__submit-row {
+  position: sticky;
+  bottom: 0;
+  background-color: var(--color-surface);
+  border-top: var(--border-subtle);
+  padding: 0.75rem var(--spacing);
+  margin: 0 calc(var(--spacing) * -1.25) calc(var(--spacing) * -1.25);
+  padding-bottom: calc(0.75rem + env(safe-area-inset-bottom));
+}
+
+.rsvp__submit-btn {
+  width: 100%;
+}
+
+@media (min-width: 48rem) {
+  .rsvp__submit-row {
+    position: static;
+    background: none;
+    border-top: none;
+    padding: 0;
+    margin: 0;
+  }
+
+  .rsvp__submit-btn {
+    width: auto;
+  }
 }
 
 .attendee {
