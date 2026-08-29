@@ -1,28 +1,40 @@
 @import "tailwindcss";
 
-/* ── Theme tokens (loaded at runtime from theme.yaml) ─────────────────── */
+/* ── Brand palette — forest, lake, summer & nature ───────────────────── */
 :root {
-  --color-background: #FAFAF9;
-  --color-surface: #FFFFFF;
-  --color-surface-muted: #F4F1EE;
-  --color-primary: #2D3748;
-  --color-primary-dark: #1A202C;
-  --color-secondary: #718096;
-  --color-accent: #C9956C;
-  --color-accent-light: #F7E8DC;
-  --color-text: #2D3748;
-  --color-text-muted: #718096;
-  --font-body: 'Inter', system-ui, sans-serif;
+  /* Raw brand tokens */
+  --ivory:            #F7F4F0;
+  --warm-beige-light: #E7E2D4;
+  --warm-beige:       #D6CEB6;
+  --champagne:        #C1B898;
+  --sage:             #A29B78;
+  --olive:            #7D7C59;
+  --forest-green:     #4A5033;
+  --deep-forest:      #293117;
+  --muted-gold:       #A98C4A;
+
+  /* ── Semantic design tokens (loaded at runtime from theme.yaml) ─────── */
+  --color-background:   var(--ivory);           /* #F7F4F0 — warm parchment */
+  --color-surface:      #FFFFFF;
+  --color-surface-muted: var(--warm-beige-light); /* #E7E2D4 — soft beige tint */
+  --color-primary:      var(--forest-green);    /* #4A5033 — primary action */
+  --color-primary-dark: var(--deep-forest);     /* #293117 — hover / headings */
+  --color-secondary:    var(--olive);           /* #7D7C59 */
+  --color-accent:       var(--muted-gold);      /* #A98C4A — warm gold */
+  --color-accent-light: var(--warm-beige-light);
+  --color-text:         var(--deep-forest);     /* #293117 — dark forest for body text */
+  --color-text-muted:   var(--olive);           /* #7D7C59 */
+  --font-body:    'Inter', system-ui, sans-serif;
   --font-heading: 'Playfair Display', Georgia, serif;
-  --font-script: 'Playfair Display', cursive;
-  --radius: 12px;
-  --radius-sm: 6px;
-  --spacing: 1rem;
-  --color-danger: #E53E3E;
-  --color-success: #38A169;
-  --shadow-soft: 0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.04);
-  --shadow-md: 0 4px 6px rgba(0,0,0,0.07), 0 10px 30px rgba(0,0,0,0.06);
-  --border-subtle: 1px solid #E8E3DE;
+  --font-script:  'Playfair Display', cursive;
+  --radius:    12px;
+  --radius-sm:  6px;
+  --spacing:    1rem;
+  --color-danger:  #8C3B2E;
+  --color-success: var(--forest-green);
+  --shadow-soft: 0 1px 3px rgba(41,49,23,0.06), 0 4px 16px rgba(41,49,23,0.04);
+  --shadow-md:   0 4px 6px rgba(41,49,23,0.07), 0 10px 30px rgba(41,49,23,0.06);
+  --border-subtle: 1px solid var(--warm-beige-light);
 }
 
 /* ── Base ─────────────────────────────────────────────────────────────── */

@@ -1,21 +1,21 @@
-# Wedwise Theme Configuration Example
+# Wedwise default theme — forest, lake, summer & nature
 # Copy to /config/theme.yaml and customize
 
 colors:
-  background: "#F7F4F0"
+  background: "#F7F4F0"    # ivory
   surface: "#FFFFFF"
-  surfaceMuted: "#EDE9E0"
-  primary: "#4A5033"
-  primaryDark: "#293117"
-  secondary: "#7D7C59"
-  accent: "#A98C4A"
-  text: "#293117"
-  textMuted: "#7D7C59"
+  surfaceMuted: "#E7E2D4"  # warm-beige-light
+  primary: "#4A5033"       # forest-green
+  primaryDark: "#293117"   # deep-forest
+  secondary: "#7D7C59"     # olive
+  accent: "#A98C4A"        # muted-gold
+  text: "#293117"          # deep-forest
+  textMuted: "#7D7C59"     # olive
 
 typography:
-  headingFont: "system-ui, sans-serif"
-  bodyFont: "Georgia, serif"
-  scriptFont: "Georgia, serif"
+  headingFont: "'Playfair Display', Georgia, serif"
+  bodyFont: "'Inter', system-ui, sans-serif"
+  scriptFont: "'Playfair Display', cursive"
 
-radius: "8px"
+radius: "12px"
 spacing: "1rem"
