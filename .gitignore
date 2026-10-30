@@ -21,3 +21,5 @@ config/production*.yaml
 .vscode/
 .idea/
 *.swp
+.playwright-mcp/
+web/src/routeTree.gen.ts
