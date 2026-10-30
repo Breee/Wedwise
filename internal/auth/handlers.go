@@ -25,11 +25,12 @@ type identityResponse struct {
 	Permissions   []string `json:"permissions"`
 }
 
-// Routes returns the authentication routes.
-func (s *Service) Routes() http.Handler {
+// Routes returns the authentication routes. loginMiddlewares are applied to
+// the login endpoint only (e.g. rate limiting).
+func (s *Service) Routes(loginMiddlewares ...func(http.Handler) http.Handler) http.Handler {
 	r := chi.NewRouter()
 	r.Get("/me", s.HandleMe)
-	r.Post("/login", s.HandleLogin)
+	r.With(loginMiddlewares...).Post("/login", s.HandleLogin)
 	r.Post("/logout", s.HandleLogout)
 	return r
 }

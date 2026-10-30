@@ -56,6 +56,9 @@ type Config struct {
 	ConfigPath    string `yaml:"configPath" json:"configPath"`
 	ThemePath     string `yaml:"themePath" json:"themePath"`
 	Environment   string `yaml:"environment" json:"environment"`
+	// TrustProxyHeaders enables X-Forwarded-For for client IP detection. Only
+	// enable when a reverse proxy in front of the app sets the header.
+	TrustProxyHeaders bool `yaml:"trustProxyHeaders" json:"trustProxyHeaders"`
 
 	Event EventConfig `yaml:"event" json:"event"`
 
@@ -151,6 +154,9 @@ func applyEnv(cfg *Config) {
 		if value, ok := os.LookupEnv(key); ok && value != "" {
 			*target = value
 		}
+	}
+	if value, ok := os.LookupEnv("TRUST_PROXY_HEADERS"); ok {
+		cfg.TrustProxyHeaders = strings.EqualFold(value, "true") || value == "1"
 	}
 }
 

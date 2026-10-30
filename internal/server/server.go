@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"path"
 	"strings"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 
@@ -21,6 +22,12 @@ import (
 	"github.com/Breee/Wedwise/internal/rsvp"
 	"github.com/Breee/Wedwise/internal/users"
 	"github.com/Breee/Wedwise/web"
+)
+
+// Requests per client IP and minute before the endpoint answers 429.
+const (
+	loginRateLimit = 10
+	rsvpRateLimit  = 30
 )
 
 // Server holds the application dependencies.
@@ -50,6 +57,9 @@ func New(cfg configuration.Config, db *sql.DB) (*Server, error) {
 	contributionHandler := contributions.NewHandler(contributionStore, authService)
 	contentHandler := content.NewHandler(contentStore, authService, cfg.Event)
 
+	loginLimit := middleware.RateLimit(middleware.NewLimiter(loginRateLimit, time.Minute), cfg.TrustProxyHeaders)
+	rsvpLimit := middleware.RateLimit(middleware.NewLimiter(rsvpRateLimit, time.Minute), cfg.TrustProxyHeaders)
+
 	spa, err := spaHandler()
 	if err != nil {
 		return nil, err
@@ -68,8 +78,8 @@ func New(cfg configuration.Config, db *sql.DB) (*Server, error) {
 	r.Get("/readyz", readyz(db))
 
 	r.Route("/api", func(api chi.Router) {
-		api.Mount("/auth", authService.Routes())
-		api.Mount("/rsvp", rsvpHandler.PublicRoutes())
+		api.Mount("/auth", authService.Routes(loginLimit))
+		api.Mount("/rsvp", rsvpHandler.PublicRoutes(rsvpLimit))
 		api.Get("/content/public", contentHandler.PublicHandler)
 
 		api.Group(func(protected chi.Router) {

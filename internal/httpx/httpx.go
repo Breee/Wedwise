@@ -17,12 +17,13 @@ const MaxBodyBytes = 1 << 20 // 1MB
 
 // Error codes used across the API.
 const (
-	CodeBadRequest   = "bad_request"
-	CodeUnauthorized = "unauthorized"
-	CodeForbidden    = "forbidden"
-	CodeNotFound     = "not_found"
-	CodeConflict     = "conflict"
-	CodeInternal     = "internal_error"
+	CodeBadRequest      = "bad_request"
+	CodeUnauthorized    = "unauthorized"
+	CodeForbidden       = "forbidden"
+	CodeNotFound        = "not_found"
+	CodeConflict        = "conflict"
+	CodeTooManyRequests = "too_many_requests"
+	CodeInternal        = "internal_error"
 )
 
 // ErrorBody is the payload of an API error response.

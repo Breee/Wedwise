@@ -11,7 +11,7 @@ Update this file after every finished step. Newest entries first in the log.
 | F-03 | German UI (i18n with de as default) | superseded by F-08 |
 | F-04 | Admin/couple content editor (hero, intro, location, schedule, FAQ) | superseded by F-08 |
 | F-05 | RSVP contribution confirmation step | superseded by F-08 |
-| F-06 | Login rate limiting | todo |
+| F-06 | Login rate limiting | done |
 | F-07 | Backend integration tests for RSVP + content | todo |
 | F-08 | Frontend rewrite in React (TanStack, Tailwind, shadcn) | done (see log) |
 
@@ -19,6 +19,7 @@ Status values: `todo`, `in progress`, `blocked (reason)`, `done (commit)`.
 
 ## Log
 
+- 2026-10-30 — F-06 done: in-memory fixed-window limiter (`internal/middleware/ratelimit.go`), login 10/min/IP, RSVP token routes 30/min/IP, `TRUST_PROXY_HEADERS` option, unit + integration tests, README security section.
 - 2026-10-30 — F-01 done: `web/dist/.gitkeep` committed, Vite `keep-dist` plugin restores it after build; `go test ./...` passes on clean checkout.
 
 - 2026-10-30 — F-08 React rewrite done and verified with Playwright (home, RSVP incl. contribution step, login, couple pages, witness board). Couple set to Viktoria & Julian.

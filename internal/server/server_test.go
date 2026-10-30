@@ -644,6 +644,42 @@ func TestContributionErrorShapeDoesNotLeak(t *testing.T) {
 	}
 }
 
+func TestLoginRateLimit(t *testing.T) {
+	app, _ := newTestAppWithUsers(t)
+
+	var status int
+	for i := 0; i < 11; i++ {
+		_, status = app.login("couple_user", "wrong-password")
+		if i < 10 && status != http.StatusUnauthorized {
+			t.Fatalf("attempt %d: got %d, want 401", i+1, status)
+		}
+	}
+	if status != http.StatusTooManyRequests {
+		t.Fatalf("11th attempt: got %d, want 429", status)
+	}
+
+	// Other endpoints stay reachable for the same client.
+	resp := app.do("GET", "/api/auth/me", nil, nil)
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("/api/auth/me after rate limit: got %d", resp.StatusCode)
+	}
+}
+
+func TestRSVPTokenRateLimit(t *testing.T) {
+	app, _ := newTestAppWithUsers(t)
+
+	var status int
+	for i := 0; i < 31; i++ {
+		resp := app.do("GET", "/api/rsvp/does-not-exist", nil, nil)
+		status = resp.StatusCode
+		resp.Body.Close()
+	}
+	if status != http.StatusTooManyRequests {
+		t.Fatalf("31st token lookup: got %d, want 429", status)
+	}
+}
+
 // TestMain may be used for test setup if needed.
 func TestMain(m *testing.M) {
 	os.Exit(m.Run())

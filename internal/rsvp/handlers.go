@@ -55,13 +55,17 @@ type rsvpView struct {
 	Submitted  bool           `json:"submitted"`
 }
 
-// PublicRoutes returns the token authenticated RSVP routes.
-func (h *Handler) PublicRoutes() http.Handler {
+// PublicRoutes returns the token authenticated RSVP routes. tokenMiddlewares
+// are applied to every token based route (e.g. rate limiting).
+func (h *Handler) PublicRoutes(tokenMiddlewares ...func(http.Handler) http.Handler) http.Handler {
 	r := chi.NewRouter()
 	r.Get("/public", h.publicInvitationToken)
-	r.Get("/{token}", h.get)
-	r.Put("/{token}", h.submit)
-	r.Post("/{token}/contributions", h.submitContribution)
+	r.Group(func(t chi.Router) {
+		t.Use(tokenMiddlewares...)
+		t.Get("/{token}", h.get)
+		t.Put("/{token}", h.submit)
+		t.Post("/{token}/contributions", h.submitContribution)
+	})
 	return r
 }
 

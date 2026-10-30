@@ -101,6 +101,19 @@ the values, and point `themePath` at it.
 Secrets (such as `SESSION_SECRET`) should be provided via environment
 variables, not committed to the config file.
 
+## Security
+
+- Sessions are HttpOnly, SameSite=Lax cookies (Secure when `ENVIRONMENT=production`);
+  state-changing requests are checked against the `Origin`/`Referer` header.
+- `POST /api/auth/login` is limited to 10 requests per client IP and minute,
+  the public RSVP token endpoints (`/api/rsvp/{token}*`) to 30. Exceeding the
+  limit returns `429` with a `Retry-After` header.
+- Client IPs are taken from the TCP connection. Behind a reverse proxy set
+  `TRUST_PROXY_HEADERS=true` (or `trustProxyHeaders: true`) so the last
+  `X-Forwarded-For` hop is used instead. Do not enable it without a proxy, as
+  the header could then be spoofed to bypass the limits.
+- Request bodies are capped at 1 MB and unknown JSON fields are rejected.
+
 ## User Administration
 
 Admin users are managed via the `wedding` CLI rather than a public sign-up
