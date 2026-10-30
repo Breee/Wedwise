@@ -5,10 +5,7 @@ Goal: the couple can open the site, understand it in German, and maintain the co
 Order of work (dependencies in brackets):
 
 1. F-01 Tests pass on clean checkout
-2. F-02 Hide "Sign out" when logged out
-3. F-03 German UI
-4. F-04 Content editor [F-03 for labels]
-5. F-05 RSVP contribution confirmation [F-03]
+2. F-08 React frontend rewrite (supersedes F-02–F-05)
 6. F-06 Login rate limiting
 7. F-07 Integration tests for RSVP + content [F-01]
 
