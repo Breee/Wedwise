@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from '@tanstack/react-router'
+import { createFileRoute } from '@tanstack/react-router'
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { motion } from 'motion/react'
 import { Bus, Car, MapPin, Navigation } from 'lucide-react'
@@ -55,9 +55,6 @@ function HomePage() {
             <span className="h-px flex-1 bg-gold" />
           </div>
           {hero.note && <p className="mt-6 text-sm text-muted-foreground italic">{hero.note}</p>}
-          <Button asChild size="lg" className="mt-10">
-            <Link to="/rsvp">Jetzt zusagen</Link>
-          </Button>
         </motion.div>
       </section>
 
