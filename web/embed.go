@@ -6,6 +6,9 @@ import (
 	"io/fs"
 )
 
+// dist/.gitkeep is committed so the pattern matches on a clean checkout
+// (go test without a frontend build); the real SPA is built in the Dockerfile.
+//
 //go:embed all:dist
 var distFS embed.FS
 

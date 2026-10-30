@@ -9,8 +9,8 @@
 - No committed build artifacts.
 
 ## DONE
-- [ ] `web/embed.go` tolerates a missing `dist` (e.g. commit `web/dist/.gitkeep` and embed `all:dist`, or embed via a placeholder file) — chosen approach documented in the file's comment.
-- [ ] `rm -rf web/dist && go test ./...` passes.
-- [ ] `docker compose build` still produces a working image (`make up`, open `/`).
-- [ ] `Makefile` `test` target runs the Go tests; `README.md` mentions it.
-- [ ] `progress.md` updated.
+- [x] `web/embed.go` tolerates a missing `dist` (e.g. commit `web/dist/.gitkeep` and embed `all:dist`, or embed via a placeholder file) — chosen approach documented in the file's comment.
+- [x] `rm -rf web/dist && go test ./...` passes.
+- [x] `docker compose build` still produces a working image (`make up`, open `/`).
+- [x] `Makefile` `test` target runs the Go tests; `README.md` mentions it.
+- [x] `progress.md` updated.

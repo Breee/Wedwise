@@ -6,7 +6,7 @@ Update this file after every finished step. Newest entries first in the log.
 
 | ID | Feature | Status |
 |---|---|---|
-| F-01 | Fix failing `go test ./...` without a frontend build | todo |
+| F-01 | Fix failing `go test ./...` without a frontend build | done |
 | F-02 | Hide "Sign out" when logged out | superseded by F-08 |
 | F-03 | German UI (i18n with de as default) | superseded by F-08 |
 | F-04 | Admin/couple content editor (hero, intro, location, schedule, FAQ) | superseded by F-08 |
@@ -18,6 +18,8 @@ Update this file after every finished step. Newest entries first in the log.
 Status values: `todo`, `in progress`, `blocked (reason)`, `done (commit)`.
 
 ## Log
+
+- 2026-10-30 — F-01 done: `web/dist/.gitkeep` committed, Vite `keep-dist` plugin restores it after build; `go test ./...` passes on clean checkout.
 
 - 2026-10-30 — F-08 React rewrite done and verified with Playwright (home, RSVP incl. contribution step, login, couple pages, witness board). Couple set to Viktoria & Julian.
 - 2026-10-30 — Decided full React rewrite (F-08); F-02–F-05 folded into it.
