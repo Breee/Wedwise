@@ -13,11 +13,11 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/Breee/Wedwise/internal/configuration"
 	"github.com/Breee/Wedwise/internal/database"
-	"github.com/Breee/Wedwise/internal/invitations"
 	"github.com/Breee/Wedwise/internal/server"
 	"github.com/Breee/Wedwise/internal/users"
 )
@@ -116,6 +116,12 @@ func setupUsers(t *testing.T, dbPath string) {
 // newTestAppWithUsers builds a test server and pre-populates users.
 func newTestAppWithUsers(t *testing.T) (*testApp, string) {
 	t.Helper()
+	return newTestAppWithOptions(t, nil)
+}
+
+// newTestAppWithOptions is newTestAppWithUsers with a config hook.
+func newTestAppWithOptions(t *testing.T, configure func(*configuration.Config)) (*testApp, string) {
+	t.Helper()
 	dir := t.TempDir()
 	dbPath := filepath.Join(dir, "test.db")
 
@@ -141,6 +147,9 @@ func newTestAppWithUsers(t *testing.T) (*testApp, string) {
 	cfg := configuration.Default()
 	cfg.SessionSecret = "test-secret-32-bytes-long-padding"
 	cfg.BaseURL = "http://localhost"
+	if configure != nil {
+		configure(&cfg)
+	}
 
 	s, err := server.New(cfg, db2)
 	if err != nil {
@@ -153,64 +162,22 @@ func newTestAppWithUsers(t *testing.T) (*testApp, string) {
 	return &testApp{t: t, srv: ts, handler: s.Handler()}, dbPath
 }
 
-// createInvitationAndContribution creates an invitation and a contribution via
-// the public RSVP token endpoint. Returns (token, contributionID).
-// Uses the couple user to create the invitation (couple has invitation.write).
-func createInvitationAndContribution(t *testing.T, app *testApp, dbPath string) (string, int64) {
-	t.Helper()
-
-	// Login as couple to create invitation (couple has invitation.write)
-	coupleCookie, status := app.login("couple_user", "TestPass123!")
-	if status != http.StatusOK {
-		t.Fatalf("couple login for setup: got %d", status)
-	}
-
-	// Create an invitation via the API
-	resp := app.do("POST", "/api/invitations", map[string]any{
-		"name":      "Test Family",
-		"maxGuests": 2,
-	}, coupleCookie)
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusCreated {
-		body, _ := io.ReadAll(resp.Body)
-		t.Fatalf("create invitation (in createInvitationAndContribution): got %d, body: %s", resp.StatusCode, body)
-	}
-
-	var inv struct {
-		Token string `json:"token"`
-	}
-	if err := json.NewDecoder(resp.Body).Decode(&inv); err != nil {
-		t.Fatalf("decode invitation: %v", err)
-	}
-
-	// Submit a contribution via the public token endpoint (no auth needed)
-	contribResp := app.do("POST", "/api/rsvp/"+inv.Token+"/contributions", map[string]any{
-		"title":              "Test Speech",
-		"category":           "speech",
-		"description":        "A short speech about the couple",
-		"participants":       "John",
-		"durationMinutes":    5,
-		"contactInformation": "john@example.com",
-	}, nil)
-	defer contribResp.Body.Close()
-	if contribResp.StatusCode != http.StatusCreated {
-		body, _ := io.ReadAll(contribResp.Body)
-		t.Fatalf("submit contribution: got %d, body: %s", contribResp.StatusCode, body)
-	}
-
-	var contrib struct {
-		ID int64 `json:"id"`
-	}
-	if err := json.NewDecoder(contribResp.Body).Decode(&contrib); err != nil {
-		t.Fatalf("decode contribution: %v", err)
-	}
-
-	return inv.Token, contrib.ID
-}
-
 // -----------------------------------------------------------------------
 // Tests
 // -----------------------------------------------------------------------
+
+func validContent() map[string]any {
+	return map[string]any{
+		"hero":         map[string]any{"headline": "Wir heiraten"},
+		"introduction": map[string]any{"text": "Herzlich willkommen"},
+		"location":     map[string]any{"name": "Waldsee", "navigationUrl": "https://maps.example.com"},
+		"schedule": []map[string]any{
+			{"time": "14:00", "title": "Ankunft"},
+			{"time": "14:30", "title": "Trauung"},
+		},
+		"faq": []map[string]any{{"question": "Dresscode?", "answer": "Festlich"}},
+	}
+}
 
 func TestLogin_Success(t *testing.T) {
 	app, _ := newTestAppWithUsers(t)
@@ -273,7 +240,7 @@ func TestLogout_InvalidatesSession(t *testing.T) {
 
 func TestProtectedRoute_Unauthenticated(t *testing.T) {
 	app, _ := newTestAppWithUsers(t)
-	resp := app.do("GET", "/api/guests", nil, nil)
+	resp := app.do("GET", "/api/responses", nil, nil)
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusUnauthorized {
 		t.Fatalf("expected 401 for unauthenticated access, got %d", resp.StatusCode)
@@ -291,230 +258,16 @@ func TestSessionAuthorization_ValidSession(t *testing.T) {
 	}
 }
 
-// TestCoupleCannotListContributions is the critical security requirement:
-// A couple user MUST receive 403 on GET /api/contributions.
-func TestCoupleCannotListContributions(t *testing.T) {
-	app, dbPath := newTestAppWithUsers(t)
-	_, _ = createInvitationAndContribution(t, app, dbPath)
-
-	coupleCookie, status := app.login("couple_user", "TestPass123!")
-	if status != http.StatusOK {
-		t.Fatalf("couple login: expected 200, got %d", status)
-	}
-
-	resp := app.do("GET", "/api/contributions", nil, coupleCookie)
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusForbidden {
-		t.Fatalf("couple GET /api/contributions: expected 403, got %d", resp.StatusCode)
-	}
-}
-
-// TestCoupleCannotGetContributionByID verifies the couple cannot access a
-// specific contribution even when the ID is known.
-func TestCoupleCannotGetContributionByID(t *testing.T) {
-	app, dbPath := newTestAppWithUsers(t)
-	_, contribID := createInvitationAndContribution(t, app, dbPath)
-
-	coupleCookie, status := app.login("couple_user", "TestPass123!")
-	if status != http.StatusOK {
-		t.Fatalf("couple login: expected 200, got %d", status)
-	}
-
-	path := fmt.Sprintf("/api/contributions/%d", contribID)
-	resp := app.do("GET", path, nil, coupleCookie)
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusForbidden {
-		t.Fatalf("couple GET %s: expected 403, got %d", path, resp.StatusCode)
-	}
-}
-
-// TestCoupleCannotUpdateContribution ensures PUT is also blocked.
-func TestCoupleCannotUpdateContribution(t *testing.T) {
-	app, dbPath := newTestAppWithUsers(t)
-	_, contribID := createInvitationAndContribution(t, app, dbPath)
-
-	coupleCookie, _ := app.login("couple_user", "TestPass123!")
-
-	path := fmt.Sprintf("/api/contributions/%d", contribID)
-	resp := app.do("PUT", path, map[string]any{"status": "confirmed"}, coupleCookie)
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusForbidden {
-		t.Fatalf("couple PUT %s: expected 403, got %d", path, resp.StatusCode)
-	}
-}
-
-// TestAdminCannotListContributions verifies admin also lacks contribution access
-// by default (per spec: admin != bypass all authorization).
-func TestAdminCannotListContributions(t *testing.T) {
+// TestHealthEndpoints verifies /healthz and /readyz return 200.
+func TestHealthEndpoints(t *testing.T) {
 	app, _ := newTestAppWithUsers(t)
 
-	adminCookie, status := app.login("admin_user", "TestPass123!")
-	if status != http.StatusOK {
-		t.Fatalf("admin login: expected 200, got %d", status)
-	}
-
-	resp := app.do("GET", "/api/contributions", nil, adminCookie)
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusForbidden {
-		t.Fatalf("admin GET /api/contributions: expected 403, got %d", resp.StatusCode)
-	}
-}
-
-// TestWitnessCanListContributions verifies witnesses CAN access contributions.
-func TestWitnessCanListContributions(t *testing.T) {
-	app, dbPath := newTestAppWithUsers(t)
-	_, _ = createInvitationAndContribution(t, app, dbPath)
-
-	witnessCookie, status := app.login("witness_user", "TestPass123!")
-	if status != http.StatusOK {
-		t.Fatalf("witness login: expected 200, got %d", status)
-	}
-
-	resp := app.do("GET", "/api/contributions", nil, witnessCookie)
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		t.Fatalf("witness GET /api/contributions: expected 200, got %d, body: %s", resp.StatusCode, body)
-	}
-}
-
-// TestWitnessCanGetContributionByID verifies witnesses can access a specific contribution.
-func TestWitnessCanGetContributionByID(t *testing.T) {
-	app, dbPath := newTestAppWithUsers(t)
-	_, contribID := createInvitationAndContribution(t, app, dbPath)
-
-	witnessCookie, _ := app.login("witness_user", "TestPass123!")
-
-	path := fmt.Sprintf("/api/contributions/%d", contribID)
-	resp := app.do("GET", path, nil, witnessCookie)
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		t.Fatalf("witness GET %s: expected 200, got %d, body: %s", path, resp.StatusCode, body)
-	}
-}
-
-// TestUnauthenticatedContributionAccess ensures unauthenticated users get 401.
-func TestUnauthenticatedContributionAccess(t *testing.T) {
-	app, _ := newTestAppWithUsers(t)
-
-	resp := app.do("GET", "/api/contributions", nil, nil)
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusUnauthorized {
-		t.Fatalf("unauthenticated GET /api/contributions: expected 401, got %d", resp.StatusCode)
-	}
-}
-
-// TestInvitationTokenValidation checks that an invalid token returns 404/401.
-func TestInvitationTokenValidation(t *testing.T) {
-	app, _ := newTestAppWithUsers(t)
-
-	resp := app.do("GET", "/api/rsvp/invalid-token-that-does-not-exist", nil, nil)
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusNotFound {
-		t.Fatalf("invalid token: expected 404, got %d", resp.StatusCode)
-	}
-}
-
-// TestRSVPSubmission checks that a guest can submit RSVP via invitation token.
-func TestRSVPSubmission(t *testing.T) {
-	app, _ := newTestAppWithUsers(t)
-
-	// Couple creates the invitation (couple has invitation.write)
-	coupleCookie, _ := app.login("couple_user", "TestPass123!")
-
-	// Create an invitation
-	resp := app.do("POST", "/api/invitations", map[string]any{
-		"name":      "Smith Family",
-		"maxGuests": 3,
-	}, coupleCookie)
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusCreated {
-		body, _ := io.ReadAll(resp.Body)
-		t.Fatalf("create invitation: got %d, body: %s", resp.StatusCode, body)
-	}
-
-	var inv struct {
-		Token string `json:"token"`
-	}
-	if err := json.NewDecoder(resp.Body).Decode(&inv); err != nil {
-		t.Fatalf("decode invitation: %v", err)
-	}
-
-	// Verify token access
-	getResp := app.do("GET", "/api/rsvp/"+inv.Token, nil, nil)
-	defer getResp.Body.Close()
-	if getResp.StatusCode != http.StatusOK {
-		t.Fatalf("GET /api/rsvp/:token: expected 200, got %d", getResp.StatusCode)
-	}
-
-	// Submit RSVP
-	putResp := app.do("PUT", "/api/rsvp/"+inv.Token, map[string]any{
-		"status":  "yes",
-		"message": "So excited!",
-		"attendees": []map[string]any{
-			{"name": "Jane Smith", "attending": true, "diet": "vegetarian"},
-			{"name": "Bob Smith", "attending": true, "isChild": false, "diet": "none"},
-		},
-	}, nil)
-	defer putResp.Body.Close()
-	if putResp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(putResp.Body)
-		t.Fatalf("PUT /api/rsvp/:token: expected 200, got %d, body: %s", putResp.StatusCode, body)
-	}
-
-	// Read back and verify persistence
-	readResp := app.do("GET", "/api/rsvp/"+inv.Token, nil, nil)
-	defer readResp.Body.Close()
-	var view struct {
-		Status    string `json:"status"`
-		Message   string `json:"message"`
-		Submitted bool   `json:"submitted"`
-		Attendees []struct {
-			Name string `json:"name"`
-			Diet string `json:"diet"`
-		} `json:"attendees"`
-	}
-	if err := json.NewDecoder(readResp.Body).Decode(&view); err != nil {
-		t.Fatalf("decode rsvp view: %v", err)
-	}
-	if view.Status != "yes" || view.Message != "So excited!" || !view.Submitted {
-		t.Fatalf("rsvp not persisted: %+v", view)
-	}
-	if len(view.Attendees) != 2 || view.Attendees[0].Name != "Jane Smith" || view.Attendees[0].Diet != "vegetarian" {
-		t.Fatalf("attendees not persisted: %+v", view.Attendees)
-	}
-}
-
-// TestRSVPValidation checks that invalid RSVP payloads are rejected.
-func TestRSVPValidation(t *testing.T) {
-	app, dbPath := newTestAppWithUsers(t)
-	token, _ := createInvitationAndContribution(t, app, dbPath)
-
-	cases := []struct {
-		name string
-		body map[string]any
-	}{
-		{"invalid status", map[string]any{"status": "perhaps", "attendees": []map[string]any{}}},
-		{"too many attendees", map[string]any{"status": "yes", "attendees": []map[string]any{
-			{"name": "A", "attending": true}, {"name": "B", "attending": true}, {"name": "C", "attending": true},
-		}}},
-	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			resp := app.do("PUT", "/api/rsvp/"+token, tc.body, nil)
-			defer resp.Body.Close()
-			if resp.StatusCode != http.StatusBadRequest {
-				body, _ := io.ReadAll(resp.Body)
-				t.Fatalf("expected 400, got %d, body: %s", resp.StatusCode, body)
-			}
-		})
-	}
-
-	resp := app.do("PUT", "/api/rsvp/invalid-token-that-does-not-exist", map[string]any{"status": "yes"}, nil)
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusNotFound {
-		t.Fatalf("PUT with invalid token: expected 404, got %d", resp.StatusCode)
+	for _, path := range []string{"/healthz", "/readyz"} {
+		resp := app.do("GET", path, nil, nil)
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			t.Errorf("GET %s: expected 200, got %d", path, resp.StatusCode)
+		}
 	}
 }
 
@@ -545,19 +298,6 @@ func TestPublicContentShape(t *testing.T) {
 	}
 	if content.Schedule == nil || content.FAQ == nil {
 		t.Fatalf("schedule and faq must be arrays, got %s", body["content"])
-	}
-}
-
-func validContent() map[string]any {
-	return map[string]any{
-		"hero":         map[string]any{"headline": "Wir heiraten"},
-		"introduction": map[string]any{"text": "Herzlich willkommen"},
-		"location":     map[string]any{"name": "Waldsee", "navigationUrl": "https://maps.example.com"},
-		"schedule": []map[string]any{
-			{"time": "14:00", "title": "Ankunft"},
-			{"time": "14:30", "title": "Trauung"},
-		},
-		"faq": []map[string]any{{"question": "Dresscode?", "answer": "Festlich"}},
 	}
 }
 
@@ -648,186 +388,6 @@ func TestContentUpdate_Validation(t *testing.T) {
 	}
 }
 
-// TestContributionSubmissionViaToken ensures guests can submit contributions.
-func TestContributionSubmissionViaToken(t *testing.T) {
-	app, _ := newTestAppWithUsers(t)
-	// Couple creates the invitation (couple has invitation.write)
-	coupleCookie, _ := app.login("couple_user", "TestPass123!")
-
-	resp := app.do("POST", "/api/invitations", map[string]any{
-		"name":      "Jones Family",
-		"maxGuests": 2,
-	}, coupleCookie)
-	defer resp.Body.Close()
-
-	var inv struct {
-		Token string `json:"token"`
-	}
-	_ = json.NewDecoder(resp.Body).Decode(&inv)
-
-	contribResp := app.do("POST", "/api/rsvp/"+inv.Token+"/contributions", map[string]any{
-		"title":              "A Funny Game",
-		"category":           "game",
-		"description":        "A team quiz",
-		"participants":       "Everyone",
-		"durationMinutes":    15,
-		"contactInformation": "jones@example.com",
-	}, nil)
-	defer contribResp.Body.Close()
-	if contribResp.StatusCode != http.StatusCreated {
-		body, _ := io.ReadAll(contribResp.Body)
-		t.Fatalf("POST /api/rsvp/:token/contributions: expected 201, got %d, body: %s", contribResp.StatusCode, body)
-	}
-}
-
-// TestRSVPSummaryHasNoContributionData ensures the summary endpoint for couple
-// does not leak any contribution metadata.
-func TestRSVPSummaryHasNoContributionData(t *testing.T) {
-	app, dbPath := newTestAppWithUsers(t)
-	_, _ = createInvitationAndContribution(t, app, dbPath)
-
-	coupleCookie, _ := app.login("couple_user", "TestPass123!")
-
-	resp := app.do("GET", "/api/rsvp-summary", nil, coupleCookie)
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		t.Fatalf("GET /api/rsvp-summary: expected 200, got %d, body: %s", resp.StatusCode, body)
-	}
-
-	var summary map[string]any
-	if err := json.NewDecoder(resp.Body).Decode(&summary); err != nil {
-		t.Fatalf("decode summary: %v", err)
-	}
-
-	// Ensure no contribution-related fields are present
-	forbiddenKeys := []string{
-		"contributions", "contributionCount", "contribution_count",
-		"pendingContributions", "pending_contributions",
-		"totalContributions", "total_contributions",
-	}
-	for _, key := range forbiddenKeys {
-		if _, found := summary[key]; found {
-			t.Errorf("rsvp-summary contains forbidden contribution field: %q", key)
-		}
-	}
-}
-
-// TestHealthEndpoints verifies /healthz and /readyz return 200.
-func TestHealthEndpoints(t *testing.T) {
-	app, _ := newTestAppWithUsers(t)
-
-	for _, path := range []string{"/healthz", "/readyz"} {
-		resp := app.do("GET", path, nil, nil)
-		defer resp.Body.Close()
-		if resp.StatusCode != http.StatusOK {
-			t.Errorf("GET %s: expected 200, got %d", path, resp.StatusCode)
-		}
-	}
-}
-
-// TestInvitationTokenRegeneration ensures a revoked/regenerated token is no
-// longer accepted.
-func TestInvitationTokenRegeneration(t *testing.T) {
-	app, _ := newTestAppWithUsers(t)
-	// Couple creates the invitation (couple has invitation.write and invitation.read)
-	coupleCookie, _ := app.login("couple_user", "TestPass123!")
-
-	// Create invitation
-	createResp := app.do("POST", "/api/invitations", map[string]any{
-		"name":      "Old Token Family",
-		"maxGuests": 2,
-	}, coupleCookie)
-	defer createResp.Body.Close()
-
-	var inv invitations.Invitation
-	if err := json.NewDecoder(createResp.Body).Decode(&inv); err != nil {
-		t.Fatalf("decode invitation: %v", err)
-	}
-	oldToken := inv.Token
-
-	// Verify old token works
-	getResp := app.do("GET", "/api/rsvp/"+oldToken, nil, nil)
-	defer getResp.Body.Close()
-	if getResp.StatusCode != http.StatusOK {
-		t.Fatalf("before regenerate: expected 200, got %d", getResp.StatusCode)
-	}
-
-	// Regenerate token (couple has invitation.write)
-	regenResp := app.do("POST", fmt.Sprintf("/api/invitations/%d/regenerate-token", inv.ID), nil, coupleCookie)
-	defer regenResp.Body.Close()
-	if regenResp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(regenResp.Body)
-		t.Fatalf("regenerate-token: expected 200, got %d, body: %s", regenResp.StatusCode, body)
-	}
-
-	var updated invitations.Invitation
-	if err := json.NewDecoder(regenResp.Body).Decode(&updated); err != nil {
-		t.Fatalf("decode regenerated invitation: %v", err)
-	}
-	if updated.Token == oldToken {
-		t.Fatal("token was not regenerated: old and new tokens are identical")
-	}
-
-	// Old token should no longer work
-	oldResp := app.do("GET", "/api/rsvp/"+oldToken, nil, nil)
-	defer oldResp.Body.Close()
-	if oldResp.StatusCode != http.StatusNotFound {
-		t.Fatalf("after regenerate, old token: expected 404, got %d", oldResp.StatusCode)
-	}
-}
-
-// TestCoupleCannotAddContributionNotes verifies POST .../notes is blocked.
-func TestCoupleCannotAddContributionNotes(t *testing.T) {
-	app, dbPath := newTestAppWithUsers(t)
-	_, contribID := createInvitationAndContribution(t, app, dbPath)
-
-	coupleCookie, _ := app.login("couple_user", "TestPass123!")
-
-	path := fmt.Sprintf("/api/contributions/%d/notes", contribID)
-	resp := app.do("POST", path, map[string]any{"text": "note"}, coupleCookie)
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusForbidden {
-		t.Fatalf("couple POST %s: expected 403, got %d", path, resp.StatusCode)
-	}
-}
-
-// TestContributionErrorShapeDoesNotLeak ensures the 403 response for couple
-// does not expose any contribution data or metadata.
-func TestContributionErrorShapeDoesNotLeak(t *testing.T) {
-	app, dbPath := newTestAppWithUsers(t)
-	_, contribID := createInvitationAndContribution(t, app, dbPath)
-
-	coupleCookie, _ := app.login("couple_user", "TestPass123!")
-
-	path := fmt.Sprintf("/api/contributions/%d", contribID)
-	resp := app.do("GET", path, nil, coupleCookie)
-	defer resp.Body.Close()
-
-	body, _ := io.ReadAll(resp.Body)
-	if resp.StatusCode != http.StatusForbidden {
-		t.Fatalf("expected 403, got %d", resp.StatusCode)
-	}
-
-	// Verify the error response is a generic forbidden, not leaking contribution data
-	var errResp map[string]any
-	if err := json.Unmarshal(body, &errResp); err != nil {
-		t.Fatalf("response body is not valid JSON: %v, body: %s", err, body)
-	}
-
-	// The response must have an "error" field
-	if _, hasError := errResp["error"]; !hasError {
-		t.Fatalf("expected error field in 403 response, got: %s", body)
-	}
-
-	// Must not contain contribution-specific fields
-	for _, key := range []string{"title", "category", "status", "description", "contributions"} {
-		if _, found := errResp[key]; found {
-			t.Errorf("403 response leaked contribution field %q: %s", key, body)
-		}
-	}
-}
-
 func TestLoginRateLimit(t *testing.T) {
 	app, _ := newTestAppWithUsers(t)
 
@@ -850,21 +410,442 @@ func TestLoginRateLimit(t *testing.T) {
 	}
 }
 
-func TestRSVPTokenRateLimit(t *testing.T) {
-	app, _ := newTestAppWithUsers(t)
+// -----------------------------------------------------------------------
+// RSVP responses and contributions
+// -----------------------------------------------------------------------
 
-	var status int
-	for i := 0; i < 31; i++ {
-		resp := app.do("GET", "/api/rsvp/does-not-exist", nil, nil)
-		status = resp.StatusCode
-		resp.Body.Close()
-	}
-	if status != http.StatusTooManyRequests {
-		t.Fatalf("31st token lookup: got %d, want 429", status)
+func validResponse() map[string]any {
+	return map[string]any{
+		"contactName": "Familie Muster",
+		"email":       "muster@example.com",
+		"phone":       "+49 170 0000000",
+		"status":      "yes",
+		"message":     "Wir freuen uns!",
+		"attendees": []map[string]any{
+			{"name": "Max Muster", "diet": "vegetarian", "allergies": "Nüsse"},
+			{"name": "Mia Muster", "isChild": true, "diet": "none"},
+		},
 	}
 }
 
-// TestMain may be used for test setup if needed.
+func withContribution(body map[string]any) map[string]any {
+	body["contribution"] = map[string]any{
+		"title":       "Kleine Rede",
+		"description": "Ein paar Worte über das Paar",
+		"needs":       "Mikrofon",
+		"phone":       "+49 170 1234567",
+	}
+	return body
+}
+
+type responseView struct {
+	ID          int64  `json:"id"`
+	ContactName string `json:"contactName"`
+	Status      string `json:"status"`
+	Message     string `json:"message"`
+	EditToken   string `json:"editToken"`
+	Attendees   []struct {
+		Name      string `json:"name"`
+		Diet      string `json:"diet"`
+		Allergies string `json:"allergies"`
+		IsChild   bool   `json:"isChild"`
+	} `json:"attendees"`
+	Contribution *struct {
+		Title string `json:"title"`
+		Phone string `json:"phone"`
+	} `json:"contribution"`
+}
+
+// submitResponse posts a response through the public endpoint.
+func submitResponse(t *testing.T, app *testApp, body map[string]any) responseView {
+	t.Helper()
+	resp := app.do("POST", "/api/rsvp/", body, nil)
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusCreated {
+		raw, _ := io.ReadAll(resp.Body)
+		t.Fatalf("POST /api/rsvp: got %d, body: %s", resp.StatusCode, raw)
+	}
+	var view responseView
+	if err := json.NewDecoder(resp.Body).Decode(&view); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if view.EditToken == "" {
+		t.Fatal("response has no edit token")
+	}
+	return view
+}
+
+// contributionID returns the id of the only contribution, read as witness.
+func contributionID(t *testing.T, app *testApp) int64 {
+	t.Helper()
+	cookie, _ := app.login("witness_user", "TestPass123!")
+	resp := app.do("GET", "/api/contributions", nil, cookie)
+	defer resp.Body.Close()
+	var body struct {
+		Contributions []struct {
+			ID int64 `json:"id"`
+		} `json:"contributions"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
+		t.Fatalf("decode contributions: %v", err)
+	}
+	if len(body.Contributions) != 1 {
+		t.Fatalf("expected exactly one contribution, got %d", len(body.Contributions))
+	}
+	return body.Contributions[0].ID
+}
+
+func TestRSVP_CreateGetUpdate(t *testing.T) {
+	app, _ := newTestAppWithUsers(t)
+	created := submitResponse(t, app, withContribution(validResponse()))
+
+	get := app.do("GET", "/api/rsvp/"+created.EditToken, nil, nil)
+	defer get.Body.Close()
+	if get.StatusCode != http.StatusOK {
+		t.Fatalf("GET by token: got %d", get.StatusCode)
+	}
+	var view responseView
+	if err := json.NewDecoder(get.Body).Decode(&view); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if view.ContactName != "Familie Muster" || view.Status != "yes" || len(view.Attendees) != 2 {
+		t.Fatalf("response not persisted: %+v", view)
+	}
+	if view.Attendees[0].Diet != "vegetarian" || view.Attendees[0].Allergies != "Nüsse" || !view.Attendees[1].IsChild {
+		t.Fatalf("attendees not persisted: %+v", view.Attendees)
+	}
+	if view.Contribution == nil || view.Contribution.Title != "Kleine Rede" {
+		t.Fatalf("contribution not persisted: %+v", view.Contribution)
+	}
+
+	update := validResponse()
+	update["status"] = "no"
+	put := app.do("PUT", "/api/rsvp/"+created.EditToken, update, nil)
+	defer put.Body.Close()
+	if put.StatusCode != http.StatusOK {
+		raw, _ := io.ReadAll(put.Body)
+		t.Fatalf("PUT by token: got %d, body: %s", put.StatusCode, raw)
+	}
+	if err := json.NewDecoder(put.Body).Decode(&view); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if view.Status != "no" || len(view.Attendees) != 0 || view.Contribution != nil {
+		t.Fatalf("declining must clear attendees and contribution: %+v", view)
+	}
+
+	witness, _ := app.login("witness_user", "TestPass123!")
+	list := app.do("GET", "/api/contributions", nil, witness)
+	defer list.Body.Close()
+	var contributions struct {
+		Contributions []any `json:"contributions"`
+	}
+	_ = json.NewDecoder(list.Body).Decode(&contributions)
+	if len(contributions.Contributions) != 0 {
+		t.Fatalf("contribution should be removed after declining, got %d", len(contributions.Contributions))
+	}
+}
+
+func TestRSVP_InvalidToken(t *testing.T) {
+	app, _ := newTestAppWithUsers(t)
+
+	get := app.do("GET", "/api/rsvp/does-not-exist", nil, nil)
+	defer get.Body.Close()
+	if get.StatusCode != http.StatusNotFound {
+		t.Fatalf("GET invalid token: got %d, want 404", get.StatusCode)
+	}
+	put := app.do("PUT", "/api/rsvp/does-not-exist", validResponse(), nil)
+	defer put.Body.Close()
+	if put.StatusCode != http.StatusNotFound {
+		t.Fatalf("PUT invalid token: got %d, want 404", put.StatusCode)
+	}
+}
+
+func TestRSVP_Validation(t *testing.T) {
+	app, _ := newTestAppWithUsers(t)
+
+	cases := []struct {
+		name   string
+		mutate func(b map[string]any)
+	}{
+		{"missing contact name", func(b map[string]any) { b["contactName"] = "  " }},
+		{"invalid status", func(b map[string]any) { b["status"] = "maybe" }},
+		{"invalid email", func(b map[string]any) { b["email"] = "not-an-email" }},
+		{"yes without attendees", func(b map[string]any) { b["attendees"] = []map[string]any{} }},
+		{"attendee without name", func(b map[string]any) {
+			b["attendees"] = []map[string]any{{"name": ""}}
+		}},
+		{"invalid diet", func(b map[string]any) {
+			b["attendees"] = []map[string]any{{"name": "A", "diet": "paleo"}}
+		}},
+		{"too many attendees", func(b map[string]any) {
+			list := make([]map[string]any, 11)
+			for i := range list {
+				list[i] = map[string]any{"name": fmt.Sprintf("Gast %d", i)}
+			}
+			b["attendees"] = list
+		}},
+		{"contribution without phone", func(b map[string]any) {
+			b["contribution"] = map[string]any{"title": "Rede", "phone": ""}
+		}},
+		{"contribution without title", func(b map[string]any) {
+			b["contribution"] = map[string]any{"title": "", "phone": "0170"}
+		}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			body := validResponse()
+			tc.mutate(body)
+			resp := app.do("POST", "/api/rsvp/", body, nil)
+			defer resp.Body.Close()
+			if resp.StatusCode != http.StatusBadRequest {
+				raw, _ := io.ReadAll(resp.Body)
+				t.Fatalf("expected 400, got %d, body: %s", resp.StatusCode, raw)
+			}
+		})
+	}
+
+	// A declined response needs neither attendees nor a contribution.
+	declined := map[string]any{"contactName": "Allein", "status": "no"}
+	resp := app.do("POST", "/api/rsvp/", declined, nil)
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusCreated {
+		t.Fatalf("declined response: got %d, want 201", resp.StatusCode)
+	}
+}
+
+// TestCoupleNeverSeesContributions is the central privacy requirement: no
+// endpoint reachable by the couple or admin may expose contribution data.
+func TestCoupleNeverSeesContributions(t *testing.T) {
+	app, _ := newTestAppWithUsers(t)
+	submitResponse(t, app, withContribution(validResponse()))
+	id := contributionID(t, app)
+
+	for _, role := range []string{"couple_user", "admin_user"} {
+		cookie, _ := app.login(role, "TestPass123!")
+
+		for _, path := range []string{"/api/contributions", fmt.Sprintf("/api/contributions/%d", id)} {
+			resp := app.do("GET", path, nil, cookie)
+			resp.Body.Close()
+			if resp.StatusCode != http.StatusForbidden {
+				t.Fatalf("%s GET %s: got %d, want 403", role, path, resp.StatusCode)
+			}
+		}
+		put := app.do("PUT", fmt.Sprintf("/api/contributions/%d/status", id), map[string]any{"status": "confirmed"}, cookie)
+		put.Body.Close()
+		if put.StatusCode != http.StatusForbidden {
+			t.Fatalf("%s PUT status: got %d, want 403", role, put.StatusCode)
+		}
+		note := app.do("POST", fmt.Sprintf("/api/contributions/%d/notes", id), map[string]any{"text": "x"}, cookie)
+		note.Body.Close()
+		if note.StatusCode != http.StatusForbidden {
+			t.Fatalf("%s POST note: got %d, want 403", role, note.StatusCode)
+		}
+
+		for _, path := range []string{"/api/responses", "/api/rsvp-summary"} {
+			resp := app.do("GET", path, nil, cookie)
+			raw, _ := io.ReadAll(resp.Body)
+			resp.Body.Close()
+			if resp.StatusCode != http.StatusOK {
+				t.Fatalf("%s GET %s: got %d, body: %s", role, path, resp.StatusCode, raw)
+			}
+			lower := strings.ToLower(string(raw))
+			for _, leak := range []string{"contribution", "kleine rede", "mikrofon", "1234567"} {
+				if strings.Contains(lower, leak) {
+					t.Fatalf("%s GET %s leaks contribution data (%q): %s", role, path, leak, raw)
+				}
+			}
+		}
+	}
+
+	anon := app.do("GET", "/api/contributions", nil, nil)
+	anon.Body.Close()
+	if anon.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("anonymous GET /api/contributions: got %d, want 401", anon.StatusCode)
+	}
+}
+
+func TestCoupleSeesResponsesAndFood(t *testing.T) {
+	app, _ := newTestAppWithUsers(t)
+	submitResponse(t, app, withContribution(validResponse()))
+	cookie, _ := app.login("couple_user", "TestPass123!")
+
+	list := app.do("GET", "/api/responses", nil, cookie)
+	defer list.Body.Close()
+	var responses struct {
+		Responses []struct {
+			ContactName string `json:"contactName"`
+			Attendees   []struct {
+				Name string `json:"name"`
+			} `json:"attendees"`
+		} `json:"responses"`
+	}
+	if err := json.NewDecoder(list.Body).Decode(&responses); err != nil {
+		t.Fatalf("decode responses: %v", err)
+	}
+	if len(responses.Responses) != 1 || len(responses.Responses[0].Attendees) != 2 {
+		t.Fatalf("unexpected responses: %+v", responses)
+	}
+
+	summaryResp := app.do("GET", "/api/rsvp-summary", nil, cookie)
+	defer summaryResp.Body.Close()
+	var summary struct {
+		Responses          int            `json:"responses"`
+		AttendeesAttending int            `json:"attendeesAttending"`
+		Children           int            `json:"children"`
+		DietCounts         map[string]int `json:"dietCounts"`
+		Allergies          []struct {
+			Name      string `json:"name"`
+			Allergies string `json:"allergies"`
+		} `json:"allergies"`
+	}
+	if err := json.NewDecoder(summaryResp.Body).Decode(&summary); err != nil {
+		t.Fatalf("decode summary: %v", err)
+	}
+	if summary.Responses != 1 || summary.AttendeesAttending != 2 || summary.Children != 1 || summary.DietCounts["vegetarian"] != 1 {
+		t.Fatalf("unexpected summary: %+v", summary)
+	}
+	if len(summary.Allergies) != 1 || summary.Allergies[0].Name != "Max Muster" || summary.Allergies[0].Allergies != "Nüsse" {
+		t.Fatalf("unexpected allergies: %+v", summary.Allergies)
+	}
+}
+
+func TestWitnessManagesContributions(t *testing.T) {
+	app, _ := newTestAppWithUsers(t)
+	submitResponse(t, app, withContribution(validResponse()))
+	id := contributionID(t, app)
+	cookie, _ := app.login("witness_user", "TestPass123!")
+
+	get := app.do("GET", fmt.Sprintf("/api/contributions/%d", id), nil, cookie)
+	defer get.Body.Close()
+	var detail struct {
+		ContactName string `json:"contactName"`
+		Title       string `json:"title"`
+		Needs       string `json:"needs"`
+		Phone       string `json:"phone"`
+		Status      string `json:"status"`
+		Notes       []any  `json:"notes"`
+	}
+	if err := json.NewDecoder(get.Body).Decode(&detail); err != nil {
+		t.Fatalf("decode detail: %v", err)
+	}
+	if detail.ContactName != "Familie Muster" || detail.Phone != "+49 170 1234567" || detail.Needs != "Mikrofon" || detail.Status != "new" {
+		t.Fatalf("unexpected detail: %+v", detail)
+	}
+
+	status := app.do("PUT", fmt.Sprintf("/api/contributions/%d/status", id), map[string]any{"status": "confirmed"}, cookie)
+	defer status.Body.Close()
+	if status.StatusCode != http.StatusOK {
+		t.Fatalf("set status: got %d", status.StatusCode)
+	}
+	bad := app.do("PUT", fmt.Sprintf("/api/contributions/%d/status", id), map[string]any{"status": "done"}, cookie)
+	bad.Body.Close()
+	if bad.StatusCode != http.StatusBadRequest {
+		t.Fatalf("invalid status: got %d, want 400", bad.StatusCode)
+	}
+
+	note := app.do("POST", fmt.Sprintf("/api/contributions/%d/notes", id), map[string]any{"text": "Angerufen"}, cookie)
+	defer note.Body.Close()
+	if note.StatusCode != http.StatusCreated {
+		t.Fatalf("add note: got %d", note.StatusCode)
+	}
+	missing := app.do("GET", "/api/contributions/999999", nil, cookie)
+	defer missing.Body.Close()
+	if missing.StatusCode != http.StatusNotFound {
+		t.Fatalf("missing contribution: got %d, want 404", missing.StatusCode)
+	}
+	var errBody struct {
+		Error struct {
+			Code string `json:"code"`
+		} `json:"error"`
+	}
+	raw, _ := io.ReadAll(missing.Body)
+	if err := json.Unmarshal(raw, &errBody); err != nil || errBody.Error.Code == "" {
+		t.Fatalf("error shape: %s", raw)
+	}
+}
+
+func TestRSVPAccessCode(t *testing.T) {
+	app, _ := newTestAppWithOptions(t, func(cfg *configuration.Config) { cfg.RSVPAccessCode = "wald-see-27" })
+
+	statusResp := app.do("GET", "/api/rsvp/access", nil, nil)
+	defer statusResp.Body.Close()
+	var access struct {
+		Required bool `json:"required"`
+		Unlocked bool `json:"unlocked"`
+	}
+	_ = json.NewDecoder(statusResp.Body).Decode(&access)
+	if !access.Required || access.Unlocked {
+		t.Fatalf("access status before unlock: %+v", access)
+	}
+
+	locked := app.do("POST", "/api/rsvp/", validResponse(), nil)
+	locked.Body.Close()
+	if locked.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("submit without code: got %d, want 401", locked.StatusCode)
+	}
+
+	wrong := app.do("POST", "/api/rsvp/unlock", map[string]any{"code": "nope"}, nil)
+	wrong.Body.Close()
+	if wrong.StatusCode != http.StatusUnauthorized || len(wrong.Cookies()) != 0 {
+		t.Fatalf("wrong code: got %d with %d cookies", wrong.StatusCode, len(wrong.Cookies()))
+	}
+
+	ok := app.do("POST", "/api/rsvp/unlock", map[string]any{"code": "wald-see-27"}, nil)
+	ok.Body.Close()
+	if ok.StatusCode != http.StatusNoContent {
+		t.Fatalf("unlock: got %d, want 204", ok.StatusCode)
+	}
+	var cookie *http.Cookie
+	for _, c := range ok.Cookies() {
+		if c.Name == "wedwise_rsvp_access" {
+			cookie = c
+		}
+	}
+	if cookie == nil || !cookie.HttpOnly {
+		t.Fatalf("expected HttpOnly access cookie, got %+v", cookie)
+	}
+
+	created := app.do("POST", "/api/rsvp/", validResponse(), cookie)
+	created.Body.Close()
+	if created.StatusCode != http.StatusCreated {
+		t.Fatalf("submit with code: got %d, want 201", created.StatusCode)
+	}
+
+	forged := &http.Cookie{Name: cookie.Name, Value: "0000"}
+	rejected := app.do("POST", "/api/rsvp/", validResponse(), forged)
+	rejected.Body.Close()
+	if rejected.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("forged cookie: got %d, want 401", rejected.StatusCode)
+	}
+}
+
+func TestRSVPAccessCodeDisabled(t *testing.T) {
+	app, _ := newTestAppWithUsers(t)
+	resp := app.do("GET", "/api/rsvp/access", nil, nil)
+	defer resp.Body.Close()
+	var access struct {
+		Required bool `json:"required"`
+		Unlocked bool `json:"unlocked"`
+	}
+	_ = json.NewDecoder(resp.Body).Decode(&access)
+	if access.Required || !access.Unlocked {
+		t.Fatalf("open access expected: %+v", access)
+	}
+}
+
+func TestRSVPRateLimit(t *testing.T) {
+	app, _ := newTestAppWithUsers(t)
+	var status int
+	for i := 0; i < 31; i++ {
+		resp := app.do("GET", "/api/rsvp/unknown", nil, nil)
+		resp.Body.Close()
+		status = resp.StatusCode
+	}
+	if status != http.StatusTooManyRequests {
+		t.Fatalf("31st request: got %d, want 429", status)
+	}
+}
+
 func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }

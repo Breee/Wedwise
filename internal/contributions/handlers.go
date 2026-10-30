@@ -24,35 +24,21 @@ func NewHandler(store *Store, authService *auth.Service) *Handler {
 	return &Handler{store: store, auth: authService}
 }
 
-// Request is the payload accepted when creating or updating a contribution.
+// Request is the payload accepted by guests when offering a contribution.
 type Request struct {
-	Title                 string `json:"title"`
-	Category              string `json:"category"`
-	Description           string `json:"description"`
-	Participants          string `json:"participants"`
-	DurationMinutes       int    `json:"durationMinutes"`
-	TechnicalRequirements string `json:"technicalRequirements"`
-	Equipment             string `json:"equipment"`
-	PreferredTime         string `json:"preferredTime"`
-	ContactInformation    string `json:"contactInformation"`
-	Status                string `json:"status"`
+	Title       string `json:"title"`
+	Description string `json:"description"`
+	Needs       string `json:"needs"`
+	Phone       string `json:"phone"`
 }
 
-// ToParams converts the request into store parameters for the given invitation.
-func (req Request) ToParams(invitationID int64) Params {
-	return Params{
-		InvitationID:          invitationID,
-		Title:                 req.Title,
-		Category:              req.Category,
-		Description:           req.Description,
-		Participants:          req.Participants,
-		DurationMinutes:       req.DurationMinutes,
-		TechnicalRequirements: req.TechnicalRequirements,
-		Equipment:             req.Equipment,
-		PreferredTime:         req.PreferredTime,
-		ContactInformation:    req.ContactInformation,
-		Status:                req.Status,
-	}
+// ToInput converts the request into store input.
+func (req Request) ToInput() Input {
+	return Input{Title: req.Title, Description: req.Description, Needs: req.Needs, Phone: req.Phone}
+}
+
+type statusRequest struct {
+	Status string `json:"status"`
 }
 
 type noteRequest struct {
@@ -69,7 +55,7 @@ func (h *Handler) Routes() http.Handler {
 	r := chi.NewRouter()
 	r.With(h.auth.RequirePermission(auth.PermContributionRead)).Get("/", h.list)
 	r.With(h.auth.RequirePermission(auth.PermContributionRead)).Get("/{id}", h.get)
-	r.With(h.auth.RequirePermission(auth.PermContributionManage)).Put("/{id}", h.update)
+	r.With(h.auth.RequirePermission(auth.PermContributionManage)).Put("/{id}/status", h.updateStatus)
 	r.With(h.auth.RequirePermission(auth.PermContributionManage)).Post("/{id}/notes", h.addNote)
 	return r
 }
@@ -102,35 +88,17 @@ func (h *Handler) get(w http.ResponseWriter, r *http.Request) {
 	httpx.WriteJSON(w, http.StatusOK, contributionDetail{Contribution: contribution, Notes: notes})
 }
 
-func (h *Handler) update(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) updateStatus(w http.ResponseWriter, r *http.Request) {
 	id, err := httpx.ParseID(chi.URLParam(r, "id"))
 	if err != nil {
 		httpx.BadRequest(w, "Invalid contribution id.")
 		return
 	}
-	existing, err := h.store.GetByID(r.Context(), id)
-	if err != nil {
-		WriteStoreError(w, err)
-		return
-	}
-
-	req := Request{
-		Title:                 existing.Title,
-		Category:              existing.Category,
-		Description:           existing.Description,
-		Participants:          existing.Participants,
-		DurationMinutes:       existing.DurationMinutes,
-		TechnicalRequirements: existing.TechnicalRequirements,
-		Equipment:             existing.Equipment,
-		PreferredTime:         existing.PreferredTime,
-		ContactInformation:    existing.ContactInformation,
-		Status:                existing.Status,
-	}
+	var req statusRequest
 	if !httpx.DecodeJSON(w, r, &req) {
 		return
 	}
-
-	contribution, err := h.store.Update(r.Context(), id, req.ToParams(existing.InvitationID))
+	contribution, err := h.store.SetStatus(r.Context(), id, req.Status)
 	if err != nil {
 		WriteStoreError(w, err)
 		return

@@ -3,7 +3,7 @@ package auth
 import "testing"
 
 func TestCoupleHasNoContributionAccess(t *testing.T) {
-	blocked := []string{PermContributionRead, PermContributionManage, PermContributionSubmit}
+	blocked := []string{PermContributionRead, PermContributionManage}
 	for _, permission := range blocked {
 		if RoleHasPermission(RoleCouple, permission) {
 			t.Fatalf("couple must not have %s", permission)
@@ -20,11 +20,11 @@ func TestRolePermissions(t *testing.T) {
 		permission string
 		want       bool
 	}{
-		{RoleCouple, PermGuestWrite, true},
-		{RoleCouple, PermRSVPManage, true},
+		{RoleCouple, PermContentWrite, true},
+		{RoleCouple, PermRSVPRead, true},
 		{RoleCouple, PermUserManage, false},
 		{RoleWitness, PermContributionManage, true},
-		{RoleWitness, PermGuestWrite, false},
+		{RoleWitness, PermContentWrite, false},
 		{RoleAdmin, PermUserManage, true},
 		{"unknown", PermContentRead, false},
 	}

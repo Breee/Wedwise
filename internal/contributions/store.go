@@ -25,85 +25,90 @@ func NewStore(db *sql.DB) *Store {
 	return &Store{db: db}
 }
 
-const columns = `id, invitation_id, title, category, description, participants, duration_minutes,
-	technical_requirements, equipment, preferred_time, contact_information, status, created_at, updated_at`
-
-// Params describes the writable fields of a contribution.
-type Params struct {
-	InvitationID          int64
-	Title                 string
-	Category              string
-	Description           string
-	Participants          string
-	DurationMinutes       int
-	TechnicalRequirements string
-	Equipment             string
-	PreferredTime         string
-	ContactInformation    string
-	Status                string
+// Execer is satisfied by *sql.DB and *sql.Tx so that guest submissions can be
+// written in the same transaction as the response they belong to.
+type Execer interface {
+	ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error)
 }
 
-func (p *Params) normalize(requireInvitation bool) error {
-	p.Title = strings.TrimSpace(p.Title)
-	p.Category = strings.TrimSpace(strings.ToLower(p.Category))
-	p.Description = strings.TrimSpace(p.Description)
-	p.Participants = strings.TrimSpace(p.Participants)
-	p.TechnicalRequirements = strings.TrimSpace(p.TechnicalRequirements)
-	p.Equipment = strings.TrimSpace(p.Equipment)
-	p.PreferredTime = strings.TrimSpace(p.PreferredTime)
-	p.ContactInformation = strings.TrimSpace(p.ContactInformation)
-	p.Status = strings.TrimSpace(strings.ToLower(p.Status))
+const (
+	maxTextLen  = 4000
+	maxShortLen = 200
+)
 
-	if p.Title == "" {
+const columns = `c.id, c.response_id, r.contact_name, c.title, c.description, c.needs, c.phone, c.status,
+	c.created_at, c.updated_at`
+
+const fromClause = " FROM contributions c JOIN responses r ON r.id = c.response_id "
+
+// Input describes the fields a guest provides for a contribution.
+type Input struct {
+	Title       string
+	Description string
+	Needs       string
+	Phone       string
+}
+
+func (in *Input) normalize() error {
+	in.Title = strings.TrimSpace(in.Title)
+	in.Description = strings.TrimSpace(in.Description)
+	in.Needs = strings.TrimSpace(in.Needs)
+	in.Phone = strings.TrimSpace(in.Phone)
+
+	if in.Title == "" {
 		return fmt.Errorf("%w: title must not be empty", ErrValidation)
 	}
-	if p.Category == "" {
-		p.Category = CategoryOther
+	if in.Phone == "" {
+		return fmt.Errorf("%w: phone must not be empty", ErrValidation)
 	}
-	if !IsValidCategory(p.Category) {
-		return fmt.Errorf("%w: category must be one of %s", ErrValidation, strings.Join(ValidCategories(), ", "))
+	if len(in.Title) > maxShortLen || len(in.Phone) > maxShortLen {
+		return fmt.Errorf("%w: title or phone is too long", ErrValidation)
 	}
-	if p.Status == "" {
-		p.Status = StatusNew
-	}
-	if !IsValidStatus(p.Status) {
-		return fmt.Errorf("%w: status must be one of %s", ErrValidation, strings.Join(ValidStatuses(), ", "))
-	}
-	if p.DurationMinutes < 0 || p.DurationMinutes > 24*60 {
-		return fmt.Errorf("%w: durationMinutes must be between 0 and 1440", ErrValidation)
-	}
-	if requireInvitation && p.InvitationID <= 0 {
-		return fmt.Errorf("%w: invitationId is required", ErrValidation)
+	if len(in.Description) > maxTextLen || len(in.Needs) > maxTextLen {
+		return fmt.Errorf("%w: description or needs is too long", ErrValidation)
 	}
 	return nil
 }
 
-// Create inserts a new contribution.
-func (s *Store) Create(ctx context.Context, params Params) (Contribution, error) {
-	if err := params.normalize(true); err != nil {
-		return Contribution{}, err
+// Upsert creates or updates the contribution of a response. The workflow
+// status and notes are preserved on update.
+func (s *Store) Upsert(ctx context.Context, exec Execer, responseID int64, input Input) error {
+	if err := input.normalize(); err != nil {
+		return err
 	}
 	now := time.Now().UTC()
-	res, err := s.db.ExecContext(ctx,
-		`INSERT INTO contributions (invitation_id, title, category, description, participants, duration_minutes,
-			technical_requirements, equipment, preferred_time, contact_information, status, created_at, updated_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		params.InvitationID, params.Title, params.Category, params.Description, params.Participants,
-		params.DurationMinutes, params.TechnicalRequirements, params.Equipment, params.PreferredTime,
-		params.ContactInformation, params.Status, now, now)
+	_, err := exec.ExecContext(ctx,
+		`INSERT INTO contributions (response_id, title, description, needs, phone, status, created_at, updated_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+		 ON CONFLICT(response_id) DO UPDATE SET title = excluded.title, description = excluded.description,
+			needs = excluded.needs, phone = excluded.phone, updated_at = excluded.updated_at`,
+		responseID, input.Title, input.Description, input.Needs, input.Phone, StatusNew, now, now)
 	if err != nil {
-		return Contribution{}, fmt.Errorf("insert contribution: %w", err)
+		return fmt.Errorf("upsert contribution: %w", err)
 	}
-	id, err := res.LastInsertId()
-	if err != nil {
-		return Contribution{}, fmt.Errorf("contribution id: %w", err)
+	return nil
+}
+
+// DeleteByResponse removes the contribution of a response, if any.
+func (s *Store) DeleteByResponse(ctx context.Context, exec Execer, responseID int64) error {
+	if _, err := exec.ExecContext(ctx, "DELETE FROM contributions WHERE response_id = ?", responseID); err != nil {
+		return fmt.Errorf("delete contribution: %w", err)
 	}
-	return s.GetByID(ctx, id)
+	return nil
+}
+
+// GetByResponse returns the contribution of a response.
+func (s *Store) GetByResponse(ctx context.Context, responseID int64) (Contribution, error) {
+	return s.queryOne(ctx, "SELECT "+columns+fromClause+"WHERE c.response_id = ?", responseID)
 }
 
 // GetByID returns a contribution by id.
 func (s *Store) GetByID(ctx context.Context, id int64) (Contribution, error) {
-	contribution, err := scan(s.db.QueryRowContext(ctx, "SELECT "+columns+" FROM contributions WHERE id = ?", id))
+	return s.queryOne(ctx, "SELECT "+columns+fromClause+"WHERE c.id = ?", id)
+}
+
+func (s *Store) queryOne(ctx context.Context, query string, args ...any) (Contribution, error) {
+	contribution, err := scan(s.db.QueryRowContext(ctx, query, args...))
 	if errors.Is(err, sql.ErrNoRows) {
 		return Contribution{}, ErrNotFound
 	}
@@ -113,17 +118,18 @@ func (s *Store) GetByID(ctx context.Context, id int64) (Contribution, error) {
 	return contribution, nil
 }
 
-// List returns all contributions, newest first.
+// List returns all contributions, newest first, optionally filtered by status.
 func (s *Store) List(ctx context.Context, status string) ([]Contribution, error) {
-	query := "SELECT " + columns + " FROM contributions ORDER BY created_at DESC, id DESC"
+	query := "SELECT " + columns + fromClause
 	args := []any{}
 	if status != "" {
 		if !IsValidStatus(status) {
 			return nil, fmt.Errorf("%w: unknown status filter %q", ErrValidation, status)
 		}
-		query = "SELECT " + columns + " FROM contributions WHERE status = ? ORDER BY created_at DESC, id DESC"
+		query += "WHERE c.status = ? "
 		args = append(args, status)
 	}
+	query += "ORDER BY c.created_at DESC, c.id DESC"
 
 	rows, err := s.db.QueryContext(ctx, query, args...)
 	if err != nil {
@@ -145,20 +151,16 @@ func (s *Store) List(ctx context.Context, status string) ([]Contribution, error)
 	return result, nil
 }
 
-// Update changes an existing contribution.
-func (s *Store) Update(ctx context.Context, id int64, params Params) (Contribution, error) {
-	if err := params.normalize(false); err != nil {
-		return Contribution{}, err
+// SetStatus changes the workflow status of a contribution.
+func (s *Store) SetStatus(ctx context.Context, id int64, status string) (Contribution, error) {
+	status = strings.TrimSpace(strings.ToLower(status))
+	if !IsValidStatus(status) {
+		return Contribution{}, fmt.Errorf("%w: status must be one of %s", ErrValidation, strings.Join(ValidStatuses(), ", "))
 	}
 	res, err := s.db.ExecContext(ctx,
-		`UPDATE contributions SET title = ?, category = ?, description = ?, participants = ?,
-			duration_minutes = ?, technical_requirements = ?, equipment = ?, preferred_time = ?,
-			contact_information = ?, status = ?, updated_at = ? WHERE id = ?`,
-		params.Title, params.Category, params.Description, params.Participants, params.DurationMinutes,
-		params.TechnicalRequirements, params.Equipment, params.PreferredTime, params.ContactInformation,
-		params.Status, time.Now().UTC(), id)
+		"UPDATE contributions SET status = ?, updated_at = ? WHERE id = ?", status, time.Now().UTC(), id)
 	if err != nil {
-		return Contribution{}, fmt.Errorf("update contribution: %w", err)
+		return Contribution{}, fmt.Errorf("update contribution status: %w", err)
 	}
 	count, err := res.RowsAffected()
 	if err != nil {
@@ -175,6 +177,9 @@ func (s *Store) AddNote(ctx context.Context, contributionID, authorUserID int64,
 	text = strings.TrimSpace(text)
 	if text == "" {
 		return ContributionNote{}, fmt.Errorf("%w: text must not be empty", ErrValidation)
+	}
+	if len(text) > maxTextLen {
+		return ContributionNote{}, fmt.Errorf("%w: text is too long", ErrValidation)
 	}
 	if _, err := s.GetByID(ctx, contributionID); err != nil {
 		return ContributionNote{}, err
@@ -224,24 +229,13 @@ func (s *Store) Notes(ctx context.Context, contributionID int64) ([]Contribution
 	return result, nil
 }
 
-// CountByInvitation returns the number of contributions of an invitation.
-func (s *Store) CountByInvitation(ctx context.Context, invitationID int64) (int, error) {
-	var count int
-	if err := s.db.QueryRowContext(ctx,
-		"SELECT COUNT(*) FROM contributions WHERE invitation_id = ?", invitationID).Scan(&count); err != nil {
-		return 0, fmt.Errorf("count contributions: %w", err)
-	}
-	return count, nil
-}
-
 type scanner interface {
 	Scan(dest ...any) error
 }
 
 func scan(row scanner) (Contribution, error) {
 	var c Contribution
-	err := row.Scan(&c.ID, &c.InvitationID, &c.Title, &c.Category, &c.Description, &c.Participants,
-		&c.DurationMinutes, &c.TechnicalRequirements, &c.Equipment, &c.PreferredTime,
-		&c.ContactInformation, &c.Status, &c.CreatedAt, &c.UpdatedAt)
+	err := row.Scan(&c.ID, &c.ResponseID, &c.ContactName, &c.Title, &c.Description, &c.Needs, &c.Phone,
+		&c.Status, &c.CreatedAt, &c.UpdatedAt)
 	return c, err
 }

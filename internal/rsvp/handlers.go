@@ -6,70 +6,92 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/Breee/Wedwise/internal/auth"
 	"github.com/Breee/Wedwise/internal/contributions"
 	"github.com/Breee/Wedwise/internal/httpx"
-	"github.com/Breee/Wedwise/internal/invitations"
 )
 
-// Handler exposes the public token based RSVP endpoints and the protected
-// RSVP summary endpoint.
+// Handler exposes the public RSVP endpoints and the protected response
+// overview for the couple.
 type Handler struct {
 	store         *Store
-	invitations   *invitations.Store
 	contributions *contributions.Store
-	auth          *auth.Service
+	access        *Access
 }
 
 // NewHandler creates an RSVP handler.
-func NewHandler(store *Store, invitationStore *invitations.Store, contributionStore *contributions.Store, authService *auth.Service) *Handler {
-	return &Handler{store: store, invitations: invitationStore, contributions: contributionStore, auth: authService}
+func NewHandler(store *Store, contributionStore *contributions.Store, access *Access) *Handler {
+	return &Handler{store: store, contributions: contributionStore, access: access}
 }
 
 type attendeeRequest struct {
 	Name      string `json:"name"`
-	Attending bool   `json:"attending"`
 	IsChild   bool   `json:"isChild"`
 	Diet      string `json:"diet"`
 	Allergies string `json:"allergies"`
-	Notes     string `json:"notes"`
 }
 
 type submitRequest struct {
-	Status    string            `json:"status"`
-	Message   string            `json:"message"`
-	Attendees []attendeeRequest `json:"attendees"`
+	ContactName  string                 `json:"contactName"`
+	Email        string                 `json:"email"`
+	Phone        string                 `json:"phone"`
+	Status       string                 `json:"status"`
+	Message      string                 `json:"message"`
+	Attendees    []attendeeRequest      `json:"attendees"`
+	Contribution *contributions.Request `json:"contribution"`
 }
 
-type invitationView struct {
-	Name      string `json:"name"`
-	MaxGuests int    `json:"maxGuests"`
-	Token     string `json:"token"`
+func (req submitRequest) toParams() SubmitParams {
+	params := SubmitParams{
+		ContactName: req.ContactName,
+		Email:       req.Email,
+		Phone:       req.Phone,
+		Status:      req.Status,
+		Message:     req.Message,
+	}
+	for _, attendee := range req.Attendees {
+		params.Attendees = append(params.Attendees, AttendeeInput(attendee))
+	}
+	if req.Contribution != nil {
+		input := req.Contribution.ToInput()
+		params.Contribution = &input
+	}
+	return params
 }
 
-type rsvpView struct {
-	Invitation invitationView `json:"invitation"`
-	Status     string         `json:"status"`
-	Message    string         `json:"message"`
-	Attendees  []Attendee     `json:"attendees"`
-	Submitted  bool           `json:"submitted"`
+type unlockRequest struct {
+	Code string `json:"code"`
 }
 
-// PublicRoutes returns the token authenticated RSVP routes. tokenMiddlewares
-// are applied to every token based route (e.g. rate limiting).
-func (h *Handler) PublicRoutes(tokenMiddlewares ...func(http.Handler) http.Handler) http.Handler {
+// guestView is what a guest sees of their own response. It includes the
+// contribution because the guest wrote it; the couple never receives it.
+type guestView struct {
+	Response
+	EditToken    string                 `json:"editToken"`
+	Attendees    []Attendee             `json:"attendees"`
+	Contribution *contributions.Request `json:"contribution"`
+}
+
+type coupleView struct {
+	Response
+	Attendees []Attendee `json:"attendees"`
+}
+
+// PublicRoutes returns the guest facing routes. submitMiddlewares are applied
+// to the unlock and submit endpoints (e.g. rate limiting).
+func (h *Handler) PublicRoutes(submitMiddlewares ...func(http.Handler) http.Handler) http.Handler {
 	r := chi.NewRouter()
-	r.Get("/public", h.publicInvitationToken)
-	r.Group(func(t chi.Router) {
-		t.Use(tokenMiddlewares...)
-		t.Get("/{token}", h.get)
-		t.Put("/{token}", h.submit)
-		t.Post("/{token}/contributions", h.submitContribution)
+	r.Get("/access", h.accessStatus)
+	r.With(submitMiddlewares...).Post("/unlock", h.unlock)
+	r.Group(func(g chi.Router) {
+		g.Use(h.access.Require)
+		g.With(submitMiddlewares...).Post("/", h.create)
+		g.With(submitMiddlewares...).Get("/{token}", h.get)
+		g.With(submitMiddlewares...).Put("/{token}", h.update)
 	})
 	return r
 }
 
-// SummaryHandler returns aggregated RSVP statistics without contribution data.
+// SummaryHandler returns aggregated statistics without contribution data.
 func (h *Handler) SummaryHandler(w http.ResponseWriter, r *http.Request) {
 	summary, err := h.store.Summarize(r.Context())
 	if err != nil {
@@ -79,132 +101,120 @@ func (h *Handler) SummaryHandler(w http.ResponseWriter, r *http.Request) {
 	httpx.WriteJSON(w, http.StatusOK, summary)
 }
 
-func (h *Handler) get(w http.ResponseWriter, r *http.Request) {
-	invitation, ok := h.resolveInvitation(w, r)
-	if !ok {
-		return
-	}
-
-	view := rsvpView{
-		Invitation: invitationView{Name: invitation.Name, MaxGuests: invitation.MaxGuests, Token: invitation.Token},
-		Status:     StatusPending,
-		Attendees:  []Attendee{},
-	}
-
-	response, err := h.store.Get(r.Context(), invitation.ID)
-	switch {
-	case err == nil:
-		view.Status = response.Status
-		view.Message = response.Message
-		view.Submitted = true
-	case errors.Is(err, ErrNotFound):
-		// No response submitted yet.
-	default:
-		httpx.Internal(w, err)
-		return
-	}
-
-	attendees, err := h.store.Attendees(r.Context(), invitation.ID)
+// ListHandler returns every response with attendees but without contributions.
+func (h *Handler) ListHandler(w http.ResponseWriter, r *http.Request) {
+	responses, err := h.store.List(r.Context())
 	if err != nil {
 		httpx.Internal(w, err)
 		return
 	}
-	view.Attendees = attendees
-	httpx.WriteJSON(w, http.StatusOK, view)
-}
-
-func (h *Handler) submit(w http.ResponseWriter, r *http.Request) {
-	invitation, ok := h.resolveInvitation(w, r)
-	if !ok {
+	attendees, err := h.store.AllAttendees(r.Context())
+	if err != nil {
+		httpx.Internal(w, err)
 		return
 	}
+	byResponse := map[int64][]Attendee{}
+	for _, attendee := range attendees {
+		byResponse[attendee.ResponseID] = append(byResponse[attendee.ResponseID], attendee)
+	}
+	views := make([]coupleView, 0, len(responses))
+	for _, response := range responses {
+		list := byResponse[response.ID]
+		if list == nil {
+			list = []Attendee{}
+		}
+		views = append(views, coupleView{Response: response, Attendees: list})
+	}
+	httpx.WriteJSON(w, http.StatusOK, map[string]any{"responses": views})
+}
 
+func (h *Handler) accessStatus(w http.ResponseWriter, r *http.Request) {
+	httpx.WriteJSON(w, http.StatusOK, map[string]any{
+		"required": h.access.Required(),
+		"unlocked": h.access.Unlocked(r),
+	})
+}
+
+func (h *Handler) unlock(w http.ResponseWriter, r *http.Request) {
+	var req unlockRequest
+	if !httpx.DecodeJSON(w, r, &req) {
+		return
+	}
+	if !h.access.Unlock(w, req.Code) {
+		httpx.WriteError(w, http.StatusUnauthorized, CodeInvalidAccessCode, "The access code is not correct.")
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *Handler) create(w http.ResponseWriter, r *http.Request) {
 	var req submitRequest
 	if !httpx.DecodeJSON(w, r, &req) {
 		return
 	}
-
-	params := SubmitParams{Status: req.Status, Message: req.Message}
-	for _, attendee := range req.Attendees {
-		params.Attendees = append(params.Attendees, AttendeeInput(attendee))
-	}
-
-	response, attendees, err := h.store.Submit(r.Context(), invitation.ID, invitation.MaxGuests, params)
+	response, token, err := h.store.Create(r.Context(), req.toParams())
 	if err != nil {
-		if errors.Is(err, ErrValidation) {
-			httpx.BadRequest(w, err.Error())
-			return
-		}
-		httpx.Internal(w, err)
+		h.writeError(w, err)
 		return
 	}
-
-	httpx.WriteJSON(w, http.StatusOK, rsvpView{
-		Invitation: invitationView{Name: invitation.Name, MaxGuests: invitation.MaxGuests, Token: invitation.Token},
-		Status:     response.Status,
-		Message:    response.Message,
-		Attendees:  attendees,
-		Submitted:  true,
-	})
+	h.writeGuestView(w, r, http.StatusCreated, response, token)
 }
 
-func (h *Handler) submitContribution(w http.ResponseWriter, r *http.Request) {
-	invitation, ok := h.resolveInvitation(w, r)
-	if !ok {
+func (h *Handler) get(w http.ResponseWriter, r *http.Request) {
+	token := chi.URLParam(r, "token")
+	response, err := h.store.GetByToken(r.Context(), token)
+	if err != nil {
+		h.writeError(w, err)
 		return
 	}
+	h.writeGuestView(w, r, http.StatusOK, response, token)
+}
 
-	var req contributions.Request
+func (h *Handler) update(w http.ResponseWriter, r *http.Request) {
+	var req submitRequest
 	if !httpx.DecodeJSON(w, r, &req) {
 		return
 	}
-	// Guests may not choose the workflow status of their contribution.
-	req.Status = contributions.StatusNew
-
-	contribution, err := h.contributions.Create(r.Context(), req.ToParams(invitation.ID))
-	if err != nil {
-		contributions.WriteStoreError(w, err)
-		return
-	}
-	httpx.WriteJSON(w, http.StatusCreated, map[string]any{
-		"id":      contribution.ID,
-		"title":   contribution.Title,
-		"status":  contribution.Status,
-		"success": true,
-	})
-}
-
-func (h *Handler) publicInvitationToken(w http.ResponseWriter, r *http.Request) {
-	invitation, err := h.invitations.GetPublic(r.Context())
-	if errors.Is(err, invitations.ErrNotFound) {
-		httpx.WriteJSON(w, http.StatusOK, map[string]any{"token": nil})
-		return
-	}
-	if err != nil {
-		httpx.Internal(w, err)
-		return
-	}
-	if !invitation.Active {
-		httpx.WriteJSON(w, http.StatusOK, map[string]any{"token": nil})
-		return
-	}
-	httpx.WriteJSON(w, http.StatusOK, map[string]any{"token": invitation.Token})
-}
-
-func (h *Handler) resolveInvitation(w http.ResponseWriter, r *http.Request) (invitations.Invitation, bool) {
 	token := chi.URLParam(r, "token")
-	invitation, err := h.invitations.GetByToken(r.Context(), token)
+	response, err := h.store.Update(r.Context(), token, req.toParams())
 	if err != nil {
-		if errors.Is(err, invitations.ErrNotFound) {
-			httpx.NotFound(w, "Invitation not found.")
-			return invitations.Invitation{}, false
-		}
+		h.writeError(w, err)
+		return
+	}
+	h.writeGuestView(w, r, http.StatusOK, response, token)
+}
+
+func (h *Handler) writeGuestView(w http.ResponseWriter, r *http.Request, status int, response Response, token string) {
+	attendees, err := h.store.Attendees(r.Context(), response.ID)
+	if err != nil {
 		httpx.Internal(w, err)
-		return invitations.Invitation{}, false
+		return
 	}
-	if !invitation.Active {
-		httpx.Forbidden(w)
-		return invitations.Invitation{}, false
+	view := guestView{Response: response, EditToken: token, Attendees: attendees}
+	contribution, err := h.contributions.GetByResponse(r.Context(), response.ID)
+	switch {
+	case err == nil:
+		view.Contribution = &contributions.Request{
+			Title:       contribution.Title,
+			Description: contribution.Description,
+			Needs:       contribution.Needs,
+			Phone:       contribution.Phone,
+		}
+	case errors.Is(err, contributions.ErrNotFound):
+	default:
+		httpx.Internal(w, err)
+		return
 	}
-	return invitation, true
+	httpx.WriteJSON(w, status, view)
+}
+
+func (h *Handler) writeError(w http.ResponseWriter, err error) {
+	switch {
+	case errors.Is(err, ErrNotFound):
+		httpx.NotFound(w, "Response not found.")
+	case errors.Is(err, ErrValidation), errors.Is(err, contributions.ErrValidation):
+		httpx.BadRequest(w, err.Error())
+	default:
+		httpx.Internal(w, err)
+	}
 }

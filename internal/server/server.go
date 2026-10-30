@@ -15,9 +15,7 @@ import (
 	"github.com/Breee/Wedwise/internal/configuration"
 	"github.com/Breee/Wedwise/internal/content"
 	"github.com/Breee/Wedwise/internal/contributions"
-	"github.com/Breee/Wedwise/internal/guests"
 	"github.com/Breee/Wedwise/internal/httpx"
-	"github.com/Breee/Wedwise/internal/invitations"
 	"github.com/Breee/Wedwise/internal/middleware"
 	"github.com/Breee/Wedwise/internal/rsvp"
 	"github.com/Breee/Wedwise/internal/users"
@@ -44,16 +42,13 @@ func New(cfg configuration.Config, db *sql.DB) (*Server, error) {
 	sessionStore := auth.NewSessionStore(db)
 	authService := auth.NewService(sessionStore, userStore, cfg.IsProduction(), cfg.BaseURL)
 
-	invitationStore := invitations.NewStore(db)
-	guestStore := guests.NewStore(db)
-	rsvpStore := rsvp.NewStore(db)
 	contributionStore := contributions.NewStore(db)
+	rsvpStore := rsvp.NewStore(db, contributionStore)
 	contentStore := content.NewStore(db)
+	rsvpAccess := rsvp.NewAccess(cfg.RSVPAccessCode, cfg.SessionSecret, cfg.IsProduction())
 
 	userHandler := users.NewHandler(userStore, authService)
-	guestHandler := guests.NewHandler(guestStore, authService)
-	invitationHandler := invitations.NewHandler(invitationStore, authService, cfg.BaseURL)
-	rsvpHandler := rsvp.NewHandler(rsvpStore, invitationStore, contributionStore, authService)
+	rsvpHandler := rsvp.NewHandler(rsvpStore, contributionStore, rsvpAccess)
 	contributionHandler := contributions.NewHandler(contributionStore, authService)
 	contentHandler := content.NewHandler(contentStore, authService, cfg.Event)
 
@@ -84,13 +79,13 @@ func New(cfg configuration.Config, db *sql.DB) (*Server, error) {
 
 		api.Group(func(protected chi.Router) {
 			protected.Use(authService.RequireAuth)
-			protected.Mount("/guests", guestHandler.Routes())
-			protected.Mount("/invitations", invitationHandler.Routes())
 			protected.Mount("/contributions", contributionHandler.Routes())
 			protected.Mount("/content", contentHandler.Routes())
 			protected.Mount("/users", userHandler.Routes())
 			protected.With(authService.RequirePermission(auth.PermRSVPRead)).
 				Get("/rsvp-summary", rsvpHandler.SummaryHandler)
+			protected.With(authService.RequirePermission(auth.PermRSVPRead)).
+				Get("/responses", rsvpHandler.ListHandler)
 		})
 
 		api.NotFound(func(w http.ResponseWriter, r *http.Request) {

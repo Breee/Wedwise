@@ -7,17 +7,8 @@ const (
 	PermContentRead  = "content.read"
 	PermContentWrite = "content.write"
 
-	PermGuestRead  = "guest.read"
-	PermGuestWrite = "guest.write"
+	PermRSVPRead = "rsvp.read"
 
-	PermInvitationRead  = "invitation.read"
-	PermInvitationWrite = "invitation.write"
-
-	PermRSVPRead   = "rsvp.read"
-	PermRSVPWrite  = "rsvp.write"
-	PermRSVPManage = "rsvp.manage"
-
-	PermContributionSubmit = "contribution.submit"
 	PermContributionRead   = "contribution.read"
 	PermContributionManage = "contribution.manage"
 
@@ -38,33 +29,21 @@ const (
 // guests must stay hidden from them. Admins are also excluded on purpose.
 var rolePermissions = map[string]map[string]bool{
 	RoleCouple: {
-		PermContentRead:     true,
-		PermContentWrite:    true,
-		PermGuestRead:       true,
-		PermGuestWrite:      true,
-		PermInvitationRead:  true,
-		PermInvitationWrite: true,
-		PermRSVPRead:        true,
-		PermRSVPManage:      true,
+		PermContentRead:  true,
+		PermContentWrite: true,
+		PermRSVPRead:     true,
 	},
 	RoleWitness: {
 		PermContributionRead:   true,
 		PermContributionManage: true,
 		PermRSVPRead:           true,
-		PermGuestRead:          true,
-		PermInvitationRead:     true,
 	},
 	RoleAdmin: {
-		PermUserRead:        true,
-		PermUserManage:      true,
-		PermContentRead:     true,
-		PermContentWrite:    true,
-		PermGuestRead:       true,
-		PermGuestWrite:      true,
-		PermInvitationRead:  true,
-		PermInvitationWrite: true,
-		PermRSVPRead:        true,
-		PermRSVPManage:      true,
+		PermUserRead:     true,
+		PermUserManage:   true,
+		PermContentRead:  true,
+		PermContentWrite: true,
+		PermRSVPRead:     true,
 	},
 }
 
