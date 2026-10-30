@@ -30,17 +30,15 @@ function WitnessDashboard() {
   const { data: contributions } = useSuspenseQuery(contributionsQuery)
   const { data: summary } = useSuspenseQuery(summaryQuery)
   const [selected, setSelected] = useState<Contribution | null>(null)
-  const totalMinutes = contributions
-    .filter((c) => c.status !== 'rejected')
-    .reduce((sum, c) => sum + (c.durationMinutes || 0), 0)
+  const open = contributions.filter((c) => c.status === 'new' || c.status === 'needs_clarification').length
 
   return (
     <>
       <PageHeader title="Beiträge" description="Programmbeiträge der Gäste koordinieren." />
       <div className="grid gap-4 sm:grid-cols-3">
         <Stat label="Beiträge" value={contributions.length} />
-        <Stat label="Geplante Minuten" value={totalMinutes} hint="ohne abgelehnte" />
-        <Stat label="Zusagen" value={summary.attendeesAttending} hint={`von ${summary.attendeesTotal}`} />
+        <Stat label="Offen" value={open} hint="neu oder mit Rückfrage" />
+        <Stat label="Gäste" value={summary.attendeesAttending} hint="Personen mit Zusage" />
       </div>
       <div className="mt-8 grid gap-4 md:grid-cols-2">
         {contributions.length === 0 && <p className="text-muted-foreground">Noch keine Beiträge.</p>}
@@ -55,8 +53,7 @@ function WitnessDashboard() {
               </div>
               <p className="mt-2 line-clamp-2 text-sm text-muted-foreground">{c.description}</p>
               <p className="mt-3 text-xs text-muted-foreground">
-                {c.durationMinutes ? `${c.durationMinutes} Min.` : 'Dauer offen'}
-                {c.preferredTime && ` · ${c.preferredTime}`}
+                {c.contactName} · {c.phone}
               </p>
             </CardContent>
           </Card>
@@ -81,10 +78,7 @@ function ContributionDetail({ id, onClose }: { id: number; onClose: () => void }
   const onError = (e: unknown) => toast.error(errorMessage(e))
 
   const setStatus = useMutation({
-    mutationFn: (status: ContributionStatus) => {
-      const { id: _id, invitationId: _i, createdAt: _c, updatedAt: _u, notes: _n, ...rest } = data!
-      return api.put(`/contributions/${id}`, { ...rest, status })
-    },
+    mutationFn: (status: ContributionStatus) => api.put(`/contributions/${id}/status`, { status }),
     onSuccess: () => {
       invalidate()
       toast.success('Status aktualisiert.')
@@ -103,13 +97,9 @@ function ContributionDetail({ id, onClose }: { id: number; onClose: () => void }
   if (isPending || !data) return <p className="py-8 text-center text-muted-foreground">Lädt…</p>
 
   const rows: [string, string][] = [
-    ['Kategorie', data.category === 'other' ? '' : data.category],
-    ['Mitwirkende', data.participants],
-    ['Dauer', data.durationMinutes ? `${data.durationMinutes} Minuten` : ''],
-    ['Wunschzeit', data.preferredTime],
-    ['Technik', data.technicalRequirements],
-    ['Equipment', data.equipment],
-    ['Kontakt', data.contactInformation],
+    ['Von', data.contactName],
+    ['Telefon', data.phone],
+    ['Benötigt', data.needs],
   ]
 
   return (

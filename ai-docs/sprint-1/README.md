@@ -8,6 +8,7 @@ Order of work (dependencies in brackets):
 2. F-08 React frontend rewrite (supersedes F-02–F-05)
 6. F-06 Login rate limiting
 7. F-07 Integration tests for RSVP + content [F-01]
+8. F-09 One public RSVP link (replaces invitations/guests) [F-08]
 
 Every feature file has two sections:
 

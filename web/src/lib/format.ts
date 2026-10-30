@@ -15,8 +15,6 @@ export function formatDateTime(value: string | undefined): string {
 export const RSVP_STATUS_LABEL: Record<string, string> = {
   yes: 'Zusage',
   no: 'Absage',
-  maybe: 'Unsicher',
-  pending: 'Offen',
 }
 
 export const CONTRIBUTION_STATUS_LABEL: Record<string, string> = {
@@ -28,11 +26,9 @@ export const CONTRIBUTION_STATUS_LABEL: Record<string, string> = {
 }
 
 export const DIET_OPTIONS = [
-  { value: '', label: 'Keine Angabe' },
-  { value: 'omnivore', label: 'Alles' },
+  { value: 'none', label: 'Alles' },
   { value: 'vegetarian', label: 'Vegetarisch' },
   { value: 'vegan', label: 'Vegan' },
-  { value: 'pescetarian', label: 'Pescetarisch' },
   { value: 'other', label: 'Sonstiges' },
 ]
 

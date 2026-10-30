@@ -1,14 +1,14 @@
 import { queryOptions } from '@tanstack/react-query'
 import { api } from './api'
 import type {
+  AccessStatus,
   Content,
   Contribution,
   ContributionNote,
-  Guest,
-  Invitation,
+  GuestView,
   Me,
   PublicContent,
-  RsvpView,
+  ResponseWithAttendees,
   Summary,
 } from './types'
 
@@ -28,10 +28,16 @@ export const contentQuery = queryOptions({
   queryFn: () => api.get<Content>('/content'),
 })
 
+export const rsvpAccessQuery = queryOptions({
+  queryKey: ['rsvp', 'access'],
+  queryFn: () => api.get<AccessStatus>('/rsvp/access'),
+})
+
 export const rsvpQuery = (token: string) =>
   queryOptions({
     queryKey: ['rsvp', token],
-    queryFn: () => api.get<RsvpView>(`/rsvp/${encodeURIComponent(token)}`),
+    queryFn: () => api.get<GuestView>(`/rsvp/${encodeURIComponent(token)}`),
+    retry: false,
   })
 
 export const summaryQuery = queryOptions({
@@ -39,14 +45,10 @@ export const summaryQuery = queryOptions({
   queryFn: () => api.get<Summary>('/rsvp-summary'),
 })
 
-export const invitationsQuery = queryOptions({
-  queryKey: ['invitations'],
-  queryFn: async () => (await api.get<{ invitations: Invitation[] }>('/invitations')).invitations ?? [],
-})
-
-export const guestsQuery = queryOptions({
-  queryKey: ['guests'],
-  queryFn: async () => (await api.get<{ guests: Guest[] }>('/guests')).guests ?? [],
+export const responsesQuery = queryOptions({
+  queryKey: ['responses'],
+  queryFn: async () =>
+    (await api.get<{ responses: ResponseWithAttendees[] }>('/responses')).responses ?? [],
 })
 
 export const contributionsQuery = queryOptions({

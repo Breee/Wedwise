@@ -8,8 +8,6 @@ import { cn } from '@/lib/utils'
 
 const coupleLinks = [
   { to: '/couple/dashboard', label: 'Übersicht' },
-  { to: '/couple/guests', label: 'Gäste' },
-  { to: '/couple/invitations', label: 'Einladungen' },
   { to: '/couple/content', label: 'Inhalte' },
 ] as const
 
@@ -46,6 +44,11 @@ export function AppNav() {
           Unsere Hochzeit
         </Link>
         <nav className="flex items-center gap-1 text-sm">
+          {!authed && (
+            <Link to="/rsvp" className="rounded-md px-3 py-2 text-muted-foreground transition-colors hover:text-foreground data-[status=active]:text-foreground">
+              Rückmeldung
+            </Link>
+          )}
           {authed &&
             links.map((l) => (
               <Link

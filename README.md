@@ -1,10 +1,9 @@
 # Wedwise
 
 Wedwise is a self-hosted, open-source wedding website application. It gives
-couples a single place to publish their wedding story, collect RSVPs, manage
-their guest list, share invitations, and (optionally) accept contributions —
-all from a lightweight Go backend with an embedded SQLite database and a Vue
-frontend. It ships as a single container image, so it's easy to run on your
+couples a single place to publish their wedding story, collect RSVPs through
+one shared link, and let guests offer program contributions — all from a
+lightweight Go backend with an embedded SQLite database and a React frontend. It ships as a single container image, so it's easy to run on your
 own server, NAS, or Kubernetes cluster without depending on third-party SaaS
 tools.
 
@@ -14,16 +13,18 @@ tools.
   content driven by a simple YAML configuration file.
 - 🎨 **Theming** — swap colors, typography, and spacing via YAML theme files
   (see `themes/`), no rebuild required.
-- 💌 **Invitations & RSVP** — send personalized invitation links and collect
-  structured RSVP responses (attendance, meal choices, plus-ones, notes).
-- 👥 **Guest management** — track guests, households, and invitation status
-  from an admin interface.
-- 🎁 **Contributions** — optional gift/contribution tracking module.
+- 💌 **One RSVP link** — no personalized invitations: guests open `/rsvp`,
+  optionally enter a shared access code, and respond per household
+  (attendance, meal choices, allergies, children, notes). Each response gets a
+  private edit link.
+- 🎁 **Contributions** — guests can offer a program contribution (what, what
+  they need, phone number, ~15 min limit) in the same form. Only witnesses see
+  these; the couple only ever sees attendance and food.
 - 🔐 **Authentication** — session-based auth with an admin CLI for user
   management, no external identity provider required.
 - 🗄️ **SQLite storage** — zero-dependency embedded database; back up by
   copying a single file.
-- 📦 **Single binary / single container** — the Vue frontend is built and
+- 📦 **Single binary / single container** — the React frontend is built and
   embedded into the Go binary, producing one deployable artifact.
 
 ## Quick Start (Docker)
@@ -106,8 +107,11 @@ variables, not committed to the config file.
 - Sessions are HttpOnly, SameSite=Lax cookies (Secure when `ENVIRONMENT=production`);
   state-changing requests are checked against the `Origin`/`Referer` header.
 - `POST /api/auth/login` is limited to 10 requests per client IP and minute,
-  the public RSVP token endpoints (`/api/rsvp/{token}*`) to 30. Exceeding the
-  limit returns `429` with a `Retry-After` header.
+  the public RSVP endpoints (unlock, submit, read/update by edit token) to 30.
+  Exceeding the limit returns `429` with a `Retry-After` header.
+- Optionally protect the RSVP form with a shared code: set `RSVP_ACCESS_CODE`
+  (or `rsvpAccessCode`). A successful unlock sets an HttpOnly cookie signed
+  with `SESSION_SECRET` (which must then be at least 16 characters).
 - Client IPs are taken from the TCP connection. Behind a reverse proxy set
   `TRUST_PROXY_HEADERS=true` (or `trustProxyHeaders: true`) so the last
   `X-Forwarded-For` hop is used instead. Do not enable it without a proxy, as
@@ -142,14 +146,14 @@ commands and flags.
 
 | Role | Permissions |
 |------|-------------|
-| `couple` | content read/write, guest read/write, invitation read/write, RSVP read/manage |
-| `witness` | contribution read/manage, RSVP read, guest read, invitation read |
-| `admin` | user read/manage, content read/write, guest read/write, invitation read/write, RSVP read/manage |
+| `couple` | content read/write, RSVP read |
+| `witness` | contribution read/manage, RSVP read |
+| `admin` | user read/manage, content read/write, RSVP read |
 
 Contributions are surprises for the couple: neither the `couple` nor the
-`admin` role can read or manage them — only witnesses can. Guests submit
-contributions through their personal RSVP link, and the RSVP summary
-deliberately contains no contribution data.
+`admin` role can read or manage them — only witnesses can. Guests offer
+contributions as part of their RSVP, and the response list and summary
+deliberately contain no contribution data.
 
 ## Kubernetes Deployment
 

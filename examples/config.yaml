@@ -9,6 +9,9 @@ themePath: "/config/theme.yaml"
 # Set to true only when a reverse proxy in front of Wedwise sets X-Forwarded-For;
 # used for rate limiting by client IP. Env: TRUST_PROXY_HEADERS=true
 trustProxyHeaders: false
+# Optional shared code guests must enter before the RSVP form opens.
+# Requires SESSION_SECRET (>= 16 chars). Env: RSVP_ACCESS_CODE
+# rsvpAccessCode: "waldsee2027"
 
 event:
   title: "Alex & Sam's Wedding"

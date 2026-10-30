@@ -73,80 +73,80 @@ export interface PublicContent {
   content: Content
 }
 
-export type RsvpStatus = 'yes' | 'no' | 'maybe' | 'pending'
+export type RsvpStatus = 'yes' | 'no'
+
+export type Diet = 'none' | 'vegetarian' | 'vegan' | 'other'
 
 export interface Attendee {
   id?: number
   name: string
-  attending: boolean
   isChild: boolean
-  diet: string
+  diet: Diet | ''
   allergies: string
-  notes: string
 }
 
-export interface RsvpView {
-  invitation: { name: string; maxGuests: number; token: string }
-  status: RsvpStatus
-  message: string
-  attendees: Attendee[]
-  submitted: boolean
+export interface ContributionRequest {
+  title: string
+  description: string
+  needs: string
+  phone: string
 }
 
 export interface RsvpSubmit {
+  contactName: string
+  email: string
+  phone: string
   status: RsvpStatus
   message: string
   attendees: Omit<Attendee, 'id'>[]
+  contribution: ContributionRequest | null
+}
+
+export interface Response {
+  id: number
+  contactName: string
+  email: string
+  phone: string
+  status: RsvpStatus
+  message: string
+  submittedAt: string
+  updatedAt: string
+}
+
+export interface GuestView extends Response {
+  editToken: string
+  attendees: Attendee[]
+  contribution: ContributionRequest | null
+}
+
+export interface ResponseWithAttendees extends Response {
+  attendees: Attendee[]
+}
+
+export interface AccessStatus {
+  required: boolean
+  unlocked: boolean
 }
 
 export interface Summary {
-  invitations: number
-  activeInvitations: number
-  respondedInvitations: number
+  responses: number
   statusCounts: Record<string, number>
-  attendeesTotal: number
   attendeesAttending: number
   children: number
   dietCounts: Record<string, number>
-  allergies: string[]
-}
-
-export interface Invitation {
-  id: number
-  name: string
-  token: string
-  maxGuests: number
-  active: boolean
-  isPublic: boolean
-  createdAt: string
-  updatedAt: string
-  url?: string
-}
-
-export interface Guest {
-  id: number
-  displayName: string
-  email: string
-  invitationId: number
-  notes: string
-  createdAt: string
-  updatedAt: string
+  allergies: { name: string; allergies: string }[]
 }
 
 export type ContributionStatus = 'new' | 'needs_clarification' | 'planning' | 'confirmed' | 'rejected'
 
 export interface Contribution {
   id: number
-  invitationId: number
+  responseId: number
+  contactName: string
   title: string
-  category: string
   description: string
-  participants: string
-  durationMinutes: number
-  technicalRequirements: string
-  equipment: string
-  preferredTime: string
-  contactInformation: string
+  needs: string
+  phone: string
   status: ContributionStatus
   createdAt: string
   updatedAt: string
@@ -158,8 +158,4 @@ export interface ContributionNote {
   authorUserId: number
   text: string
   createdAt: string
-}
-
-export type ContributionRequest = Omit<Contribution, 'id' | 'invitationId' | 'createdAt' | 'updatedAt' | 'status'> & {
-  status?: ContributionStatus
 }
