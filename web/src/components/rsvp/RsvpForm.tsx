@@ -1,11 +1,11 @@
 import { useState } from 'react'
-import { createFileRoute, useNavigate } from '@tanstack/react-router'
-import { useMutation, useQuery, useQueryClient, useSuspenseQuery } from '@tanstack/react-query'
+import { useNavigate } from '@tanstack/react-router'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion, AnimatePresence } from 'motion/react'
-import { CheckCircle2, Clock, Copy, Lock, Minus, Music, Plus } from 'lucide-react'
+import { CheckCircle2, Clock, Copy, Minus, Music, Plus } from 'lucide-react'
 import { toast } from 'sonner'
 import { api, errorMessage } from '@/lib/api'
-import { rsvpAccessQuery, rsvpQuery } from '@/lib/queries'
+import { rsvpQuery } from '@/lib/queries'
 import { DIET_OPTIONS } from '@/lib/format'
 import type { Attendee, ContributionRequest, GuestView, RsvpStatus, RsvpSubmit } from '@/lib/types'
 import { Button } from '@/components/ui/button'
@@ -20,101 +20,28 @@ import { Separator } from '@/components/ui/separator'
 
 const MAX_ATTENDEES = 10
 
-export const Route = createFileRoute('/rsvp')({
-  validateSearch: (search: Record<string, unknown>): { token?: string } => ({
-    token: typeof search.token === 'string' && search.token ? search.token : undefined,
-  }),
-  loader: ({ context }) => context.queryClient.ensureQueryData(rsvpAccessQuery),
-  component: RsvpPage,
-})
-
-function RsvpPage() {
-  const { data: access } = useSuspenseQuery(rsvpAccessQuery)
-  const { token } = Route.useSearch()
-  const [done, setDone] = useState<GuestView | null>(null)
-
+export function RsvpHeader() {
   return (
-    <section className="mx-auto max-w-2xl px-6 py-16">
-      <div className="mb-10 text-center">
-        <p className="text-xs font-medium tracking-[0.35em] text-primary uppercase">Rückmeldung</p>
-        <h1 className="mt-3 text-5xl">Seid ihr dabei?</h1>
-        <p className="mt-3 text-muted-foreground">Wir freuen uns auf eure Antwort.</p>
-      </div>
-      {access.required && !access.unlocked ? (
-        <AccessGate />
-      ) : done ? (
-        <Done view={done} onEdit={() => setDone(null)} />
-      ) : token ? (
-        <ExistingResponse token={token} onDone={setDone} />
-      ) : (
-        <RsvpForm onDone={setDone} />
-      )}
-    </section>
+    <div className="mb-10 text-center">
+      <p className="text-xs font-medium tracking-[0.35em] text-primary uppercase">Rückmeldung</p>
+      <h1 className="mt-3 text-5xl">Seid ihr dabei?</h1>
+      <p className="mt-3 text-muted-foreground">Wir freuen uns auf eure Antwort.</p>
+    </div>
   )
 }
 
-function AccessGate() {
-  const queryClient = useQueryClient()
-  const [code, setCode] = useState('')
-  const unlock = useMutation({
-    mutationFn: () => api.post('/rsvp/unlock', { code }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['rsvp', 'access'] }),
-    onError: (e) => toast.error(errorMessage(e, 'Der Code ist leider nicht richtig.')),
-  })
-
-  return (
-    <motion.form
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      onSubmit={(e) => {
-        e.preventDefault()
-        unlock.mutate()
-      }}
-    >
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Lock className="size-5 text-primary" /> Zugangscode
-          </CardTitle>
-          <CardDescription>Den Code findet ihr auf eurer Einladung.</CardDescription>
-        </CardHeader>
-        <CardContent className="flex gap-3">
-          <Input value={code} onChange={(e) => setCode(e.target.value)} autoFocus autoComplete="off" required />
-          <Button type="submit" disabled={unlock.isPending || !code.trim()}>
-            Weiter
-          </Button>
-        </CardContent>
-      </Card>
-    </motion.form>
-  )
-}
-
-type FormProps = { initial?: GuestView; onDone: (view: GuestView) => void }
-
-function ExistingResponse({ token, onDone }: { token: string; onDone: FormProps['onDone'] }) {
-  const { data, isPending, error } = useQuery(rsvpQuery(token))
-  if (isPending) return <p className="text-center text-muted-foreground">Lädt…</p>
-  if (error || !data) {
-    return (
-      <Card className="text-center">
-        <CardContent className="space-y-4 py-10">
-          <p className="text-muted-foreground">
-            {errorMessage(error, 'Dieser Bearbeitungslink ist ungültig.')}
-          </p>
-          <Button variant="outline" onClick={() => (window.location.href = '/rsvp')}>
-            Neue Antwort abgeben
-          </Button>
-        </CardContent>
-      </Card>
-    )
-  }
-  return <RsvpForm initial={data} onDone={onDone} />
+export type FormProps = {
+  /** Existing response to edit. */
+  initial?: GuestView
+  /** Invite link token used for new responses. */
+  link?: string
+  onDone: (view: GuestView) => void
 }
 
 const newAttendee = (name = ''): Attendee => ({ name, isChild: false, diet: 'none', allergies: '' })
 const emptyContribution: ContributionRequest = { title: '', description: '', needs: '', phone: '' }
 
-function RsvpForm({ initial, onDone }: FormProps) {
+export function RsvpForm({ initial, link, onDone }: FormProps) {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
 
@@ -142,7 +69,7 @@ function RsvpForm({ initial, onDone }: FormProps) {
       }
       return initial
         ? api.put<GuestView>(`/rsvp/${encodeURIComponent(initial.editToken)}`, body)
-        : api.post<GuestView>('/rsvp', body)
+        : api.post<GuestView>(`/rsvp/links/${encodeURIComponent(link ?? '')}`, body)
     },
     onSuccess: (view) => {
       queryClient.setQueryData(rsvpQuery(view.editToken).queryKey, view)
@@ -338,7 +265,7 @@ function RsvpForm({ initial, onDone }: FormProps) {
   )
 }
 
-function Done({ view, onEdit }: { view: GuestView; onEdit: () => void }) {
+export function Done({ view, onEdit }: { view: GuestView; onEdit: () => void }) {
   const editUrl = `${window.location.origin}/rsvp?token=${encodeURIComponent(view.editToken)}`
   return (
     <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }}>

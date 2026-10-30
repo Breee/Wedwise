@@ -9,6 +9,7 @@ Order of work (dependencies in brackets):
 6. F-06 Login rate limiting
 7. F-07 Integration tests for RSVP + content [F-01]
 8. F-09 One public RSVP link (replaces invitations/guests) [F-08]
+9. F-10 Invite links with optional PIN (replaces access code) [F-09]
 
 Every feature file has two sections:
 

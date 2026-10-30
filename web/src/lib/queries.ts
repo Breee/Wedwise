@@ -1,11 +1,12 @@
 import { queryOptions } from '@tanstack/react-query'
 import { api } from './api'
 import type {
-  AccessStatus,
   Content,
   Contribution,
   ContributionNote,
   GuestView,
+  InviteLink,
+  InviteLinkStatus,
   Me,
   PublicContent,
   ResponseWithAttendees,
@@ -28,9 +29,16 @@ export const contentQuery = queryOptions({
   queryFn: () => api.get<Content>('/content'),
 })
 
-export const rsvpAccessQuery = queryOptions({
-  queryKey: ['rsvp', 'access'],
-  queryFn: () => api.get<AccessStatus>('/rsvp/access'),
+export const inviteLinkQuery = (link: string) =>
+  queryOptions({
+    queryKey: ['rsvp', 'links', link],
+    queryFn: () => api.get<InviteLinkStatus>(`/rsvp/links/${encodeURIComponent(link)}`),
+    retry: false,
+  })
+
+export const inviteLinksQuery = queryOptions({
+  queryKey: ['invite-links'],
+  queryFn: async () => (await api.get<{ links: InviteLink[] }>('/invite-links')).links ?? [],
 })
 
 export const rsvpQuery = (token: string) =>

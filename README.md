@@ -2,7 +2,7 @@
 
 Wedwise is a self-hosted, open-source wedding website application. It gives
 couples a single place to publish their wedding story, collect RSVPs through
-one shared link, and let guests offer program contributions — all from a
+shareable invite links, and let guests offer program contributions — all from a
 lightweight Go backend with an embedded SQLite database and a React frontend. It ships as a single container image, so it's easy to run on your
 own server, NAS, or Kubernetes cluster without depending on third-party SaaS
 tools.
@@ -13,10 +13,10 @@ tools.
   content driven by a simple YAML configuration file.
 - 🎨 **Theming** — swap colors, typography, and spacing via YAML theme files
   (see `themes/`), no rebuild required.
-- 💌 **One RSVP link** — no personalized invitations: guests open `/rsvp`,
-  optionally enter a shared access code, and respond per household
-  (attendance, meal choices, allergies, children, notes). Each response gets a
-  private edit link.
+- 💌 **Invite links** — no personalized invitations: create one or more
+  links in the couple area (optionally PIN-protected), share them, and guests
+  respond per household at `/rsvp/<token>`. Every response gets a private
+  edit link.
 - 🎁 **Contributions** — guests can offer a program contribution (what, what
   they need, phone number, ~15 min limit) in the same form. Only witnesses see
   these; the couple only ever sees attendance and food.
@@ -109,9 +109,10 @@ variables, not committed to the config file.
 - `POST /api/auth/login` is limited to 10 requests per client IP and minute,
   the public RSVP endpoints (unlock, submit, read/update by edit token) to 30.
   Exceeding the limit returns `429` with a `Retry-After` header.
-- Optionally protect the RSVP form with a shared code: set `RSVP_ACCESS_CODE`
-  (or `rsvpAccessCode`). A successful unlock sets an HttpOnly cookie signed
-  with `SESSION_SECRET` (which must then be at least 16 characters).
+- Invite links can carry a PIN (stored as an argon2id hash). A successful
+  unlock sets an HttpOnly cookie signed with `SESSION_SECRET` (at least
+  16 characters, required); changing the PIN invalidates existing cookies.
+  Inactive or unknown links answer `404`.
 - Client IPs are taken from the TCP connection. Behind a reverse proxy set
   `TRUST_PROXY_HEADERS=true` (or `trustProxyHeaders: true`) so the last
   `X-Forwarded-For` hop is used instead. Do not enable it without a proxy, as
@@ -146,9 +147,9 @@ commands and flags.
 
 | Role | Permissions |
 |------|-------------|
-| `couple` | content read/write, RSVP read |
+| `couple` | content read/write, RSVP read, invite links |
 | `witness` | contribution read/manage, RSVP read |
-| `admin` | user read/manage, content read/write, RSVP read |
+| `admin` | user read/manage, content read/write, RSVP read, invite links |
 
 Contributions are surprises for the couple: neither the `couple` nor the
 `admin` role can read or manage them — only witnesses can. Guests offer

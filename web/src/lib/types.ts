@@ -123,9 +123,19 @@ export interface ResponseWithAttendees extends Response {
   attendees: Attendee[]
 }
 
-export interface AccessStatus {
-  required: boolean
+export interface InviteLinkStatus {
+  pinRequired: boolean
   unlocked: boolean
+}
+
+export interface InviteLink {
+  id: number
+  token: string
+  hasPin: boolean
+  active: boolean
+  responses: number
+  createdAt: string
+  updatedAt: string
 }
 
 export interface Summary {
