@@ -41,6 +41,13 @@ up:
 	@for r in admin couple witness; do \
 		docker compose exec -T wedwise /app/wedding user create --username $$r --role $$r --email $$r@example.com --password $${r}12345 >/dev/null 2>&1 || true; \
 	done
+	@if curl -sf localhost:8080/api/content/public | grep -q '"schedule":\(null\|\[\]\)'; then \
+		curl -sf -c /tmp/wedwise.cookies -H 'Origin: http://localhost:8080' -H 'Content-Type: application/json' \
+			-d '{"username":"admin","password":"admin12345"}' localhost:8080/api/auth/login >/dev/null && \
+		curl -sf -b /tmp/wedwise.cookies -X PUT -H 'Origin: http://localhost:8080' -H 'Content-Type: application/json' \
+			--data @local/content.json localhost:8080/api/content >/dev/null && echo "Seeded content from local/content.json"; \
+		rm -f /tmp/wedwise.cookies; \
+	fi
 	@echo "Wedwise: http://localhost:8080 — users: admin/admin12345, couple/couple12345, witness/witness12345"
 
 down:

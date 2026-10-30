@@ -14,7 +14,7 @@ services:
       SESSION_SECRET: "${SESSION_SECRET:-local-dev-secret-change-me-32-bytes!!}"
     volumes:
       - wedwise-data:/data
-      - ./examples:/config:ro
+      - ./local:/config:ro
 
 volumes:
   wedwise-data:
