@@ -462,6 +462,190 @@ func TestRSVPSubmission(t *testing.T) {
 		body, _ := io.ReadAll(putResp.Body)
 		t.Fatalf("PUT /api/rsvp/:token: expected 200, got %d, body: %s", putResp.StatusCode, body)
 	}
+
+	// Read back and verify persistence
+	readResp := app.do("GET", "/api/rsvp/"+inv.Token, nil, nil)
+	defer readResp.Body.Close()
+	var view struct {
+		Status    string `json:"status"`
+		Message   string `json:"message"`
+		Submitted bool   `json:"submitted"`
+		Attendees []struct {
+			Name string `json:"name"`
+			Diet string `json:"diet"`
+		} `json:"attendees"`
+	}
+	if err := json.NewDecoder(readResp.Body).Decode(&view); err != nil {
+		t.Fatalf("decode rsvp view: %v", err)
+	}
+	if view.Status != "yes" || view.Message != "So excited!" || !view.Submitted {
+		t.Fatalf("rsvp not persisted: %+v", view)
+	}
+	if len(view.Attendees) != 2 || view.Attendees[0].Name != "Jane Smith" || view.Attendees[0].Diet != "vegetarian" {
+		t.Fatalf("attendees not persisted: %+v", view.Attendees)
+	}
+}
+
+// TestRSVPValidation checks that invalid RSVP payloads are rejected.
+func TestRSVPValidation(t *testing.T) {
+	app, dbPath := newTestAppWithUsers(t)
+	token, _ := createInvitationAndContribution(t, app, dbPath)
+
+	cases := []struct {
+		name string
+		body map[string]any
+	}{
+		{"invalid status", map[string]any{"status": "perhaps", "attendees": []map[string]any{}}},
+		{"too many attendees", map[string]any{"status": "yes", "attendees": []map[string]any{
+			{"name": "A", "attending": true}, {"name": "B", "attending": true}, {"name": "C", "attending": true},
+		}}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			resp := app.do("PUT", "/api/rsvp/"+token, tc.body, nil)
+			defer resp.Body.Close()
+			if resp.StatusCode != http.StatusBadRequest {
+				body, _ := io.ReadAll(resp.Body)
+				t.Fatalf("expected 400, got %d, body: %s", resp.StatusCode, body)
+			}
+		})
+	}
+
+	resp := app.do("PUT", "/api/rsvp/invalid-token-that-does-not-exist", map[string]any{"status": "yes"}, nil)
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusNotFound {
+		t.Fatalf("PUT with invalid token: expected 404, got %d", resp.StatusCode)
+	}
+}
+
+// TestPublicContentShape ensures the public content endpoint exposes event and content.
+func TestPublicContentShape(t *testing.T) {
+	app, _ := newTestAppWithUsers(t)
+
+	resp := app.do("GET", "/api/content/public", nil, nil)
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("GET /api/content/public: expected 200, got %d", resp.StatusCode)
+	}
+	var body map[string]json.RawMessage
+	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
+		t.Fatalf("decode public content: %v", err)
+	}
+	for _, key := range []string{"event", "content"} {
+		if _, ok := body[key]; !ok {
+			t.Fatalf("public content missing %q key: %v", key, body)
+		}
+	}
+	var content struct {
+		Schedule []any `json:"schedule"`
+		FAQ      []any `json:"faq"`
+	}
+	if err := json.Unmarshal(body["content"], &content); err != nil {
+		t.Fatalf("decode content: %v", err)
+	}
+	if content.Schedule == nil || content.FAQ == nil {
+		t.Fatalf("schedule and faq must be arrays, got %s", body["content"])
+	}
+}
+
+func validContent() map[string]any {
+	return map[string]any{
+		"hero":         map[string]any{"headline": "Wir heiraten"},
+		"introduction": map[string]any{"text": "Herzlich willkommen"},
+		"location":     map[string]any{"name": "Waldsee", "navigationUrl": "https://maps.example.com"},
+		"schedule": []map[string]any{
+			{"time": "14:00", "title": "Ankunft"},
+			{"time": "14:30", "title": "Trauung"},
+		},
+		"faq": []map[string]any{{"question": "Dresscode?", "answer": "Festlich"}},
+	}
+}
+
+// TestContentUpdate_Couple verifies the couple can replace content and it becomes public.
+func TestContentUpdate_Couple(t *testing.T) {
+	app, _ := newTestAppWithUsers(t)
+	cookie, _ := app.login("couple_user", "TestPass123!")
+
+	resp := app.do("PUT", "/api/content", validContent(), cookie)
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		t.Fatalf("PUT /api/content: expected 200, got %d, body: %s", resp.StatusCode, body)
+	}
+
+	pub := app.do("GET", "/api/content/public", nil, nil)
+	defer pub.Body.Close()
+	var body struct {
+		Content struct {
+			Introduction struct {
+				Text string `json:"text"`
+			} `json:"introduction"`
+			Schedule []struct {
+				Title string `json:"title"`
+				Order int    `json:"order"`
+			} `json:"schedule"`
+		} `json:"content"`
+	}
+	if err := json.NewDecoder(pub.Body).Decode(&body); err != nil {
+		t.Fatalf("decode public content: %v", err)
+	}
+	if body.Content.Introduction.Text != "Herzlich willkommen" {
+		t.Fatalf("introduction not updated: %q", body.Content.Introduction.Text)
+	}
+	if len(body.Content.Schedule) != 2 || body.Content.Schedule[1].Title != "Trauung" || body.Content.Schedule[1].Order != 2 {
+		t.Fatalf("schedule not persisted in order: %+v", body.Content.Schedule)
+	}
+}
+
+// TestContentUpdate_Forbidden verifies only content writers can update content.
+func TestContentUpdate_Forbidden(t *testing.T) {
+	app, _ := newTestAppWithUsers(t)
+
+	witnessCookie, _ := app.login("witness_user", "TestPass123!")
+	resp := app.do("PUT", "/api/content", validContent(), witnessCookie)
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusForbidden {
+		t.Fatalf("witness PUT /api/content: expected 403, got %d", resp.StatusCode)
+	}
+
+	anon := app.do("PUT", "/api/content", validContent(), nil)
+	defer anon.Body.Close()
+	if anon.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("anonymous PUT /api/content: expected 401, got %d", anon.StatusCode)
+	}
+}
+
+// TestContentUpdate_Validation verifies invalid content is rejected with 400.
+func TestContentUpdate_Validation(t *testing.T) {
+	app, _ := newTestAppWithUsers(t)
+	cookie, _ := app.login("couple_user", "TestPass123!")
+
+	cases := []struct {
+		name   string
+		mutate func(c map[string]any)
+	}{
+		{"schedule without title", func(c map[string]any) {
+			c["schedule"] = []map[string]any{{"time": "14:00", "title": "   "}}
+		}},
+		{"faq without question", func(c map[string]any) {
+			c["faq"] = []map[string]any{{"question": "", "answer": "x"}}
+		}},
+		{"non-http navigation url", func(c map[string]any) {
+			c["location"] = map[string]any{"navigationUrl": "javascript:alert(1)"}
+		}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			content := validContent()
+			tc.mutate(content)
+			resp := app.do("PUT", "/api/content", content, cookie)
+			defer resp.Body.Close()
+			if resp.StatusCode != http.StatusBadRequest {
+				body, _ := io.ReadAll(resp.Body)
+				t.Fatalf("expected 400, got %d, body: %s", resp.StatusCode, body)
+			}
+		})
+	}
 }
 
 // TestContributionSubmissionViaToken ensures guests can submit contributions.

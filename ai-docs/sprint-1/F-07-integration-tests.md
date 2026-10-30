@@ -9,7 +9,7 @@ Only `internal/auth` has tests. The most important guest-facing flows (RSVP by t
 - Run in < 5 s, no network, no Node.
 
 ## DONE
-- [ ] `internal/server`: RSVP get/put by token, invalid token → 404, contribution add.
-- [ ] `internal/server`: `GET /content/public` shape (`event` + `content`), `PUT /content` as couple ok, as witness → 403, invalid schedule → 400.
-- [ ] `go test ./...` green (depends on F-01).
-- [ ] `progress.md` updated.
+- [x] `internal/server`: RSVP get/put by token, invalid token → 404, contribution add.
+- [x] `internal/server`: `GET /content/public` shape (`event` + `content`), `PUT /content` as couple ok, as witness → 403, invalid schedule → 400.
+- [x] `go test ./...` green (depends on F-01).
+- [x] `progress.md` updated.
