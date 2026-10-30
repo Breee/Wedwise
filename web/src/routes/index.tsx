@@ -78,7 +78,7 @@ function HomePage() {
                 transition={{ delay: i * 0.05 }}
                 className="relative pb-10 last:pb-0"
               >
-                <span className="absolute top-1.5 -left-[calc(2rem+0.375rem+0.5px)] size-3 rounded-full border-2 border-gold bg-background" />
+                <span className="absolute top-1.5 -left-[calc(2rem_+_0.375rem_+_0.5px)] size-3 rounded-full border-2 border-gold bg-background" />
                 <p className="font-display text-2xl text-primary">{entry.time}</p>
                 <h3 className="mt-1 text-xl font-medium">{entry.title}</h3>
                 {entry.description && <p className="mt-1 text-muted-foreground">{entry.description}</p>}
