@@ -22,6 +22,8 @@ func TestRolePermissions(t *testing.T) {
 	}{
 		{RoleCouple, PermContentWrite, true},
 		{RoleCouple, PermRSVPRead, true},
+		{RoleCouple, PermInviteManage, true},
+		{RoleWitness, PermInviteManage, false},
 		{RoleCouple, PermUserManage, false},
 		{RoleWitness, PermContributionManage, true},
 		{RoleWitness, PermContentWrite, false},

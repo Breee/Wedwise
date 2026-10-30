@@ -8,19 +8,24 @@ import (
 
 	"github.com/Breee/Wedwise/internal/contributions"
 	"github.com/Breee/Wedwise/internal/httpx"
+	"github.com/Breee/Wedwise/internal/invites"
 )
+
+// CodeInvalidPIN is the error code for a wrong or missing invite PIN.
+const CodeInvalidPIN = "invalid_pin"
 
 // Handler exposes the public RSVP endpoints and the protected response
 // overview for the couple.
 type Handler struct {
 	store         *Store
 	contributions *contributions.Store
-	access        *Access
+	links         *invites.Store
+	gate          *invites.Gate
 }
 
 // NewHandler creates an RSVP handler.
-func NewHandler(store *Store, contributionStore *contributions.Store, access *Access) *Handler {
-	return &Handler{store: store, contributions: contributionStore, access: access}
+func NewHandler(store *Store, contributionStore *contributions.Store, links *invites.Store, gate *invites.Gate) *Handler {
+	return &Handler{store: store, contributions: contributionStore, links: links, gate: gate}
 }
 
 type attendeeRequest struct {
@@ -59,7 +64,7 @@ func (req submitRequest) toParams() SubmitParams {
 }
 
 type unlockRequest struct {
-	Code string `json:"code"`
+	PIN string `json:"pin"`
 }
 
 // guestView is what a guest sees of their own response. It includes the
@@ -76,18 +81,18 @@ type coupleView struct {
 	Attendees []Attendee `json:"attendees"`
 }
 
-// PublicRoutes returns the guest facing routes. submitMiddlewares are applied
-// to the unlock and submit endpoints (e.g. rate limiting).
-func (h *Handler) PublicRoutes(submitMiddlewares ...func(http.Handler) http.Handler) http.Handler {
+// PublicRoutes returns the guest facing routes. Guests open the form through
+// an invite link (/links/{link}) and later edit their response through the
+// edit token they received (/{token}). middlewares (e.g. rate limiting) are
+// applied to every route.
+func (h *Handler) PublicRoutes(middlewares ...func(http.Handler) http.Handler) http.Handler {
 	r := chi.NewRouter()
-	r.Get("/access", h.accessStatus)
-	r.With(submitMiddlewares...).Post("/unlock", h.unlock)
-	r.Group(func(g chi.Router) {
-		g.Use(h.access.Require)
-		g.With(submitMiddlewares...).Post("/", h.create)
-		g.With(submitMiddlewares...).Get("/{token}", h.get)
-		g.With(submitMiddlewares...).Put("/{token}", h.update)
-	})
+	r.Use(middlewares...)
+	r.Get("/links/{link}", h.linkStatus)
+	r.Post("/links/{link}/unlock", h.unlock)
+	r.Post("/links/{link}", h.create)
+	r.Get("/{token}", h.get)
+	r.Put("/{token}", h.update)
 	return r
 }
 
@@ -128,31 +133,62 @@ func (h *Handler) ListHandler(w http.ResponseWriter, r *http.Request) {
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{"responses": views})
 }
 
-func (h *Handler) accessStatus(w http.ResponseWriter, r *http.Request) {
+// activeLink resolves the invite link from the URL; inactive or unknown links
+// are reported as not found so they cannot be told apart.
+func (h *Handler) activeLink(w http.ResponseWriter, r *http.Request) (invites.Link, bool) {
+	link, err := h.links.GetByToken(r.Context(), chi.URLParam(r, "link"))
+	if errors.Is(err, invites.ErrNotFound) || (err == nil && !link.Active) {
+		httpx.NotFound(w, "This invite link is not valid.")
+		return invites.Link{}, false
+	}
+	if err != nil {
+		httpx.Internal(w, err)
+		return invites.Link{}, false
+	}
+	return link, true
+}
+
+func (h *Handler) linkStatus(w http.ResponseWriter, r *http.Request) {
+	link, ok := h.activeLink(w, r)
+	if !ok {
+		return
+	}
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{
-		"required": h.access.Required(),
-		"unlocked": h.access.Unlocked(r),
+		"pinRequired": link.HasPIN,
+		"unlocked":    h.gate.Unlocked(r, link),
 	})
 }
 
 func (h *Handler) unlock(w http.ResponseWriter, r *http.Request) {
+	link, ok := h.activeLink(w, r)
+	if !ok {
+		return
+	}
 	var req unlockRequest
 	if !httpx.DecodeJSON(w, r, &req) {
 		return
 	}
-	if !h.access.Unlock(w, req.Code) {
-		httpx.WriteError(w, http.StatusUnauthorized, CodeInvalidAccessCode, "The access code is not correct.")
+	if !h.gate.Unlock(w, link, req.PIN) {
+		httpx.WriteError(w, http.StatusUnauthorized, CodeInvalidPIN, "The PIN is not correct.")
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
 }
 
 func (h *Handler) create(w http.ResponseWriter, r *http.Request) {
+	link, ok := h.activeLink(w, r)
+	if !ok {
+		return
+	}
+	if !h.gate.Unlocked(r, link) {
+		httpx.WriteError(w, http.StatusUnauthorized, CodeInvalidPIN, "Please enter the PIN first.")
+		return
+	}
 	var req submitRequest
 	if !httpx.DecodeJSON(w, r, &req) {
 		return
 	}
-	response, token, err := h.store.Create(r.Context(), req.toParams())
+	response, token, err := h.store.Create(r.Context(), link.ID, req.toParams())
 	if err != nil {
 		h.writeError(w, err)
 		return

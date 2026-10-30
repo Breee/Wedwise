@@ -59,8 +59,6 @@ type Config struct {
 	// TrustProxyHeaders enables X-Forwarded-For for client IP detection. Only
 	// enable when a reverse proxy in front of the app sets the header.
 	TrustProxyHeaders bool `yaml:"trustProxyHeaders" json:"trustProxyHeaders"`
-	// RSVPAccessCode protects the public RSVP form. Empty means open access.
-	RSVPAccessCode string `yaml:"rsvpAccessCode" json:"-"`
 
 	Event EventConfig `yaml:"event" json:"event"`
 
@@ -144,14 +142,13 @@ func Load(path string) (Config, error) {
 
 func applyEnv(cfg *Config) {
 	overrides := map[string]*string{
-		"LISTEN_ADDRESS":   &cfg.ListenAddress,
-		"DATABASE_PATH":    &cfg.DatabasePath,
-		"BASE_URL":         &cfg.BaseURL,
-		"SESSION_SECRET":   &cfg.SessionSecret,
-		"RSVP_ACCESS_CODE": &cfg.RSVPAccessCode,
-		"CONFIG_PATH":      &cfg.ConfigPath,
-		"THEME_PATH":       &cfg.ThemePath,
-		"ENVIRONMENT":      &cfg.Environment,
+		"LISTEN_ADDRESS": &cfg.ListenAddress,
+		"DATABASE_PATH":  &cfg.DatabasePath,
+		"BASE_URL":       &cfg.BaseURL,
+		"SESSION_SECRET": &cfg.SessionSecret,
+		"CONFIG_PATH":    &cfg.ConfigPath,
+		"THEME_PATH":     &cfg.ThemePath,
+		"ENVIRONMENT":    &cfg.Environment,
 	}
 	for key, target := range overrides {
 		if value, ok := os.LookupEnv(key); ok && value != "" {
@@ -171,8 +168,8 @@ func (c Config) Validate() error {
 	if c.DatabasePath == "" {
 		return errors.New("databasePath must not be empty")
 	}
-	if c.RSVPAccessCode != "" && len(c.SessionSecret) < 16 {
-		return errors.New("sessionSecret must be at least 16 characters when rsvpAccessCode is set")
+	if len(c.SessionSecret) < 16 {
+		return errors.New("sessionSecret must be at least 16 characters")
 	}
 	return nil
 }

@@ -108,7 +108,7 @@ func (p *SubmitParams) normalize() error {
 }
 
 // Create stores a new response and returns it together with its edit token.
-func (s *Store) Create(ctx context.Context, params SubmitParams) (Response, string, error) {
+func (s *Store) Create(ctx context.Context, inviteLinkID int64, params SubmitParams) (Response, string, error) {
 	if err := params.normalize(); err != nil {
 		return Response{}, "", err
 	}
@@ -125,9 +125,9 @@ func (s *Store) Create(ctx context.Context, params SubmitParams) (Response, stri
 
 	now := time.Now().UTC()
 	res, err := tx.ExecContext(ctx,
-		`INSERT INTO responses (edit_token, contact_name, email, phone, status, message, submitted_at, updated_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-		token, params.ContactName, params.Email, params.Phone, params.Status, params.Message, now, now)
+		`INSERT INTO responses (invite_link_id, edit_token, contact_name, email, phone, status, message, submitted_at, updated_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		inviteLinkID, token, params.ContactName, params.Email, params.Phone, params.Status, params.Message, now, now)
 	if err != nil {
 		return Response{}, "", fmt.Errorf("insert response: %w", err)
 	}

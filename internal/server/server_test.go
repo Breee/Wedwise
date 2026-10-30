@@ -27,6 +27,8 @@ type testApp struct {
 	t       *testing.T
 	srv     *httptest.Server
 	handler http.Handler
+
+	linkToken string
 }
 
 // helper: login and return the session cookie
@@ -459,7 +461,7 @@ type responseView struct {
 // submitResponse posts a response through the public endpoint.
 func submitResponse(t *testing.T, app *testApp, body map[string]any) responseView {
 	t.Helper()
-	resp := app.do("POST", "/api/rsvp/", body, nil)
+	resp := app.do("POST", app.submitPath(t), body, nil)
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusCreated {
 		raw, _ := io.ReadAll(resp.Body)
@@ -595,7 +597,7 @@ func TestRSVP_Validation(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			body := validResponse()
 			tc.mutate(body)
-			resp := app.do("POST", "/api/rsvp/", body, nil)
+			resp := app.do("POST", app.submitPath(t), body, nil)
 			defer resp.Body.Close()
 			if resp.StatusCode != http.StatusBadRequest {
 				raw, _ := io.ReadAll(resp.Body)
@@ -606,7 +608,7 @@ func TestRSVP_Validation(t *testing.T) {
 
 	// A declined response needs neither attendees nor a contribution.
 	declined := map[string]any{"contactName": "Allein", "status": "no"}
-	resp := app.do("POST", "/api/rsvp/", declined, nil)
+	resp := app.do("POST", app.submitPath(t), declined, nil)
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusCreated {
 		t.Fatalf("declined response: got %d, want 201", resp.StatusCode)
@@ -764,72 +766,207 @@ func TestWitnessManagesContributions(t *testing.T) {
 	}
 }
 
-func TestRSVPAccessCode(t *testing.T) {
-	app, _ := newTestAppWithOptions(t, func(cfg *configuration.Config) { cfg.RSVPAccessCode = "wald-see-27" })
+type linkView struct {
+	ID        int64  `json:"id"`
+	Token     string `json:"token"`
+	HasPIN    bool   `json:"hasPin"`
+	Active    bool   `json:"active"`
+	Responses int    `json:"responses"`
+}
 
-	statusResp := app.do("GET", "/api/rsvp/access", nil, nil)
-	defer statusResp.Body.Close()
-	var access struct {
-		Required bool `json:"required"`
-		Unlocked bool `json:"unlocked"`
+// createLink creates an invite link as the couple.
+func createLink(t *testing.T, app *testApp) linkView {
+	t.Helper()
+	cookie, _ := app.login("couple_user", "TestPass123!")
+	resp := app.do("POST", "/api/invite-links/", nil, cookie)
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusCreated {
+		t.Fatalf("create invite link: got %d", resp.StatusCode)
 	}
-	_ = json.NewDecoder(statusResp.Body).Decode(&access)
-	if !access.Required || access.Unlocked {
-		t.Fatalf("access status before unlock: %+v", access)
+	var link linkView
+	if err := json.NewDecoder(resp.Body).Decode(&link); err != nil {
+		t.Fatalf("decode link: %v", err)
+	}
+	return link
+}
+
+// submitPath returns the public submit path of a shared invite link.
+func (a *testApp) submitPath(t *testing.T) string {
+	t.Helper()
+	if a.linkToken == "" {
+		a.linkToken = createLink(t, a).Token
+	}
+	return "/api/rsvp/links/" + a.linkToken
+}
+
+func linkStatus(t *testing.T, app *testApp, token string, cookie *http.Cookie) (int, bool, bool) {
+	t.Helper()
+	resp := app.do("GET", "/api/rsvp/links/"+token, nil, cookie)
+	defer resp.Body.Close()
+	var body struct {
+		PINRequired bool `json:"pinRequired"`
+		Unlocked    bool `json:"unlocked"`
+	}
+	_ = json.NewDecoder(resp.Body).Decode(&body)
+	return resp.StatusCode, body.PINRequired, body.Unlocked
+}
+
+func TestInviteLinkManagement(t *testing.T) {
+	app, _ := newTestAppWithUsers(t)
+	couple, _ := app.login("couple_user", "TestPass123!")
+	witness, _ := app.login("witness_user", "TestPass123!")
+
+	forbidden := app.do("POST", "/api/invite-links/", nil, witness)
+	forbidden.Body.Close()
+	if forbidden.StatusCode != http.StatusForbidden {
+		t.Fatalf("witness create link: got %d, want 403", forbidden.StatusCode)
+	}
+	anon := app.do("GET", "/api/invite-links/", nil, nil)
+	anon.Body.Close()
+	if anon.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("anonymous list links: got %d, want 401", anon.StatusCode)
 	}
 
-	locked := app.do("POST", "/api/rsvp/", validResponse(), nil)
-	locked.Body.Close()
-	if locked.StatusCode != http.StatusUnauthorized {
-		t.Fatalf("submit without code: got %d, want 401", locked.StatusCode)
+	link := createLink(t, app)
+	if link.Token == "" || link.HasPIN || !link.Active {
+		t.Fatalf("unexpected new link: %+v", link)
 	}
 
-	wrong := app.do("POST", "/api/rsvp/unlock", map[string]any{"code": "nope"}, nil)
-	wrong.Body.Close()
-	if wrong.StatusCode != http.StatusUnauthorized || len(wrong.Cookies()) != 0 {
-		t.Fatalf("wrong code: got %d with %d cookies", wrong.StatusCode, len(wrong.Cookies()))
+	if status, _, _ := linkStatus(t, app, link.Token, nil); status != http.StatusOK {
+		t.Fatalf("link status: got %d", status)
 	}
 
-	ok := app.do("POST", "/api/rsvp/unlock", map[string]any{"code": "wald-see-27"}, nil)
-	ok.Body.Close()
-	if ok.StatusCode != http.StatusNoContent {
-		t.Fatalf("unlock: got %d, want 204", ok.StatusCode)
+	path := fmt.Sprintf("/api/invite-links/%d", link.ID)
+	off := app.do("PUT", path+"/active", map[string]any{"active": false}, couple)
+	off.Body.Close()
+	if off.StatusCode != http.StatusOK {
+		t.Fatalf("deactivate: got %d", off.StatusCode)
 	}
-	var cookie *http.Cookie
-	for _, c := range ok.Cookies() {
-		if c.Name == "wedwise_rsvp_access" {
-			cookie = c
-		}
+	if status, _, _ := linkStatus(t, app, link.Token, nil); status != http.StatusNotFound {
+		t.Fatalf("inactive link status: got %d, want 404", status)
 	}
-	if cookie == nil || !cookie.HttpOnly {
-		t.Fatalf("expected HttpOnly access cookie, got %+v", cookie)
+	blocked := app.do("POST", "/api/rsvp/links/"+link.Token, validResponse(), nil)
+	blocked.Body.Close()
+	if blocked.StatusCode != http.StatusNotFound {
+		t.Fatalf("submit via inactive link: got %d, want 404", blocked.StatusCode)
+	}
+	on := app.do("PUT", path+"/active", map[string]any{"active": true}, couple)
+	on.Body.Close()
+
+	regen := app.do("POST", path+"/regenerate", nil, couple)
+	defer regen.Body.Close()
+	var rotated linkView
+	_ = json.NewDecoder(regen.Body).Decode(&rotated)
+	if rotated.Token == "" || rotated.Token == link.Token {
+		t.Fatalf("regenerate did not rotate token: %+v", rotated)
+	}
+	if status, _, _ := linkStatus(t, app, link.Token, nil); status != http.StatusNotFound {
+		t.Fatalf("old token after regenerate: got %d, want 404", status)
 	}
 
-	created := app.do("POST", "/api/rsvp/", validResponse(), cookie)
+	created := app.do("POST", "/api/rsvp/links/"+rotated.Token, validResponse(), nil)
 	created.Body.Close()
 	if created.StatusCode != http.StatusCreated {
-		t.Fatalf("submit with code: got %d, want 201", created.StatusCode)
+		t.Fatalf("submit via link: got %d", created.StatusCode)
+	}
+	list := app.do("GET", "/api/invite-links/", nil, couple)
+	defer list.Body.Close()
+	var listBody struct {
+		Links []linkView `json:"links"`
+	}
+	_ = json.NewDecoder(list.Body).Decode(&listBody)
+	if len(listBody.Links) != 1 || listBody.Links[0].Responses != 1 {
+		t.Fatalf("list links: %+v", listBody.Links)
 	}
 
+	del := app.do("DELETE", path, nil, couple)
+	del.Body.Close()
+	if del.StatusCode != http.StatusNoContent {
+		t.Fatalf("delete: got %d", del.StatusCode)
+	}
+	responses := app.do("GET", "/api/responses", nil, couple)
+	defer responses.Body.Close()
+	raw, _ := io.ReadAll(responses.Body)
+	if !strings.Contains(string(raw), "Familie Muster") {
+		t.Fatalf("responses must survive link deletion: %s", raw)
+	}
+}
+
+func TestInviteLinkPIN(t *testing.T) {
+	app, _ := newTestAppWithUsers(t)
+	couple, _ := app.login("couple_user", "TestPass123!")
+	link := createLink(t, app)
+	path := fmt.Sprintf("/api/invite-links/%d", link.ID)
+
+	short := app.do("PUT", path+"/pin", map[string]any{"pin": "12"}, couple)
+	short.Body.Close()
+	if short.StatusCode != http.StatusBadRequest {
+		t.Fatalf("short pin: got %d, want 400", short.StatusCode)
+	}
+	set := app.do("PUT", path+"/pin", map[string]any{"pin": "2027"}, couple)
+	defer set.Body.Close()
+	var withPIN linkView
+	_ = json.NewDecoder(set.Body).Decode(&withPIN)
+	if !withPIN.HasPIN {
+		t.Fatalf("expected hasPin after set: %+v", withPIN)
+	}
+
+	if _, required, unlocked := linkStatus(t, app, link.Token, nil); !required || unlocked {
+		t.Fatalf("status before unlock: required=%v unlocked=%v", required, unlocked)
+	}
+	locked := app.do("POST", "/api/rsvp/links/"+link.Token, validResponse(), nil)
+	locked.Body.Close()
+	if locked.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("submit without pin: got %d, want 401", locked.StatusCode)
+	}
+	wrong := app.do("POST", "/api/rsvp/links/"+link.Token+"/unlock", map[string]any{"pin": "0000"}, nil)
+	wrong.Body.Close()
+	if wrong.StatusCode != http.StatusUnauthorized || len(wrong.Cookies()) != 0 {
+		t.Fatalf("wrong pin: got %d with %d cookies", wrong.StatusCode, len(wrong.Cookies()))
+	}
+	ok := app.do("POST", "/api/rsvp/links/"+link.Token+"/unlock", map[string]any{"pin": "2027"}, nil)
+	ok.Body.Close()
+	if ok.StatusCode != http.StatusNoContent || len(ok.Cookies()) != 1 {
+		t.Fatalf("unlock: got %d with %d cookies", ok.StatusCode, len(ok.Cookies()))
+	}
+	cookie := ok.Cookies()[0]
+	if !cookie.HttpOnly {
+		t.Fatalf("expected HttpOnly cookie, got %+v", cookie)
+	}
+	if _, _, unlocked := linkStatus(t, app, link.Token, cookie); !unlocked {
+		t.Fatal("status with cookie should be unlocked")
+	}
+	created := app.do("POST", "/api/rsvp/links/"+link.Token, validResponse(), cookie)
+	created.Body.Close()
+	if created.StatusCode != http.StatusCreated {
+		t.Fatalf("submit with pin: got %d, want 201", created.StatusCode)
+	}
 	forged := &http.Cookie{Name: cookie.Name, Value: "0000"}
-	rejected := app.do("POST", "/api/rsvp/", validResponse(), forged)
+	rejected := app.do("POST", "/api/rsvp/links/"+link.Token, validResponse(), forged)
 	rejected.Body.Close()
 	if rejected.StatusCode != http.StatusUnauthorized {
 		t.Fatalf("forged cookie: got %d, want 401", rejected.StatusCode)
 	}
-}
 
-func TestRSVPAccessCodeDisabled(t *testing.T) {
-	app, _ := newTestAppWithUsers(t)
-	resp := app.do("GET", "/api/rsvp/access", nil, nil)
-	defer resp.Body.Close()
-	var access struct {
-		Required bool `json:"required"`
-		Unlocked bool `json:"unlocked"`
+	// Changing the PIN invalidates existing proofs; removing it opens the link.
+	changed := app.do("PUT", path+"/pin", map[string]any{"pin": "9999"}, couple)
+	changed.Body.Close()
+	stale := app.do("POST", "/api/rsvp/links/"+link.Token, validResponse(), cookie)
+	stale.Body.Close()
+	if stale.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("stale cookie after pin change: got %d, want 401", stale.StatusCode)
 	}
-	_ = json.NewDecoder(resp.Body).Decode(&access)
-	if access.Required || !access.Unlocked {
-		t.Fatalf("open access expected: %+v", access)
+	removed := app.do("PUT", path+"/pin", map[string]any{"pin": ""}, couple)
+	defer removed.Body.Close()
+	var open linkView
+	_ = json.NewDecoder(removed.Body).Decode(&open)
+	if open.HasPIN {
+		t.Fatalf("expected pin removed: %+v", open)
+	}
+	free := app.do("POST", "/api/rsvp/links/"+link.Token, validResponse(), nil)
+	free.Body.Close()
+	if free.StatusCode != http.StatusCreated {
+		t.Fatalf("submit after pin removal: got %d, want 201", free.StatusCode)
 	}
 }
 

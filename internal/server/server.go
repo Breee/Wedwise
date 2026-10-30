@@ -16,6 +16,7 @@ import (
 	"github.com/Breee/Wedwise/internal/content"
 	"github.com/Breee/Wedwise/internal/contributions"
 	"github.com/Breee/Wedwise/internal/httpx"
+	"github.com/Breee/Wedwise/internal/invites"
 	"github.com/Breee/Wedwise/internal/middleware"
 	"github.com/Breee/Wedwise/internal/rsvp"
 	"github.com/Breee/Wedwise/internal/users"
@@ -45,10 +46,12 @@ func New(cfg configuration.Config, db *sql.DB) (*Server, error) {
 	contributionStore := contributions.NewStore(db)
 	rsvpStore := rsvp.NewStore(db, contributionStore)
 	contentStore := content.NewStore(db)
-	rsvpAccess := rsvp.NewAccess(cfg.RSVPAccessCode, cfg.SessionSecret, cfg.IsProduction())
+	inviteStore := invites.NewStore(db)
+	inviteGate := invites.NewGate(cfg.SessionSecret, cfg.IsProduction())
 
 	userHandler := users.NewHandler(userStore, authService)
-	rsvpHandler := rsvp.NewHandler(rsvpStore, contributionStore, rsvpAccess)
+	rsvpHandler := rsvp.NewHandler(rsvpStore, contributionStore, inviteStore, inviteGate)
+	inviteHandler := invites.NewHandler(inviteStore, authService)
 	contributionHandler := contributions.NewHandler(contributionStore, authService)
 	contentHandler := content.NewHandler(contentStore, authService, cfg.Event)
 
@@ -82,6 +85,7 @@ func New(cfg configuration.Config, db *sql.DB) (*Server, error) {
 			protected.Mount("/contributions", contributionHandler.Routes())
 			protected.Mount("/content", contentHandler.Routes())
 			protected.Mount("/users", userHandler.Routes())
+			protected.Mount("/invite-links", inviteHandler.Routes())
 			protected.With(authService.RequirePermission(auth.PermRSVPRead)).
 				Get("/rsvp-summary", rsvpHandler.SummaryHandler)
 			protected.With(authService.RequirePermission(auth.PermRSVPRead)).
