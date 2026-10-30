@@ -34,6 +34,13 @@ const hasLocation = computed(
 const faqTitle = computed(() => content.text('faq_title', 'Questions & answers'))
 const faq = computed(() => content.faq)
 
+function linkify(text = ''): Array<{ text: string; url?: string }> {
+  return text
+    .split(/(https?:\/\/\S+)/)
+    .filter(Boolean)
+    .map((part) => (/^https?:\/\//.test(part) ? { text: part, url: part } : { text: part }))
+}
+
 onMounted(() => {
   void content.fetchPublic()
 })
@@ -105,7 +112,7 @@ onMounted(() => {
         <div v-if="hasLocation" class="card stack home__location-card">
           <h3 v-if="locationName">{{ locationName }}</h3>
           <p v-if="locationAddress" class="home__address">{{ locationAddress }}</p>
-          <p v-if="locationDescription">{{ locationDescription }}</p>
+          <p v-if="locationDescription" class="home__pre">{{ locationDescription }}</p>
           <p v-if="locationMapUrl">
             <a
               class="btn btn--secondary btn--small"
@@ -129,7 +136,12 @@ onMounted(() => {
         <div v-if="faq.length > 0" class="stack">
           <details v-for="(item, index) in faq" :key="index" class="faq card">
             <summary class="faq__question">{{ item.question }}</summary>
-            <p class="faq__answer">{{ item.answer }}</p>
+            <p class="faq__answer">
+              <template v-for="(part, i) in linkify(item.answer)" :key="i">
+                <a v-if="part.url" :href="part.url" target="_blank" rel="noopener noreferrer">Google Maps</a>
+                <template v-else>{{ part.text }}</template>
+              </template>
+            </p>
           </details>
         </div>
         <p v-else class="text-muted">Questions and answers will be added here.</p>
@@ -139,6 +151,10 @@ onMounted(() => {
 </template>
 
 <style scoped>
+.home__pre {
+  white-space: pre-line;
+}
+
 .hero {
   min-height: calc(100vh - 76px);
   display: flex;
@@ -312,6 +328,7 @@ onMounted(() => {
 }
 
 .faq__answer {
+  white-space: pre-line;
   margin: 0.9rem 0 0;
   color: var(--color-text-muted);
 }
