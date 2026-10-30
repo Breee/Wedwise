@@ -28,7 +28,7 @@ function LoginPage() {
   const login = useMutation({
     mutationFn: (body: { username: string; password: string }) => api.post<Me>('/auth/login', body),
     onSuccess: async () => {
-      const me = await queryClient.fetchQuery(meQuery)
+      const me = await queryClient.fetchQuery({ ...meQuery, staleTime: 0 })
       navigate({ to: search.redirect ?? dashboardFor(me.role) })
     },
   })

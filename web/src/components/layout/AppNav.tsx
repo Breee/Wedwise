@@ -62,7 +62,7 @@ export function AppNav() {
               Abmelden
             </Button>
           ) : (
-            !isPublic && (
+            !isPublic && pathname !== '/login' && (
               <Link to="/login" className="px-3 py-2 text-muted-foreground hover:text-foreground">
                 Anmelden
               </Link>

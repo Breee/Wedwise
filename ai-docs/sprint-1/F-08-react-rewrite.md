@@ -26,10 +26,10 @@ Replace the Vue 3 app in `web/` with a React app. Keep the build contract: `npm 
 
 ## DONE
 
-- [ ] Scaffold React app, remove Vue sources
-- [ ] Public home page
-- [ ] RSVP page with contribution confirm step
-- [ ] Login + auth guard + nav
-- [ ] Couple: dashboard, guests, invitations, content editor
-- [ ] Witness: dashboard with contributions
-- [ ] Playwright verification
+- [x] Scaffold React app, remove Vue sources
+- [x] Public home page
+- [x] RSVP page with contribution confirm step
+- [x] Login + auth guard + nav
+- [x] Couple: dashboard, guests, invitations, content editor
+- [x] Witness: dashboard with contributions
+- [x] Playwright verification

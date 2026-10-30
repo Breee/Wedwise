@@ -103,7 +103,7 @@ function ContributionDetail({ id, onClose }: { id: number; onClose: () => void }
   if (isPending || !data) return <p className="py-8 text-center text-muted-foreground">Lädt…</p>
 
   const rows: [string, string][] = [
-    ['Kategorie', data.category],
+    ['Kategorie', data.category === 'other' ? '' : data.category],
     ['Mitwirkende', data.participants],
     ['Dauer', data.durationMinutes ? `${data.durationMinutes} Minuten` : ''],
     ['Wunschzeit', data.preferredTime],

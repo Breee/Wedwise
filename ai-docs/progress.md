@@ -13,12 +13,13 @@ Update this file after every finished step. Newest entries first in the log.
 | F-05 | RSVP contribution confirmation step | superseded by F-08 |
 | F-06 | Login rate limiting | todo |
 | F-07 | Backend integration tests for RSVP + content | todo |
-| F-08 | Frontend rewrite in React (TanStack, Tailwind, shadcn) | in progress |
+| F-08 | Frontend rewrite in React (TanStack, Tailwind, shadcn) | done (see log) |
 
 Status values: `todo`, `in progress`, `blocked (reason)`, `done (commit)`.
 
 ## Log
 
+- 2026-10-30 — F-08 React rewrite done and verified with Playwright (home, RSVP incl. contribution step, login, couple pages, witness board). Couple set to Viktoria & Julian.
 - 2026-10-30 — Decided full React rewrite (F-08); F-02–F-05 folded into it.
 - 2026-10-30 — Review done, `ai-docs/` created, sprint 1 defined.
 - 2026-10-30 — Fixed public page not showing event/location (`2e976e7`).
