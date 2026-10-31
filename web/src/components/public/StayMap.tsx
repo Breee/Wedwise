@@ -25,7 +25,6 @@ import { cn } from '@/lib/utils'
 import { BaseMap, markerElement } from './BaseMap'
 import { drawRoutes, drawTransitLines, fitPadding, venueMarker, type RouteFeature } from './mapParts'
 import { KIND } from './TravelMap'
-import { DirectionsLinks } from './DirectionsLinks'
 
 const INITIAL_VISIBLE = 3
 
@@ -304,42 +303,39 @@ function HotelCard({
 
 function TravelTimes({ hotel, venue }: { hotel: Ranked; venue: LngLat }) {
   const here: LngLat = [hotel.lng, hotel.lat]
-  const times: { Icon: typeof Car; minutes?: number; highlight: boolean; title?: string }[] = [
-    {
-      Icon: TramFront,
-      minutes: hotel.transit?.totalMinutes,
-      highlight: !hotel.walk,
-      title: hotel.transit ? `${KIND[hotel.transit.stop.kind].label} bis ${hotel.transit.stop.name}` : undefined,
-    },
-    { Icon: Footprints, minutes: hotel.foot?.minutes, highlight: hotel.walk },
-    { Icon: Bike, minutes: hotel.bike?.minutes, highlight: false },
-    ...(hotel.car ? [{ Icon: Car, minutes: hotel.car.minutes, highlight: false }] : []),
-  ]
+  const primary = hotel.walk
+    ? { Icon: Footprints, text: `${hotel.foot?.minutes} Min zu Fuß zur Location` }
+    : hotel.transit
+      ? { Icon: TramFront, text: `ca. ${hotel.transit.totalMinutes} Min mit der Tram`, href: googleDirectionsUrl(venue, 'transit', here) }
+      : null
+  const others: { Icon: typeof Car; minutes?: number; label: string }[] = [
+    ...(!hotel.walk && hotel.foot ? [{ Icon: Footprints, minutes: hotel.foot.minutes, label: 'zu Fuß' }] : []),
+    { Icon: Bike, minutes: hotel.bike?.minutes, label: 'Rad' },
+    ...(hotel.car ? [{ Icon: Car, minutes: hotel.car.minutes, label: 'Auto' }] : []),
+  ].filter((t) => t.minutes !== undefined)
   return (
-    <div className="mt-3 space-y-2 text-sm text-muted-foreground">
-      <p className="flex flex-wrap items-center gap-x-2 gap-y-1" aria-label="Minuten zur Location">
-        {times.map(({ Icon, minutes, highlight, title }, i) => (
-          <span key={i} className="flex items-center gap-1" title={title}>
-            {i > 0 && <span className="mr-1 text-border" aria-hidden>·</span>}
-            <Icon className="size-3.5" />
-            <span className={cn(highlight && 'font-medium text-foreground')}>{minutes ?? '…'}</span>
-          </span>
-        ))}
-        <span className="text-xs">Min</span>
-        <a
-          href={googleDirectionsUrl(venue, 'transit', here)}
-          target="_blank"
-          rel="noreferrer"
-          className="ml-1 text-xs underline-offset-4 hover:underline"
-          onClick={(e) => e.stopPropagation()}
-        >
-          Tram-Verbindung ↗
-        </a>
-      </p>
-      <div className="flex flex-wrap items-center gap-2 text-xs">
-        <span>Zum Hotel:</span>
-        <DirectionsLinks to={here} name={hotel.name} mode="driving" />
-      </div>
+    <div className="mt-3 space-y-1.5 text-sm">
+      {primary && (
+        <p className="flex items-center gap-2 font-medium text-foreground">
+          <primary.Icon className="size-4 text-primary" />
+          {primary.href ? (
+            <a href={primary.href} target="_blank" rel="noreferrer" className="underline-offset-4 hover:underline" onClick={(e) => e.stopPropagation()}>
+              {primary.text} ↗
+            </a>
+          ) : (
+            primary.text
+          )}
+        </p>
+      )}
+      {others.length > 0 && (
+        <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+          {others.map(({ Icon, minutes, label }) => (
+            <span key={label} className="flex items-center gap-1">
+              <Icon className="size-3.5" /> {minutes} Min {label}
+            </span>
+          ))}
+        </p>
+      )}
     </div>
   )
 }
