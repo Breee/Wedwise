@@ -55,11 +55,18 @@ export function useContributionMutations() {
     onError,
   })
 
+  const setScheduleAll = useMutation({
+    mutationFn: (items: { id: number; slotTime: string; durationMinutes: number }[]) =>
+      api.put('/contributions/schedule', { items }),
+    onSuccess: invalidate,
+    onError,
+  })
+
   const addNote = useMutation({
     mutationFn: ({ id, text }: { id: number; text: string }) => api.post(`/contributions/${id}/notes`, { text }),
     onSuccess: invalidate,
     onError,
   })
 
-  return { setStatus, setSchedule, addNote }
+  return { setStatus, setSchedule, setScheduleAll, addNote }
 }

@@ -36,3 +36,4 @@ Status values: `todo`, `in progress`, `blocked (reason)`, `done (commit)`.
 - 2026-10-30 — Review done, `ai-docs/` created, sprint 1 defined.
 - 2026-10-30 — Fixed public page not showing event/location (`2e976e7`).
 - 2026-10-30 — Local setup: compose, `make up/down`, seeded users, Waldsee content (`b0d40b9`, `2db788b`, `e1100f9`).
+- 2026-10-31: F-12 Ablaufplan drag-to-order (times recomputed sequentially from a plan start, `PUT /api/contributions/schedule` bulk, atomic), contribution contact channels (messengers WhatsApp/Signal/Telegram + Matrix ID in RSVP form, chips with deep links in witness list/plan/detail).

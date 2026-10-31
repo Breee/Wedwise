@@ -436,6 +436,8 @@ func withContribution(body map[string]any) map[string]any {
 		"description": "Ein paar Worte über das Paar",
 		"needs":       "Mikrofon",
 		"phone":       "+49 170 1234567",
+		"messengers":  []string{"whatsapp", "signal"},
+		"matrixId":    "@max:matrix.org",
 	}
 	return body
 }
@@ -724,6 +726,8 @@ func TestWitnessManagesContributions(t *testing.T) {
 		Title       string `json:"title"`
 		Needs       string `json:"needs"`
 		Phone       string `json:"phone"`
+		Messengers  string `json:"messengers"`
+		MatrixID    string `json:"matrixId"`
 		Status      string `json:"status"`
 		Notes       []any  `json:"notes"`
 	}
@@ -732,6 +736,9 @@ func TestWitnessManagesContributions(t *testing.T) {
 	}
 	if detail.ContactName != "Familie Muster" || detail.Phone != "+49 170 1234567" || detail.Needs != "Mikrofon" || detail.Status != "new" {
 		t.Fatalf("unexpected detail: %+v", detail)
+	}
+	if detail.Messengers != "whatsapp,signal" || detail.MatrixID != "@max:matrix.org" {
+		t.Fatalf("unexpected contact channels: %+v", detail)
 	}
 
 	status := app.do("PUT", fmt.Sprintf("/api/contributions/%d/status", id), map[string]any{"status": "confirmed"}, cookie)
@@ -772,6 +779,29 @@ func TestWitnessManagesContributions(t *testing.T) {
 		if badSchedule.StatusCode != http.StatusBadRequest {
 			t.Fatalf("invalid schedule %v: got %d, want 400", body, badSchedule.StatusCode)
 		}
+	}
+
+	bulk := app.do("PUT", "/api/contributions/schedule", map[string]any{
+		"items": []map[string]any{{"id": id, "slotTime": "21:00", "durationMinutes": 15}},
+	}, cookie)
+	bulk.Body.Close()
+	if bulk.StatusCode != http.StatusNoContent {
+		t.Fatalf("bulk schedule: got %d, want 204", bulk.StatusCode)
+	}
+	badBulk := app.do("PUT", "/api/contributions/schedule", map[string]any{
+		"items": []map[string]any{{"id": id, "slotTime": "21:00", "durationMinutes": 15}, {"id": 999999, "slotTime": "", "durationMinutes": 0}},
+	}, cookie)
+	badBulk.Body.Close()
+	if badBulk.StatusCode != http.StatusNotFound {
+		t.Fatalf("bulk schedule unknown id: got %d, want 404", badBulk.StatusCode)
+	}
+	after := app.do("GET", fmt.Sprintf("/api/contributions/%d", id), nil, cookie)
+	defer after.Body.Close()
+	var afterView struct {
+		SlotTime string `json:"slotTime"`
+	}
+	if err := json.NewDecoder(after.Body).Decode(&afterView); err != nil || afterView.SlotTime != "21:00" {
+		t.Fatalf("bulk schedule must be atomic, got slotTime %q (err %v)", afterView.SlotTime, err)
 	}
 
 	admin, _ := app.login("admin_user", "TestPass123!")

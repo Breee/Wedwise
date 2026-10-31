@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 )
@@ -36,7 +37,7 @@ const (
 	maxShortLen = 200
 )
 
-const columns = `c.id, c.response_id, r.contact_name, c.title, c.description, c.needs, c.phone, c.status,
+const columns = `c.id, c.response_id, r.contact_name, c.title, c.description, c.needs, c.phone, c.messengers, c.matrix_id, c.status,
 	c.slot_time, c.duration_minutes, c.created_at, c.updated_at`
 
 const fromClause = " FROM contributions c JOIN responses r ON r.id = c.response_id "
@@ -47,6 +48,8 @@ type Input struct {
 	Description string
 	Needs       string
 	Phone       string
+	Messengers  []string
+	MatrixID    string
 }
 
 func (in *Input) normalize() error {
@@ -54,6 +57,13 @@ func (in *Input) normalize() error {
 	in.Description = strings.TrimSpace(in.Description)
 	in.Needs = strings.TrimSpace(in.Needs)
 	in.Phone = strings.TrimSpace(in.Phone)
+	in.MatrixID = strings.TrimSpace(in.MatrixID)
+	for i, m := range in.Messengers {
+		in.Messengers[i] = strings.ToLower(strings.TrimSpace(m))
+		if !slices.Contains(ValidMessengers(), in.Messengers[i]) {
+			return fmt.Errorf("%w: unknown messenger %q", ErrValidation, m)
+		}
+	}
 
 	if in.Title == "" {
 		return fmt.Errorf("%w: title must not be empty", ErrValidation)
@@ -61,8 +71,11 @@ func (in *Input) normalize() error {
 	if in.Phone == "" {
 		return fmt.Errorf("%w: phone must not be empty", ErrValidation)
 	}
-	if len(in.Title) > maxShortLen || len(in.Phone) > maxShortLen {
-		return fmt.Errorf("%w: title or phone is too long", ErrValidation)
+	if len(in.Title) > maxShortLen || len(in.Phone) > maxShortLen || len(in.MatrixID) > maxShortLen {
+		return fmt.Errorf("%w: title, phone or matrixId is too long", ErrValidation)
+	}
+	if in.MatrixID != "" && !strings.HasPrefix(in.MatrixID, "@") {
+		return fmt.Errorf("%w: matrixId must look like @user:server", ErrValidation)
 	}
 	if len(in.Description) > maxTextLen || len(in.Needs) > maxTextLen {
 		return fmt.Errorf("%w: description or needs is too long", ErrValidation)
@@ -78,11 +91,13 @@ func (s *Store) Upsert(ctx context.Context, exec Execer, responseID int64, input
 	}
 	now := time.Now().UTC()
 	_, err := exec.ExecContext(ctx,
-		`INSERT INTO contributions (response_id, title, description, needs, phone, status, created_at, updated_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+		`INSERT INTO contributions (response_id, title, description, needs, phone, messengers, matrix_id, status, created_at, updated_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		 ON CONFLICT(response_id) DO UPDATE SET title = excluded.title, description = excluded.description,
-			needs = excluded.needs, phone = excluded.phone, updated_at = excluded.updated_at`,
-		responseID, input.Title, input.Description, input.Needs, input.Phone, StatusNew, now, now)
+			needs = excluded.needs, phone = excluded.phone, messengers = excluded.messengers,
+			matrix_id = excluded.matrix_id, updated_at = excluded.updated_at`,
+		responseID, input.Title, input.Description, input.Needs, input.Phone,
+		strings.Join(input.Messengers, ","), input.MatrixID, StatusNew, now, now)
 	if err != nil {
 		return fmt.Errorf("upsert contribution: %w", err)
 	}
@@ -162,16 +177,57 @@ func (s *Store) SetStatus(ctx context.Context, id int64, status string) (Contrib
 
 // SetSchedule sets the planned start time ("HH:MM", empty to clear) and duration.
 func (s *Store) SetSchedule(ctx context.Context, id int64, slotTime string, durationMinutes int) (Contribution, error) {
+	if err := validateSchedule(slotTime, durationMinutes); err != nil {
+		return Contribution{}, err
+	}
+	return s.update(ctx, id, "slot_time = ?, duration_minutes = ?", strings.TrimSpace(slotTime), durationMinutes)
+}
+
+// ScheduleItem is one entry of a bulk schedule update.
+type ScheduleItem struct {
+	ID              int64
+	SlotTime        string
+	DurationMinutes int
+}
+
+// SetScheduleAll updates the schedule of several contributions atomically.
+func (s *Store) SetScheduleAll(ctx context.Context, items []ScheduleItem) error {
+	for _, it := range items {
+		if err := validateSchedule(it.SlotTime, it.DurationMinutes); err != nil {
+			return err
+		}
+	}
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin: %w", err)
+	}
+	defer tx.Rollback()
+	now := time.Now().UTC()
+	for _, it := range items {
+		res, err := tx.ExecContext(ctx,
+			"UPDATE contributions SET slot_time = ?, duration_minutes = ?, updated_at = ? WHERE id = ?",
+			strings.TrimSpace(it.SlotTime), it.DurationMinutes, now, it.ID)
+		if err != nil {
+			return fmt.Errorf("update schedule: %w", err)
+		}
+		if n, _ := res.RowsAffected(); n == 0 {
+			return ErrNotFound
+		}
+	}
+	return tx.Commit()
+}
+
+func validateSchedule(slotTime string, durationMinutes int) error {
 	slotTime = strings.TrimSpace(slotTime)
 	if slotTime != "" {
 		if _, err := time.Parse("15:04", slotTime); err != nil {
-			return Contribution{}, fmt.Errorf("%w: slotTime must be HH:MM", ErrValidation)
+			return fmt.Errorf("%w: slotTime must be HH:MM", ErrValidation)
 		}
 	}
 	if durationMinutes < 0 || durationMinutes > MaxPlannedMinutes {
-		return Contribution{}, fmt.Errorf("%w: durationMinutes must be between 0 and %d", ErrValidation, MaxPlannedMinutes)
+		return fmt.Errorf("%w: durationMinutes must be between 0 and %d", ErrValidation, MaxPlannedMinutes)
 	}
-	return s.update(ctx, id, "slot_time = ?, duration_minutes = ?", slotTime, durationMinutes)
+	return nil
 }
 
 func (s *Store) update(ctx context.Context, id int64, set string, args ...any) (Contribution, error) {
@@ -254,6 +310,6 @@ type scanner interface {
 func scan(row scanner) (Contribution, error) {
 	var c Contribution
 	err := row.Scan(&c.ID, &c.ResponseID, &c.ContactName, &c.Title, &c.Description, &c.Needs, &c.Phone,
-		&c.Status, &c.SlotTime, &c.DurationMinutes, &c.CreatedAt, &c.UpdatedAt)
+		&c.Messengers, &c.MatrixID, &c.Status, &c.SlotTime, &c.DurationMinutes, &c.CreatedAt, &c.UpdatedAt)
 	return c, err
 }

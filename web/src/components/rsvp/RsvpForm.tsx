@@ -18,6 +18,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
 import { GENRES, NEEDS_OPTIONS, SongSearch, formatNeeds, joinList, parseNeeds, splitList } from '@/components/rsvp/music'
+import { MESSENGERS } from '@/lib/contact'
 
 const MAX_ATTENDEES = 10
 
@@ -40,7 +41,7 @@ export type FormProps = {
 }
 
 const newAttendee = (name = ''): Attendee => ({ name, isChild: false, diet: 'none', allergies: '' })
-const emptyContribution: ContributionRequest = { title: '', description: '', needs: '', phone: '' }
+const emptyContribution: ContributionRequest = { title: '', description: '', needs: '', phone: '', messengers: [], matrixId: '' }
 
 export function RsvpForm({ initial, link, onDone }: FormProps) {
   const navigate = useNavigate()
@@ -243,6 +244,27 @@ export function RsvpForm({ initial, link, onDone }: FormProps) {
                   <div className="space-y-2">
                     <Label htmlFor="c-phone">Telefonnummer für die Trauzeugen</Label>
                     <Input id="c-phone" type="tel" value={contribution.phone} onChange={(e) => setContribution({ ...contribution, phone: e.target.value })} required autoComplete="tel" />
+                    <div className="flex flex-wrap gap-x-4 gap-y-2 pt-1">
+                      {MESSENGERS.map((m) => (
+                        <Label key={m.id} className="flex items-center gap-2 font-normal">
+                          <Checkbox
+                            checked={contribution.messengers.includes(m.id)}
+                            onCheckedChange={(v) =>
+                              setContribution({
+                                ...contribution,
+                                messengers: v ? [...contribution.messengers, m.id] : contribution.messengers.filter((x) => x !== m.id),
+                              })
+                            }
+                          />
+                          {m.label}
+                        </Label>
+                      ))}
+                    </div>
+                    <p className="text-xs text-muted-foreground">Unter dieser Nummer erreichbar per …</p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="c-matrix">Matrix (optional)</Label>
+                    <Input id="c-matrix" value={contribution.matrixId} onChange={(e) => setContribution({ ...contribution, matrixId: e.target.value })} placeholder="@name:matrix.org" />
                   </div>
                 </div>
               )}

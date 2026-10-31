@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Phone } from 'lucide-react'
 import { contributionQuery } from '@/lib/queries'
 import { CONTRIBUTION_STATUS_LABEL, formatDateTime } from '@/lib/format'
 import type { ContributionStatus } from '@/lib/types'
@@ -11,6 +10,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { STATUSES, useContributionMutations } from './contributions'
+import { ContactLinks } from './ContactLinks'
 
 export function ContributionDetail({ id, onClose }: { id: number; onClose: () => void }) {
   const { data, isPending } = useQuery(contributionQuery(id))
@@ -23,13 +23,8 @@ export function ContributionDetail({ id, onClose }: { id: number; onClose: () =>
     <>
       <DialogHeader>
         <DialogTitle className="text-3xl">{data.title || 'Ohne Titel'}</DialogTitle>
-        <p className="text-sm text-muted-foreground">
-          {data.contactName} ·{' '}
-          <a href={`tel:${data.phone}`} className="inline-flex items-center gap-1 underline-offset-2 hover:underline">
-            <Phone className="size-3" />
-            {data.phone}
-          </a>
-        </p>
+        <p className="text-sm text-muted-foreground">{data.contactName}</p>
+        <ContactLinks phone={data.phone} messengers={data.messengers} matrixId={data.matrixId} />
       </DialogHeader>
       <div className="space-y-5">
         <div className="flex items-center gap-3">

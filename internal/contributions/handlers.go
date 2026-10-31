@@ -26,15 +26,25 @@ func NewHandler(store *Store, authService *auth.Service) *Handler {
 
 // Request is the payload accepted by guests when offering a contribution.
 type Request struct {
-	Title       string `json:"title"`
-	Description string `json:"description"`
-	Needs       string `json:"needs"`
-	Phone       string `json:"phone"`
+	Title       string   `json:"title"`
+	Description string   `json:"description"`
+	Needs       string   `json:"needs"`
+	Phone       string   `json:"phone"`
+	Messengers  []string `json:"messengers"`
+	MatrixID    string   `json:"matrixId"`
 }
 
 // ToInput converts the request into store input.
 func (req Request) ToInput() Input {
-	return Input{Title: req.Title, Description: req.Description, Needs: req.Needs, Phone: req.Phone}
+	return Input{Title: req.Title, Description: req.Description, Needs: req.Needs, Phone: req.Phone,
+		Messengers: req.Messengers, MatrixID: req.MatrixID}
+}
+
+type bulkScheduleRequest struct {
+	Items []struct {
+		ID int64 `json:"id"`
+		scheduleRequest
+	} `json:"items"`
 }
 
 type statusRequest struct {
@@ -62,6 +72,7 @@ func (h *Handler) Routes() http.Handler {
 	r.With(h.auth.RequirePermission(auth.PermContributionRead)).Get("/{id}", h.get)
 	r.With(h.auth.RequirePermission(auth.PermContributionManage)).Put("/{id}/status", h.updateStatus)
 	r.With(h.auth.RequirePermission(auth.PermContributionManage)).Put("/{id}/schedule", h.updateSchedule)
+	r.With(h.auth.RequirePermission(auth.PermContributionManage)).Put("/schedule", h.updateScheduleAll)
 	r.With(h.auth.RequirePermission(auth.PermContributionManage)).Post("/{id}/notes", h.addNote)
 	return r
 }
@@ -128,6 +139,22 @@ func (h *Handler) updateSchedule(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httpx.WriteJSON(w, http.StatusOK, contribution)
+}
+
+func (h *Handler) updateScheduleAll(w http.ResponseWriter, r *http.Request) {
+	var req bulkScheduleRequest
+	if !httpx.DecodeJSON(w, r, &req) {
+		return
+	}
+	items := make([]ScheduleItem, 0, len(req.Items))
+	for _, it := range req.Items {
+		items = append(items, ScheduleItem{ID: it.ID, SlotTime: it.SlotTime, DurationMinutes: it.DurationMinutes})
+	}
+	if err := h.store.SetScheduleAll(r.Context(), items); err != nil {
+		WriteStoreError(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (h *Handler) addNote(w http.ResponseWriter, r *http.Request) {

@@ -90,7 +90,11 @@ export interface ContributionRequest {
   description: string
   needs: string
   phone: string
+  messengers: Messenger[]
+  matrixId: string
 }
+
+export type Messenger = 'whatsapp' | 'signal' | 'telegram'
 
 export interface RsvpSubmit {
   contactName: string
@@ -161,6 +165,8 @@ export interface Contribution {
   description: string
   needs: string
   phone: string
+  messengers: string
+  matrixId: string
   status: ContributionStatus
   slotTime: string
   durationMinutes: number

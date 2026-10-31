@@ -24,14 +24,17 @@ const MaxPlannedMinutes = 120
 
 // Contribution is a programme item offered by a guest.
 type Contribution struct {
-	ID          int64     `json:"id"`
-	ResponseID  int64     `json:"responseId"`
-	ContactName string    `json:"contactName"`
-	Title       string    `json:"title"`
-	Description string    `json:"description"`
-	Needs       string    `json:"needs"`
-	Phone       string    `json:"phone"`
-	Status      string    `json:"status"`
+	ID          int64  `json:"id"`
+	ResponseID  int64  `json:"responseId"`
+	ContactName string `json:"contactName"`
+	Title       string `json:"title"`
+	Description string `json:"description"`
+	Needs       string `json:"needs"`
+	Phone       string `json:"phone"`
+	// Messengers lists the messengers reachable under Phone (see ValidMessengers).
+	Messengers string `json:"messengers"`
+	MatrixID   string `json:"matrixId"`
+	Status     string `json:"status"`
 	// SlotTime is the planned start ("HH:MM") set by witnesses, empty if unscheduled.
 	SlotTime        string    `json:"slotTime"`
 	DurationMinutes int       `json:"durationMinutes"`
@@ -46,6 +49,11 @@ type ContributionNote struct {
 	AuthorUserID   int64     `json:"authorUserId"`
 	Text           string    `json:"text"`
 	CreatedAt      time.Time `json:"createdAt"`
+}
+
+// ValidMessengers lists the messengers a guest may mark as reachable.
+func ValidMessengers() []string {
+	return []string{"whatsapp", "signal", "telegram"}
 }
 
 // ValidStatuses lists all accepted statuses.

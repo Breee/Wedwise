@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useSuspenseQuery } from '@tanstack/react-query'
-import { Phone } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { contributionsQuery, summaryQuery } from '@/lib/queries'
 import { CONTRIBUTION_STATUS_LABEL, formatDateTime } from '@/lib/format'
@@ -14,6 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Board } from '@/components/witness/Board'
 import { Schedule } from '@/components/witness/Schedule'
 import { ContributionDetail } from '@/components/witness/ContributionDetail'
+import { ContactLinks } from '@/components/witness/ContactLinks'
 import { STATUS_TONE, isOpen, toMinutes } from '@/components/witness/contributions'
 
 export const Route = createFileRoute('/witness/dashboard')({
@@ -95,14 +95,7 @@ function ContributionTable({ items, onOpen }: { items: Contribution[]; onOpen: (
               <TableCell className="font-medium">{c.title || 'Ohne Titel'}</TableCell>
               <TableCell>
                 {c.contactName}
-                <a
-                  href={`tel:${c.phone}`}
-                  onClick={(e) => e.stopPropagation()}
-                  className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground hover:underline"
-                >
-                  <Phone className="size-3" />
-                  {c.phone}
-                </a>
+                <ContactLinks phone={c.phone} messengers={c.messengers} matrixId={c.matrixId} className="mt-1" />
               </TableCell>
               <TableCell className="max-w-56 truncate text-muted-foreground">{c.needs || '–'}</TableCell>
               <TableCell className="tabular-nums">

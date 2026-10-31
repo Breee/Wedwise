@@ -3,6 +3,7 @@ package rsvp
 import (
 	"errors"
 	"net/http"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 
@@ -239,6 +240,8 @@ func (h *Handler) writeGuestView(w http.ResponseWriter, r *http.Request, status 
 			Description: contribution.Description,
 			Needs:       contribution.Needs,
 			Phone:       contribution.Phone,
+			Messengers:  splitMessengers(contribution.Messengers),
+			MatrixID:    contribution.MatrixID,
 		}
 	case errors.Is(err, contributions.ErrNotFound):
 	default:
@@ -257,4 +260,11 @@ func (h *Handler) writeError(w http.ResponseWriter, err error) {
 	default:
 		httpx.Internal(w, err)
 	}
+}
+
+func splitMessengers(list string) []string {
+	if list == "" {
+		return []string{}
+	}
+	return strings.Split(list, ",")
 }
