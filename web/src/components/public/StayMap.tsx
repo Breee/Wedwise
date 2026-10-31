@@ -10,7 +10,9 @@ import {
   distanceMeters,
   formatKm,
   formatStayDates,
+  METERS_PER_MINUTE,
   routeQuery,
+  TRAM_WAIT_MINUTES,
   transitDirectionsUrl,
   WALK_MAX_MINUTES,
   type LngLat,
@@ -26,9 +28,8 @@ const HEART_SVG =
 
 const TIER = { 1: { label: '€', hint: 'günstig' }, 2: { label: '€€', hint: 'mittel' }, 3: { label: '€€€', hint: 'gehoben' } } as const
 
-const WALK_METERS_PER_MINUTE = 80
-const TRAM_METERS_PER_MINUTE = 350
-const TRAM_WAIT_MINUTES = 5
+const WALK_METERS_PER_MINUTE = METERS_PER_MINUTE.foot
+const TRAM_METERS_PER_MINUTE = METERS_PER_MINUTE.transit
 
 const MODE: Record<TravelMode, { label: string; Icon: typeof Footprints; intro: string }> = {
   transit: { label: 'Tram', Icon: TramFront, intro: 'Sortiert nach Fahrzeit mit der Tram bis zur Haltestelle plus kurzem Fußweg.' },

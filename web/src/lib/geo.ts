@@ -2,7 +2,7 @@ import { queryOptions } from '@tanstack/react-query'
 
 export type LngLat = [number, number]
 
-export type Profile = 'foot' | 'car'
+export type Profile = 'foot' | 'car' | 'transit'
 
 export interface Route {
   coordinates: LngLat[]
@@ -12,14 +12,15 @@ export interface Route {
 }
 export type WalkingRoute = Route
 
-const ROUTER: Record<Profile, string> = {
+const ROUTER: Record<Exclude<Profile, 'transit'>, string> = {
   foot: 'https://routing.openstreetmap.de/routed-foot/route/v1/foot',
   car: 'https://routing.openstreetmap.de/routed-car/route/v1/driving',
 }
 export const WALK_MAX_MINUTES = 25
 export const WALK_MAX_METERS = 2000
+export const TRAM_WAIT_MINUTES = 5
 
-const METERS_PER_MINUTE: Record<Profile, number> = { foot: 80, car: 500 }
+export const METERS_PER_MINUTE: Record<Profile, number> = { foot: 80, car: 500, transit: 350 }
 
 export function distanceMeters(a: LngLat, b: LngLat): number {
   const toRad = (d: number) => (d * Math.PI) / 180
@@ -32,12 +33,17 @@ export function distanceMeters(a: LngLat, b: LngLat): number {
 }
 
 function estimate(profile: Profile, from: LngLat, to: LngLat): Route {
+  if (profile === 'transit') {
+    const meters = distanceMeters(from, to)
+    return { coordinates: [from, to], minutes: TRAM_WAIT_MINUTES + Math.round(meters / METERS_PER_MINUTE.transit), meters, estimated: true }
+  }
   const meters = distanceMeters(from, to) * 1.3
   return { coordinates: [from, to], minutes: Math.round(meters / METERS_PER_MINUTE[profile]), meters, estimated: true }
 }
 
 export async function route(profile: Profile, from: LngLat, to: LngLat): Promise<Route> {
   const estimated = () => estimate(profile, from, to)
+  if (profile === 'transit') return estimated()
   try {
     const res = await fetch(`${ROUTER[profile]}/${from.join(',')};${to.join(',')}?overview=full&geometries=geojson`)
     if (!res.ok) return estimated()

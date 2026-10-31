@@ -2,16 +2,26 @@ import { useEffect, useMemo, useState } from 'react'
 import { useQueries } from '@tanstack/react-query'
 import * as maplibregl from 'maplibre-gl'
 import type { Map as MapLibreMap, ExpressionSpecification } from 'maplibre-gl'
-import { Footprints, ParkingCircle, TramFront, TrainFront, Bus, BedDouble } from 'lucide-react'
+import { Footprints, ParkingCircle, TramFront, TrainFront, Bus, BedDouble, Car } from 'lucide-react'
 import type { Hotel, StopKind, Travel } from '@/lib/types'
-import { distanceMeters, formatKm, WALK_MAX_METERS, walkingRouteQuery, type LngLat, type WalkingRoute } from '@/lib/geo'
+import { distanceMeters, formatKm, routeQuery, WALK_MAX_METERS, type LngLat, type Profile, type Route } from '@/lib/geo'
 import { cn } from '@/lib/utils'
 import { BaseMap, markerElement } from './BaseMap'
 
 export type TravelMode = 'transit' | 'foot' | 'car'
 
 type OriginKind = StopKind | 'hotel'
-type Origin = { name: string; kind: OriginKind; line: string; lat: number; lng: number }
+type Origin = {
+  name: string
+  kind: OriginKind
+  line: string
+  lat: number
+  lng: number
+  // Routed leg drawn on the map; parking has none.
+  leg?: { profile: Profile; to: LngLat; via?: string }
+}
+
+const NEAREST_HOTELS = 3
 
 const KIND = {
   tram: { label: 'Tram', color: '#c2554a', Icon: TramFront },
@@ -30,21 +40,44 @@ const ICON_SVG: Record<OriginKind, string> = {
 }
 
 const HEADER: Record<TravelMode, string> = {
-  transit: 'zu Fuß von den Haltestellen',
-  foot: 'zu Fuß von den Unterkünften',
-  car: 'Parken direkt an der Location',
+  transit: 'Haltestellen & nächste Unterkünfte',
+  foot: 'zu Fuß von den nächsten Unterkünften',
+  car: 'Parken an der Location & nächste Unterkünfte',
+}
+
+function nearest<T extends { lat: number; lng: number }>(items: T[], to: LngLat, n: number): T[] {
+  return [...items].sort((a, b) => distanceMeters([a.lng, a.lat], to) - distanceMeters([b.lng, b.lat], to)).slice(0, n)
 }
 
 function originsFor(mode: TravelMode, travel: Travel, hotels: Hotel[]): Origin[] {
+  const venue: LngLat = [travel.lng, travel.lat]
+  const hotelOrigin = (h: Hotel, leg: Origin['leg']): Origin => ({ name: h.name, kind: 'hotel', line: '', lat: h.lat, lng: h.lng, leg })
   switch (mode) {
-    case 'transit':
-      return travel.stops.filter((s) => s.kind !== 'parking')
-    case 'car':
-      return travel.stops.filter((s) => s.kind === 'parking')
-    case 'foot':
-      return hotels
-        .filter((h) => distanceMeters([h.lng, h.lat], [travel.lng, travel.lat]) <= WALK_MAX_METERS)
-        .map((h) => ({ name: h.name, kind: 'hotel', line: '', lat: h.lat, lng: h.lng }))
+    case 'transit': {
+      const stops = travel.stops.filter((s) => s.kind !== 'parking')
+      const stopOrigins: Origin[] = stops.map((s) => ({ ...s, leg: { profile: 'foot', to: venue } }))
+      const hotelOrigins = nearest(hotels, venue, NEAREST_HOTELS).map((h) => {
+        const stop = nearest(stops, [h.lng, h.lat], 1)[0]
+        if (!stop) return hotelOrigin(h, { profile: 'foot', to: venue })
+        const to: LngLat = [stop.lng, stop.lat]
+        return distanceMeters([h.lng, h.lat], to) * 1.3 <= WALK_MAX_METERS
+          ? hotelOrigin(h, { profile: 'foot', to, via: `bis ${stop.name}` })
+          : hotelOrigin(h, { profile: 'transit', to, via: `${KIND[stop.kind].label} bis ${stop.name}` })
+      })
+      return [...stopOrigins, ...hotelOrigins]
+    }
+    case 'car': {
+      const parking = travel.stops.filter((s) => s.kind === 'parking')
+      const target = parking[0] ? ([parking[0].lng, parking[0].lat] as LngLat) : venue
+      return [
+        ...parking.map((s): Origin => ({ ...s })),
+        ...nearest(hotels, venue, NEAREST_HOTELS).map((h) => hotelOrigin(h, { profile: 'car', to: target })),
+      ]
+    }
+    case 'foot': {
+      const walkable = hotels.filter((h) => distanceMeters([h.lng, h.lat], venue) <= WALK_MAX_METERS)
+      return nearest(walkable.length ? walkable : hotels, venue, NEAREST_HOTELS).map((h) => hotelOrigin(h, { profile: 'foot', to: venue }))
+    }
   }
 }
 
@@ -64,9 +97,9 @@ export function TravelMap({
 }) {
   const venue = useMemo<LngLat>(() => [travel.lng, travel.lat], [travel.lat, travel.lng])
   const origins = useMemo(() => originsFor(mode, travel, hotels), [mode, travel, hotels])
-  const walkable = useMemo(() => origins.filter((s) => s.kind !== 'parking'), [origins])
+  const walkable = useMemo(() => origins.filter((s) => s.leg), [origins])
   const routes = useQueries({
-    queries: walkable.map((s) => walkingRouteQuery([s.lng, s.lat], venue)),
+    queries: walkable.map((s) => routeQuery(s.leg!.profile, [s.lng, s.lat], s.leg!.to)),
   })
   const [map, setMap] = useState<MapLibreMap | null>(null)
   const [active, setActive] = useState<number | null>(null)
@@ -127,7 +160,9 @@ export function TravelMap({
 
     const labels = resolved.flatMap((route, i) => {
       if (!route) return []
-      const mid = route.coordinates[Math.floor(route.coordinates.length / 2)]
+      const c = route.coordinates
+      const mid: LngLat =
+        c.length === 2 ? [(c[0][0] + c[1][0]) / 2, (c[0][1] + c[1][1]) / 2] : c[Math.floor(c.length / 2)]
       const el = markerElement(
         `<span>${route.minutes} Min</span>`,
         'wed-route-label',
@@ -218,13 +253,14 @@ function StopCard({
   onLeave,
 }: {
   stop: Origin
-  route?: WalkingRoute
+  route?: Route
   loading: boolean
   active: boolean
   onEnter: () => void
   onLeave: () => void
 }) {
   const { Icon, label, color } = KIND[stop.kind]
+  const LegIcon = stop.leg?.profile === 'car' ? Car : stop.leg?.profile === 'transit' ? TramFront : Footprints
   return (
     <button
       type="button"
@@ -246,14 +282,15 @@ function StopCard({
           {stop.line && <span className="rounded px-1.5 py-0.5 font-semibold text-white" style={{ background: color }}>{stop.line}</span>}
         </span>
         <span className="mt-0.5 block truncate font-medium">{stop.name}</span>
-        {stop.kind === 'parking' ? (
+        {!stop.leg ? (
           <span className="mt-1 block text-sm text-muted-foreground">direkt an der Location</span>
         ) : loading ? (
-          <span className="mt-1 block text-sm text-muted-foreground">Fußweg wird berechnet…</span>
+          <span className="mt-1 block text-sm text-muted-foreground">Route wird berechnet…</span>
         ) : route ? (
           <span className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground">
-            <Footprints className="size-3.5" /> {route.minutes} Min · {formatKm(route.meters)}
-            {route.estimated && ' (geschätzt)'}
+            <LegIcon className="size-3.5" /> {route.minutes} Min · {formatKm(route.meters)}
+            {stop.leg.via && ` · ${stop.leg.via}`}
+            {route.estimated && stop.leg.profile !== 'transit' && ' (geschätzt)'}
           </span>
         ) : null}
       </span>
