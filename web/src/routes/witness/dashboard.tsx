@@ -1,19 +1,20 @@
 import { useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
-import { useMutation, useQuery, useQueryClient, useSuspenseQuery } from '@tanstack/react-query'
-import { toast } from 'sonner'
-import { api, errorMessage } from '@/lib/api'
-import { contributionQuery, contributionsQuery, summaryQuery } from '@/lib/queries'
+import { useSuspenseQuery } from '@tanstack/react-query'
+import { Phone } from 'lucide-react'
+import { cn } from '@/lib/utils'
+import { contributionsQuery, summaryQuery } from '@/lib/queries'
 import { CONTRIBUTION_STATUS_LABEL, formatDateTime } from '@/lib/format'
-import type { Contribution, ContributionStatus } from '@/lib/types'
+import type { Contribution } from '@/lib/types'
 import { PageHeader } from '@/components/admin/PageHeader'
 import { Stat } from '@/components/admin/Stat'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
-import { Textarea } from '@/components/ui/textarea'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Dialog, DialogContent } from '@/components/ui/dialog'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Board } from '@/components/witness/Board'
+import { Schedule } from '@/components/witness/Schedule'
+import { ContributionDetail } from '@/components/witness/ContributionDetail'
+import { STATUS_TONE, isOpen, toMinutes } from '@/components/witness/contributions'
 
 export const Route = createFileRoute('/witness/dashboard')({
   loader: ({ context }) =>
@@ -24,41 +25,46 @@ export const Route = createFileRoute('/witness/dashboard')({
   component: WitnessDashboard,
 })
 
-const STATUSES = Object.keys(CONTRIBUTION_STATUS_LABEL) as ContributionStatus[]
-
 function WitnessDashboard() {
   const { data: contributions } = useSuspenseQuery(contributionsQuery)
   const { data: summary } = useSuspenseQuery(summaryQuery)
   const [selected, setSelected] = useState<Contribution | null>(null)
-  const open = contributions.filter((c) => c.status === 'new' || c.status === 'needs_clarification').length
+  const open = contributions.filter(isOpen).length
+  const confirmed = contributions.filter((c) => c.status === 'confirmed')
+  const scheduled = contributions.filter((c) => c.status !== 'rejected' && toMinutes(c.slotTime) !== null).length
+  const minutes = confirmed.reduce((sum, c) => sum + c.durationMinutes, 0)
 
   return (
     <>
       <PageHeader title="Beiträge" description="Programmbeiträge der Gäste koordinieren." />
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Stat label="Beiträge" value={contributions.length} />
         <Stat label="Offen" value={open} hint="neu oder mit Rückfrage" />
-        <Stat label="Gäste" value={summary.attendeesAttending} hint="Personen mit Zusage" />
+        <Stat label="Bestätigt" value={confirmed.length} hint={`${minutes} Min. Programm`} />
+        <Stat label="Eingeplant" value={scheduled} hint={`von ${summary.attendeesAttending} Gästen mit Zusage`} />
       </div>
-      <div className="mt-8 grid gap-4 md:grid-cols-2">
-        {contributions.length === 0 && <p className="text-muted-foreground">Noch keine Beiträge.</p>}
-        {contributions.map((c) => (
-          <Card key={c.id} className="cursor-pointer transition-shadow hover:shadow-md" onClick={() => setSelected(c)}>
-            <CardContent className="pt-6">
-              <div className="flex items-start justify-between gap-3">
-                <h3 className="text-2xl">{c.title || 'Ohne Titel'}</h3>
-                <Badge variant={c.status === 'confirmed' ? 'default' : 'secondary'}>
-                  {CONTRIBUTION_STATUS_LABEL[c.status] ?? c.status}
-                </Badge>
-              </div>
-              <p className="mt-2 line-clamp-2 text-sm text-muted-foreground">{c.description}</p>
-              <p className="mt-3 text-xs text-muted-foreground">
-                {c.contactName} · {c.phone}
-              </p>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+
+      <Tabs defaultValue="board" className="mt-8">
+        <TabsList>
+          <TabsTrigger value="board">Board</TabsTrigger>
+          <TabsTrigger value="list">Liste</TabsTrigger>
+          <TabsTrigger value="schedule">Ablaufplan</TabsTrigger>
+        </TabsList>
+        <TabsContent value="board" className="mt-4">
+          {contributions.length === 0 ? (
+            <p className="text-muted-foreground">Noch keine Beiträge.</p>
+          ) : (
+            <Board items={contributions} onOpen={setSelected} />
+          )}
+        </TabsContent>
+        <TabsContent value="list" className="mt-4">
+          <ContributionTable items={contributions} onOpen={setSelected} />
+        </TabsContent>
+        <TabsContent value="schedule" className="mt-4">
+          <Schedule items={contributions} onOpen={setSelected} />
+        </TabsContent>
+      </Tabs>
+
       <Dialog open={selected !== null} onOpenChange={(o) => !o && setSelected(null)}>
         <DialogContent className="max-h-[90svh] overflow-y-auto sm:max-w-2xl">
           {selected && <ContributionDetail id={selected.id} onClose={() => setSelected(null)} />}
@@ -68,102 +74,51 @@ function WitnessDashboard() {
   )
 }
 
-function ContributionDetail({ id, onClose }: { id: number; onClose: () => void }) {
-  const queryClient = useQueryClient()
-  const { data, isPending } = useQuery(contributionQuery(id))
-  const [note, setNote] = useState('')
-  const invalidate = () => {
-    queryClient.invalidateQueries({ queryKey: ['contributions'] })
-  }
-  const onError = (e: unknown) => toast.error(errorMessage(e))
-
-  const setStatus = useMutation({
-    mutationFn: (status: ContributionStatus) => api.put(`/contributions/${id}/status`, { status }),
-    onSuccess: () => {
-      invalidate()
-      toast.success('Status aktualisiert.')
-    },
-    onError,
-  })
-  const addNote = useMutation({
-    mutationFn: () => api.post(`/contributions/${id}/notes`, { text: note }),
-    onSuccess: () => {
-      setNote('')
-      invalidate()
-    },
-    onError,
-  })
-
-  if (isPending || !data) return <p className="py-8 text-center text-muted-foreground">Lädt…</p>
-
-  const rows: [string, string][] = [
-    ['Von', data.contactName],
-    ['Telefon', data.phone],
-    ['Benötigt', data.needs],
-  ]
-
+function ContributionTable({ items, onOpen }: { items: Contribution[]; onOpen: (c: Contribution) => void }) {
+  if (items.length === 0) return <p className="text-muted-foreground">Noch keine Beiträge.</p>
   return (
-    <>
-      <DialogHeader>
-        <DialogTitle className="text-3xl">{data.title || 'Ohne Titel'}</DialogTitle>
-      </DialogHeader>
-      <div className="space-y-5">
-        <div className="flex items-center gap-3">
-          <span className="text-sm text-muted-foreground">Status</span>
-          <Select value={data.status} onValueChange={(v) => setStatus.mutate(v as ContributionStatus)}>
-            <SelectTrigger className="w-48">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {STATUSES.map((s) => (
-                <SelectItem key={s} value={s}>
-                  {CONTRIBUTION_STATUS_LABEL[s]}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        {data.description && <p className="whitespace-pre-line">{data.description}</p>}
-        <dl className="grid gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
-          {rows
-            .filter(([, v]) => v)
-            .map(([k, v]) => (
-              <div key={k}>
-                <dt className="text-muted-foreground">{k}</dt>
-                <dd className="whitespace-pre-line">{v}</dd>
-              </div>
-            ))}
-        </dl>
-        <div>
-          <h4 className="text-xl">Notizen</h4>
-          <ul className="mt-2 space-y-2">
-            {data.notes?.length === 0 && <li className="text-sm text-muted-foreground">Noch keine Notizen.</li>}
-            {data.notes?.map((n) => (
-              <li key={n.id} className="rounded-md bg-muted px-3 py-2 text-sm">
-                <p className="whitespace-pre-line">{n.text}</p>
-                <p className="mt-1 text-xs text-muted-foreground">{formatDateTime(n.createdAt)}</p>
-              </li>
-            ))}
-          </ul>
-          <form
-            className="mt-3 flex gap-2"
-            onSubmit={(e) => {
-              e.preventDefault()
-              if (note.trim()) addNote.mutate()
-            }}
-          >
-            <Textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} placeholder="Notiz hinzufügen…" />
-            <Button type="submit" disabled={addNote.isPending || !note.trim()}>
-              Hinzufügen
-            </Button>
-          </form>
-        </div>
-        <div className="flex justify-end">
-          <Button variant="outline" onClick={onClose}>
-            Schließen
-          </Button>
-        </div>
-      </div>
-    </>
+    <div className="rounded-xl border bg-card">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Beitrag</TableHead>
+            <TableHead>Von</TableHead>
+            <TableHead>Benötigt</TableHead>
+            <TableHead>Uhrzeit</TableHead>
+            <TableHead>Status</TableHead>
+            <TableHead>Eingereicht</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {items.map((c) => (
+            <TableRow key={c.id} className="cursor-pointer" onClick={() => onOpen(c)}>
+              <TableCell className="font-medium">{c.title || 'Ohne Titel'}</TableCell>
+              <TableCell>
+                {c.contactName}
+                <a
+                  href={`tel:${c.phone}`}
+                  onClick={(e) => e.stopPropagation()}
+                  className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground hover:underline"
+                >
+                  <Phone className="size-3" />
+                  {c.phone}
+                </a>
+              </TableCell>
+              <TableCell className="max-w-56 truncate text-muted-foreground">{c.needs || '–'}</TableCell>
+              <TableCell className="tabular-nums">
+                {c.slotTime || '–'}
+                {c.durationMinutes > 0 && <span className="text-muted-foreground"> · {c.durationMinutes} Min.</span>}
+              </TableCell>
+              <TableCell>
+                <span className={cn('rounded-full px-2 py-0.5 text-xs', STATUS_TONE[c.status])}>
+                  {CONTRIBUTION_STATUS_LABEL[c.status]}
+                </span>
+              </TableCell>
+              <TableCell className="text-muted-foreground">{formatDateTime(c.createdAt)}</TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
   )
 }

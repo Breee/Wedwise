@@ -28,7 +28,7 @@ const (
 // rolePermissions maps a role to the permissions it grants.
 //
 // The couple intentionally has no access to contributions: surprises planned by
-// guests must stay hidden from them. Admins are also excluded on purpose.
+// guests must stay hidden from them. Admins may see everything.
 var rolePermissions = map[string]map[string]bool{
 	RoleCouple: {
 		PermContentRead:  true,
@@ -48,6 +48,9 @@ var rolePermissions = map[string]map[string]bool{
 		PermContentWrite: true,
 		PermRSVPRead:     true,
 		PermInviteManage: true,
+
+		PermContributionRead:   true,
+		PermContributionManage: true,
 	},
 }
 

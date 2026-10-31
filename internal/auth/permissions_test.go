@@ -8,8 +8,8 @@ func TestCoupleHasNoContributionAccess(t *testing.T) {
 		if RoleHasPermission(RoleCouple, permission) {
 			t.Fatalf("couple must not have %s", permission)
 		}
-		if RoleHasPermission(RoleAdmin, permission) {
-			t.Fatalf("admin must not have %s", permission)
+		if !RoleHasPermission(RoleAdmin, permission) {
+			t.Fatalf("admin must have %s", permission)
 		}
 	}
 }

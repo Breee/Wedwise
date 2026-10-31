@@ -6,6 +6,8 @@ CREATE TABLE IF NOT EXISTS contributions (
     needs TEXT NOT NULL DEFAULT '',
     phone TEXT NOT NULL,
     status TEXT NOT NULL DEFAULT 'new',
+    slot_time TEXT NOT NULL DEFAULT '',
+    duration_minutes INTEGER NOT NULL DEFAULT 0,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );

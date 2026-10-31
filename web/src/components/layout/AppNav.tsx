@@ -14,6 +14,12 @@ const coupleLinks = [
 
 const witnessLinks = [{ to: '/witness/dashboard', label: 'Beiträge' }] as const
 
+function linksFor(role: string | undefined) {
+  if (role === 'admin') return [...coupleLinks, ...witnessLinks]
+  if (role === 'witness') return witnessLinks
+  return role ? coupleLinks : []
+}
+
 export function AppNav() {
   const { data: me } = useQuery(meQuery)
   const queryClient = useQueryClient()
@@ -30,7 +36,7 @@ export function AppNav() {
   })
 
   const authed = me?.authenticated === true
-  const links = me?.role === 'witness' ? witnessLinks : me?.role ? coupleLinks : []
+  const links = linksFor(me?.role)
 
   return (
     <header

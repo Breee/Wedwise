@@ -149,12 +149,14 @@ commands and flags.
 |------|-------------|
 | `couple` | content read/write, RSVP read, invite links |
 | `witness` | contribution read/manage, RSVP read |
-| `admin` | user read/manage, content read/write, RSVP read, invite links |
+| `admin` | everything: user read/manage, content read/write, RSVP read, invite links, contribution read/manage |
 
-Contributions are surprises for the couple: neither the `couple` nor the
-`admin` role can read or manage them — only witnesses can. Guests offer
+Contributions are surprises for the couple: the `couple` role cannot read or
+manage them — only witnesses and admins can. Guests offer
 contributions as part of their RSVP, and the response list and summary
-deliberately contain no contribution data.
+deliberately contain no contribution data. Witnesses coordinate contributions
+on a Kanban board and plan the programme (start time + duration) in the
+schedule view.
 
 ## Kubernetes Deployment
 

@@ -16,10 +16,13 @@ Update this file after every finished step. Newest entries first in the log.
 | F-08 | Frontend rewrite in React (TanStack, Tailwind, shadcn) | done (see log) |
 | F-09 | One public RSVP link, access code, contributions in RSVP, no invitations | done (access code replaced by F-10) |
 | F-10 | Invite links with optional PIN, managed in UI | done |
+| F-11 | Admin sees contributions; witness Kanban, list + schedule planning | done |
 
 Status values: `todo`, `in progress`, `blocked (reason)`, `done (commit)`.
 
 ## Log
+
+- 2026-10-31 — F-11: admin role gains `contribution.read/manage` (couple still excluded, test `TestCoupleNeverSeesContributions` now couple-only). Contributions got `slot_time`/`duration_minutes` + `PUT /api/contributions/{id}/schedule`. Witness page rebuilt: tabs Board (Kanban via @dnd-kit, drag card between status columns), Liste (table with tel: links), Ablaufplan (timeline sorted by start, end time, total minutes, overlap warning, "Ohne Uhrzeit" list). Detail dialog has schedule form (>15 min hint). Admin nav shows couple + witness links.
 
 - 2026-10-31 — RSVP form polish: no email/phone in contact step (phone only with contribution), follow-up questions only on "Ja", contribution Ja/Nein, needs as checkboxes + Sonstiges, music genres (chips) + must-play song via iTunes search (`music_genres`, `music_song` on responses), couple dashboard genre histogram + song list; invite link URL hidden by default; Done screen fixed after link submit.
 - 2026-10-30 — F-10 done: `RSVP_ACCESS_CODE` replaced by invite links (`internal/invites`), optional argon2id PIN per link with HMAC unlock cookie, couple/admin UI at `/couple/invites`, guests use `/rsvp/<token>`. Backend `278e502`, frontend + docs in follow-up commit.

@@ -19,6 +19,9 @@ const (
 // MaxDurationMinutes is the time limit communicated to guests.
 const MaxDurationMinutes = 15
 
+// MaxPlannedMinutes caps the duration witnesses may schedule for one item.
+const MaxPlannedMinutes = 120
+
 // Contribution is a programme item offered by a guest.
 type Contribution struct {
 	ID          int64     `json:"id"`
@@ -29,8 +32,11 @@ type Contribution struct {
 	Needs       string    `json:"needs"`
 	Phone       string    `json:"phone"`
 	Status      string    `json:"status"`
-	CreatedAt   time.Time `json:"createdAt"`
-	UpdatedAt   time.Time `json:"updatedAt"`
+	// SlotTime is the planned start ("HH:MM") set by witnesses, empty if unscheduled.
+	SlotTime        string    `json:"slotTime"`
+	DurationMinutes int       `json:"durationMinutes"`
+	CreatedAt       time.Time `json:"createdAt"`
+	UpdatedAt       time.Time `json:"updatedAt"`
 }
 
 // ContributionNote is an internal remark by a witness.

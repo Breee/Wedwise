@@ -616,13 +616,13 @@ func TestRSVP_Validation(t *testing.T) {
 }
 
 // TestCoupleNeverSeesContributions is the central privacy requirement: no
-// endpoint reachable by the couple or admin may expose contribution data.
+// endpoint reachable by the couple may expose contribution data.
 func TestCoupleNeverSeesContributions(t *testing.T) {
 	app, _ := newTestAppWithUsers(t)
 	submitResponse(t, app, withContribution(validResponse()))
 	id := contributionID(t, app)
 
-	for _, role := range []string{"couple_user", "admin_user"} {
+	for _, role := range []string{"couple_user"} {
 		cookie, _ := app.login(role, "TestPass123!")
 
 		for _, path := range []string{"/api/contributions", fmt.Sprintf("/api/contributions/%d", id)} {
@@ -749,6 +749,36 @@ func TestWitnessManagesContributions(t *testing.T) {
 	defer note.Body.Close()
 	if note.StatusCode != http.StatusCreated {
 		t.Fatalf("add note: got %d", note.StatusCode)
+	}
+
+	schedule := app.do("PUT", fmt.Sprintf("/api/contributions/%d/schedule", id), map[string]any{"slotTime": "20:15", "durationMinutes": 10}, cookie)
+	defer schedule.Body.Close()
+	var scheduled struct {
+		SlotTime        string `json:"slotTime"`
+		DurationMinutes int    `json:"durationMinutes"`
+	}
+	if err := json.NewDecoder(schedule.Body).Decode(&scheduled); err != nil || schedule.StatusCode != http.StatusOK {
+		t.Fatalf("set schedule: got %d, err %v", schedule.StatusCode, err)
+	}
+	if scheduled.SlotTime != "20:15" || scheduled.DurationMinutes != 10 {
+		t.Fatalf("unexpected schedule: %+v", scheduled)
+	}
+	for _, body := range []map[string]any{
+		{"slotTime": "25:00", "durationMinutes": 10},
+		{"slotTime": "20:00", "durationMinutes": 500},
+	} {
+		badSchedule := app.do("PUT", fmt.Sprintf("/api/contributions/%d/schedule", id), body, cookie)
+		badSchedule.Body.Close()
+		if badSchedule.StatusCode != http.StatusBadRequest {
+			t.Fatalf("invalid schedule %v: got %d, want 400", body, badSchedule.StatusCode)
+		}
+	}
+
+	admin, _ := app.login("admin_user", "TestPass123!")
+	adminList := app.do("GET", "/api/contributions", nil, admin)
+	adminList.Body.Close()
+	if adminList.StatusCode != http.StatusOK {
+		t.Fatalf("admin GET contributions: got %d, want 200", adminList.StatusCode)
 	}
 	missing := app.do("GET", "/api/contributions/999999", nil, cookie)
 	defer missing.Body.Close()

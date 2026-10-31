@@ -162,6 +162,8 @@ export interface Contribution {
   needs: string
   phone: string
   status: ContributionStatus
+  slotTime: string
+  durationMinutes: number
   createdAt: string
   updatedAt: string
 }

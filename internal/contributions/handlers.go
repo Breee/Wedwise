@@ -41,6 +41,11 @@ type statusRequest struct {
 	Status string `json:"status"`
 }
 
+type scheduleRequest struct {
+	SlotTime        string `json:"slotTime"`
+	DurationMinutes int    `json:"durationMinutes"`
+}
+
 type noteRequest struct {
 	Text string `json:"text"`
 }
@@ -56,6 +61,7 @@ func (h *Handler) Routes() http.Handler {
 	r.With(h.auth.RequirePermission(auth.PermContributionRead)).Get("/", h.list)
 	r.With(h.auth.RequirePermission(auth.PermContributionRead)).Get("/{id}", h.get)
 	r.With(h.auth.RequirePermission(auth.PermContributionManage)).Put("/{id}/status", h.updateStatus)
+	r.With(h.auth.RequirePermission(auth.PermContributionManage)).Put("/{id}/schedule", h.updateSchedule)
 	r.With(h.auth.RequirePermission(auth.PermContributionManage)).Post("/{id}/notes", h.addNote)
 	return r
 }
@@ -99,6 +105,24 @@ func (h *Handler) updateStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	contribution, err := h.store.SetStatus(r.Context(), id, req.Status)
+	if err != nil {
+		WriteStoreError(w, err)
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, contribution)
+}
+
+func (h *Handler) updateSchedule(w http.ResponseWriter, r *http.Request) {
+	id, err := httpx.ParseID(chi.URLParam(r, "id"))
+	if err != nil {
+		httpx.BadRequest(w, "Invalid contribution id.")
+		return
+	}
+	var req scheduleRequest
+	if !httpx.DecodeJSON(w, r, &req) {
+		return
+	}
+	contribution, err := h.store.SetSchedule(r.Context(), id, req.SlotTime, req.DurationMinutes)
 	if err != nil {
 		WriteStoreError(w, err)
 		return

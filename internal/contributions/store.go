@@ -37,7 +37,7 @@ const (
 )
 
 const columns = `c.id, c.response_id, r.contact_name, c.title, c.description, c.needs, c.phone, c.status,
-	c.created_at, c.updated_at`
+	c.slot_time, c.duration_minutes, c.created_at, c.updated_at`
 
 const fromClause = " FROM contributions c JOIN responses r ON r.id = c.response_id "
 
@@ -157,10 +157,28 @@ func (s *Store) SetStatus(ctx context.Context, id int64, status string) (Contrib
 	if !IsValidStatus(status) {
 		return Contribution{}, fmt.Errorf("%w: status must be one of %s", ErrValidation, strings.Join(ValidStatuses(), ", "))
 	}
-	res, err := s.db.ExecContext(ctx,
-		"UPDATE contributions SET status = ?, updated_at = ? WHERE id = ?", status, time.Now().UTC(), id)
+	return s.update(ctx, id, "status = ?", status)
+}
+
+// SetSchedule sets the planned start time ("HH:MM", empty to clear) and duration.
+func (s *Store) SetSchedule(ctx context.Context, id int64, slotTime string, durationMinutes int) (Contribution, error) {
+	slotTime = strings.TrimSpace(slotTime)
+	if slotTime != "" {
+		if _, err := time.Parse("15:04", slotTime); err != nil {
+			return Contribution{}, fmt.Errorf("%w: slotTime must be HH:MM", ErrValidation)
+		}
+	}
+	if durationMinutes < 0 || durationMinutes > MaxPlannedMinutes {
+		return Contribution{}, fmt.Errorf("%w: durationMinutes must be between 0 and %d", ErrValidation, MaxPlannedMinutes)
+	}
+	return s.update(ctx, id, "slot_time = ?, duration_minutes = ?", slotTime, durationMinutes)
+}
+
+func (s *Store) update(ctx context.Context, id int64, set string, args ...any) (Contribution, error) {
+	args = append(args, time.Now().UTC(), id)
+	res, err := s.db.ExecContext(ctx, "UPDATE contributions SET "+set+", updated_at = ? WHERE id = ?", args...)
 	if err != nil {
-		return Contribution{}, fmt.Errorf("update contribution status: %w", err)
+		return Contribution{}, fmt.Errorf("update contribution: %w", err)
 	}
 	count, err := res.RowsAffected()
 	if err != nil {
@@ -236,6 +254,6 @@ type scanner interface {
 func scan(row scanner) (Contribution, error) {
 	var c Contribution
 	err := row.Scan(&c.ID, &c.ResponseID, &c.ContactName, &c.Title, &c.Description, &c.Needs, &c.Phone,
-		&c.Status, &c.CreatedAt, &c.UpdatedAt)
+		&c.Status, &c.SlotTime, &c.DurationMinutes, &c.CreatedAt, &c.UpdatedAt)
 	return c, err
 }
