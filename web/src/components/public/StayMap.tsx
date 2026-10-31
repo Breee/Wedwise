@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useQueries, useQuery } from '@tanstack/react-query'
 import * as maplibregl from 'maplibre-gl'
 import type { Map as MapLibreMap } from 'maplibre-gl'
-import { CalendarDays, Car, ExternalLink, Footprints, Home, MapPin, TramFront } from 'lucide-react'
+import { Bike, CalendarDays, Car, ExternalLink, Footprints, Home, MapPin, TramFront } from 'lucide-react'
 import type { Accommodation, Hotel, Stop, Travel } from '@/lib/types'
 import {
   airbnbUrl,
@@ -31,7 +31,7 @@ const FOOT_COLOR = '#5e7f63'
 
 type Transit = { stop: Stop; ride: Route; totalMinutes: number }
 // walk: walking is realistic (≤ WALK_MAX_MINUTES) and not slower than the tram.
-type Ranked = Hotel & { foot?: Route; car?: Route; transit: Transit | null; walk: boolean; minutes: number }
+type Ranked = Hotel & { foot?: Route; bike?: Route; car?: Route; transit: Transit | null; walk: boolean; minutes: number }
 
 export function StayMap({ accommodation, travel, city }: { accommodation: Accommodation; travel: Travel; city: string }) {
   const venue = useMemo<LngLat>(() => [travel.lng, travel.lat], [travel.lat, travel.lng])
@@ -41,6 +41,7 @@ export function StayMap({ accommodation, travel, city }: { accommodation: Accomm
   const line = travel.lines[0]
 
   const footRoutes = useQueries({ queries: accommodation.hotels.map((h) => ({ ...routeQuery('foot', [h.lng, h.lat], venue), enabled: hasVenue })) })
+  const bikeRoutes = useQueries({ queries: accommodation.hotels.map((h) => ({ ...routeQuery('bike', [h.lng, h.lat], venue), enabled: hasVenue })) })
   const carRoutes = useQueries({ queries: accommodation.hotels.map((h) => ({ ...routeQuery('car', [h.lng, h.lat], venue), enabled: hasVenue })) })
   const stopWalk = useQuery({
     ...routeQuery('foot', stop ? [stop.lng, stop.lat] : venue, venue),
@@ -51,16 +52,17 @@ export function StayMap({ accommodation, travel, city }: { accommodation: Accomm
     const ranked = accommodation.hotels.map((h, i): Ranked => {
       const here: LngLat = [h.lng, h.lat]
       const foot = footRoutes[i].data
+      const bike = bikeRoutes[i].data
       const car = carRoutes[i].data
       const transit = viaStop(here, stop, venue, line, stopWalk.data)
       const fallbackWalk = hasVenue ? (distanceMeters(here, venue) * 1.3) / METERS_PER_MINUTE.foot : 0
       const walk = !!foot && foot.minutes <= WALK_MAX_MINUTES && (!transit || foot.minutes <= transit.totalMinutes)
       const minutes = walk ? foot!.minutes : (transit?.totalMinutes ?? foot?.minutes ?? fallbackWalk)
-      return { ...h, foot, car, transit, walk, minutes }
+      return { ...h, foot, bike, car, transit, walk, minutes }
     })
     return ranked.sort((a, b) => a.minutes - b.minutes)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [accommodation.hotels, stop, venue, hasVenue, line, stopWalk.data, ...footRoutes.map((r) => r.data), ...carRoutes.map((r) => r.data)])
+  }, [accommodation.hotels, stop, venue, hasVenue, line, stopWalk.data, ...footRoutes.map((r) => r.data), ...bikeRoutes.map((r) => r.data), ...carRoutes.map((r) => r.data)])
 
   const [map, setMap] = useState<MapLibreMap | null>(null)
   const [hover, setHover] = useState<number | null>(null)
@@ -284,23 +286,24 @@ function HotelCard({
 
 function TravelTimes({ hotel, venue }: { hotel: Ranked; venue: LngLat }) {
   const here: LngLat = [hotel.lng, hotel.lat]
-  const fmt = (r: Route) => `${r.minutes} Min · ${formatKm(r.meters)}${r.estimated ? ' (geschätzt)' : ''}`
+  const fmt = (r?: Route) => (r ? `${r.minutes} Min · ${formatKm(r.meters)}${r.estimated ? ' (geschätzt)' : ''}` : '…')
+  const row = (highlight: boolean) => cn('flex items-center gap-1.5', highlight && 'font-medium text-foreground')
   return (
     <ul className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
-      {hotel.walk && hotel.foot ? (
-        <li className="flex items-center gap-1.5 font-medium text-foreground">
-          <Footprints className="size-3.5" /> {fmt(hotel.foot)} zu Fuß
-        </li>
-      ) : hotel.transit ? (
-        <li className="flex items-center gap-1.5 font-medium text-foreground">
-          <TramFront className="size-3.5" />
-          <a href={transitDirectionsUrl(here, venue)} target="_blank" rel="noreferrer" className="underline-offset-4 hover:underline" onClick={(e) => e.stopPropagation()}>
-            ca. {hotel.transit.totalMinutes} Min · {KIND[hotel.transit.stop.kind].label} bis {hotel.transit.stop.name}
-          </a>
-        </li>
-      ) : null}
+      <li className={row(!hotel.walk)}>
+        <TramFront className="size-3.5" />
+        <a href={transitDirectionsUrl(here, venue)} target="_blank" rel="noreferrer" className="underline-offset-4 hover:underline" onClick={(e) => e.stopPropagation()}>
+          {hotel.transit ? `ca. ${hotel.transit.totalMinutes} Min · ${KIND[hotel.transit.stop.kind].label} bis ${hotel.transit.stop.name}` : 'Verbindung anzeigen'}
+        </a>
+      </li>
+      <li className={row(hotel.walk)}>
+        <Footprints className="size-3.5" /> {fmt(hotel.foot)}
+      </li>
+      <li className={row(false)}>
+        <Bike className="size-3.5" /> {fmt(hotel.bike)}
+      </li>
       {hotel.car && (
-        <li className="flex items-center gap-1.5">
+        <li className={row(false)}>
           <Car className="size-3.5" /> {fmt(hotel.car)}
         </li>
       )}
