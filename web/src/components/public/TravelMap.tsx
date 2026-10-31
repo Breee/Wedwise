@@ -4,7 +4,7 @@ import * as maplibregl from 'maplibre-gl'
 import type { Map as MapLibreMap, ExpressionSpecification } from 'maplibre-gl'
 import { Footprints, ParkingCircle, TramFront, TrainFront, Bus, BedDouble } from 'lucide-react'
 import type { Hotel, StopKind, Travel } from '@/lib/types'
-import { distanceMeters, formatKm, walkingRouteQuery, type LngLat, type WalkingRoute } from '@/lib/geo'
+import { distanceMeters, formatKm, WALK_MAX_METERS, walkingRouteQuery, type LngLat, type WalkingRoute } from '@/lib/geo'
 import { cn } from '@/lib/utils'
 import { BaseMap, markerElement } from './BaseMap'
 
@@ -29,8 +29,6 @@ const ICON_SVG: Record<OriginKind, string> = {
   hotel: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 20v-8a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v8M4 10V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v4M12 4v6M2 18h20"/></svg>',
 }
 
-const WALKABLE_METERS = 3500
-
 const HEADER: Record<TravelMode, string> = {
   transit: 'zu Fuß von den Haltestellen',
   foot: 'zu Fuß von den Unterkünften',
@@ -45,7 +43,7 @@ function originsFor(mode: TravelMode, travel: Travel, hotels: Hotel[]): Origin[]
       return travel.stops.filter((s) => s.kind === 'parking')
     case 'foot':
       return hotels
-        .filter((h) => distanceMeters([h.lng, h.lat], [travel.lng, travel.lat]) <= WALKABLE_METERS)
+        .filter((h) => distanceMeters([h.lng, h.lat], [travel.lng, travel.lat]) <= WALK_MAX_METERS)
         .map((h) => ({ name: h.name, kind: 'hotel', line: '', lat: h.lat, lng: h.lng }))
   }
 }

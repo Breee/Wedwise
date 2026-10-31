@@ -12,6 +12,7 @@ import {
   formatStayDates,
   routeQuery,
   transitDirectionsUrl,
+  WALK_MAX_MINUTES,
   type LngLat,
   type Route,
 } from '@/lib/geo'
@@ -31,7 +32,7 @@ const TRAM_WAIT_MINUTES = 5
 
 const MODE: Record<TravelMode, { label: string; Icon: typeof Footprints; intro: string }> = {
   transit: { label: 'Tram', Icon: TramFront, intro: 'Sortiert nach Fahrzeit mit der Tram bis zur Haltestelle plus kurzem Fußweg.' },
-  foot: { label: 'Zu Fuß', Icon: Footprints, intro: 'Sortiert nach Fußweg zur Location – zum Feiern und Heimschlendern.' },
+  foot: { label: 'Zu Fuß', Icon: Footprints, intro: `Nur Unterkünfte bis ${WALK_MAX_MINUTES} Minuten Fußweg – zum Feiern und Heimschlendern.` },
   car: { label: 'Auto', Icon: Car, intro: 'Sortiert nach Fahrzeit – ideal, um das Auto am Hotel stehen zu lassen.' },
 }
 
@@ -76,7 +77,8 @@ export function StayMap({
         : (transit?.totalMinutes ?? foot?.minutes ?? fallbackWalk)
       return { ...h, foot, car, transit, minutes }
     })
-    return ranked.sort((a, b) => a.minutes - b.minutes)
+    const sorted = ranked.sort((a, b) => a.minutes - b.minutes)
+    return mode === 'foot' ? sorted.filter((h) => h.minutes <= WALK_MAX_MINUTES) : sorted
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [accommodation.hotels, stops, venue, hasVenue, mode, ...footRoutes.map((r) => r.data), ...carRoutes.map((r) => r.data)])
 
@@ -153,6 +155,11 @@ export function StayMap({
       <div className="grid gap-6 lg:grid-cols-5">
         <BaseMap onReady={setMap} className="h-[380px] lg:sticky lg:top-24 lg:col-span-3 lg:h-[640px]" />
         <ol className="space-y-3 lg:col-span-2">
+          {hotels.length === 0 && (
+            <li className="rounded-2xl border border-dashed p-5 text-sm text-muted-foreground">
+              Keine Unterkunft liegt in Gehweite – schaut bei Tram oder Auto.
+            </li>
+          )}
           {hotels.map((h, i) => (
             <HotelCard
               key={h.name}
@@ -305,7 +312,7 @@ function TravelTimes({ hotel, mode, venue }: { hotel: Ranked; mode: TravelMode; 
           </a>
         )}
       </li>
-      <li className={row('foot')}>
+      <li className={cn(row('foot'), hotel.foot && hotel.foot.minutes > WALK_MAX_MINUTES && 'line-through opacity-60')}>
         <Footprints className="size-3.5" /> {fmt(hotel.foot)}
       </li>
       <li className={row('car')}>

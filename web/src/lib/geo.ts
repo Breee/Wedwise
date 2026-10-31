@@ -16,6 +16,9 @@ const ROUTER: Record<Profile, string> = {
   foot: 'https://routing.openstreetmap.de/routed-foot/route/v1/foot',
   car: 'https://routing.openstreetmap.de/routed-car/route/v1/driving',
 }
+export const WALK_MAX_MINUTES = 25
+export const WALK_MAX_METERS = 2000
+
 const METERS_PER_MINUTE: Record<Profile, number> = { foot: 80, car: 500 }
 
 export function distanceMeters(a: LngLat, b: LngLat): number {
