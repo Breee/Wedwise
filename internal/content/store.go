@@ -355,6 +355,12 @@ func normalizeTravel(t *Travel) error {
 		if line.Name == "" || len(line.Name) > 50 || len(line.Color) > 20 {
 			return fmt.Errorf("%w: lines need a name (max 50 chars)", ErrValidation)
 		}
+		if line.Kind == "" {
+			line.Kind = "tram"
+		}
+		if line.Kind != "tram" && line.Kind != "bike" {
+			return fmt.Errorf("%w: line kind must be tram or bike", ErrValidation)
+		}
 		if len(line.Coords) < 2 || len(line.Coords) > maxLinePoints {
 			return fmt.Errorf("%w: line %q needs 2..%d points", ErrValidation, line.Name, maxLinePoints)
 		}
@@ -403,14 +409,15 @@ func normalizeAccommodation(a *Accommodation) error {
 		h.Area = strings.TrimSpace(h.Area)
 		h.Note = strings.TrimSpace(h.Note)
 		h.URL = strings.TrimSpace(h.URL)
-		if h.Name == "" || len(h.Name) > 200 || len(h.Area) > 200 || len(h.Note) > 1000 || len(h.URL) > 2000 {
+		h.BookingURL = strings.TrimSpace(h.BookingURL)
+		if h.Name == "" || len(h.Name) > 200 || len(h.Area) > 200 || len(h.Note) > 1000 || len(h.URL) > 2000 || len(h.BookingURL) > 2000 {
 			return fmt.Errorf("%w: hotels need a name (max 200 chars)", ErrValidation)
 		}
 		if h.PriceTier < 1 || h.PriceTier > 3 {
 			return fmt.Errorf("%w: priceTier must be 1..3", ErrValidation)
 		}
-		if h.URL != "" && !isHTTPURL(h.URL) {
-			return fmt.Errorf("%w: hotel url must be an http(s) URL", ErrValidation)
+		if (h.URL != "" && !isHTTPURL(h.URL)) || (h.BookingURL != "" && !isHTTPURL(h.BookingURL)) {
+			return fmt.Errorf("%w: hotel urls must be http(s) URLs", ErrValidation)
 		}
 		if !validCoordinate(h.Lat, h.Lng) {
 			return fmt.Errorf("%w: hotel coordinates out of range", ErrValidation)

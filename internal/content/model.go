@@ -64,6 +64,7 @@ type LineStop struct {
 // Line is the track geometry of a transit line, used to draw tram legs.
 type Line struct {
 	Name   string       `json:"name"`
+	Kind   string       `json:"kind"` // tram (default) or bike
 	Color  string       `json:"color"`
 	Coords [][2]float64 `json:"coords"` // [lng, lat]
 	Stops  []LineStop   `json:"stops"`
@@ -79,13 +80,14 @@ type Travel struct {
 
 // Hotel is one recommended place to stay.
 type Hotel struct {
-	Name      string  `json:"name"`
-	Area      string  `json:"area"`
-	Lat       float64 `json:"lat"`
-	Lng       float64 `json:"lng"`
-	PriceTier int     `json:"priceTier"` // 1..3
-	Note      string  `json:"note"`
-	URL       string  `json:"url"`
+	Name       string  `json:"name"`
+	Area       string  `json:"area"`
+	Lat        float64 `json:"lat"`
+	Lng        float64 `json:"lng"`
+	PriceTier  int     `json:"priceTier"` // 1..3
+	Note       string  `json:"note"`
+	URL        string  `json:"url"`
+	BookingURL string  `json:"bookingUrl"` // property page on a booking portal; dates are appended
 }
 
 // Accommodation is the stay section: dates for booking links plus hotels.

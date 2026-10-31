@@ -152,7 +152,7 @@ function ContentPage() {
           <ListEditor<Hotel>
             items={stay.hotels}
             onChange={(items) => set('accommodation', { ...stay, hotels: items })}
-            create={() => ({ name: '', area: '', lat: travel.lat, lng: travel.lng, priceTier: 2, note: '', url: '' })}
+            create={() => ({ name: '', area: '', lat: travel.lat, lng: travel.lng, priceTier: 2, note: '', url: '', bookingUrl: '' })}
             addLabel="Unterkunft hinzufügen"
             render={(item, update) => (
               <div className="grid flex-1 gap-3 sm:grid-cols-4">
@@ -172,6 +172,7 @@ function ContentPage() {
                 <NumberField label="Breitengrad (lat)" value={item.lat} onChange={(v) => update({ ...item, lat: v })} className="sm:col-span-2" />
                 <NumberField label="Längengrad (lng)" value={item.lng} onChange={(v) => update({ ...item, lng: v })} className="sm:col-span-2" />
                 <Field label="Website" value={item.url} onChange={(v) => update({ ...item, url: v })} className="sm:col-span-2" />
+                <Field label="Booking-Link (Hotelseite)" value={item.bookingUrl ?? ''} onChange={(v) => update({ ...item, bookingUrl: v })} className="sm:col-span-2" />
                 <Field label="Hinweis" value={item.note} onChange={(v) => update({ ...item, note: v })} className="sm:col-span-2" />
               </div>
             )}

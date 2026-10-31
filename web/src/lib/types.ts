@@ -60,8 +60,11 @@ export interface LineStop {
   lng: number
 }
 
+export type LineKind = 'tram' | 'bike'
+
 export interface TransitLine {
   name: string
+  kind: LineKind
   color: string
   coords: [number, number][]
   stops: LineStop[]
@@ -82,6 +85,7 @@ export interface Hotel {
   priceTier: 1 | 2 | 3
   note: string
   url: string
+  bookingUrl: string
 }
 
 export interface Accommodation {

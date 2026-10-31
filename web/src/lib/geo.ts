@@ -135,11 +135,28 @@ export function formatKm(meters: number): string {
   return meters < 950 ? `${Math.round(meters / 50) * 50} m` : `${(meters / 1000).toLocaleString('de-DE', { maximumFractionDigits: 1 })} km`
 }
 
-export function bookingUrl(query: string, checkIn: string, checkOut: string): string {
-  const p = new URLSearchParams({ ss: query, group_adults: '2', no_rooms: '1', lang: 'de' })
-  if (checkIn) p.set('checkin', checkIn)
-  if (checkOut) p.set('checkout', checkOut)
-  return `https://www.booking.com/searchresults.de.html?${p}`
+const STAY_PARAMS = { group_adults: '2', no_rooms: '1', group_children: '0' }
+
+function withDates(url: string, checkIn: string, checkOut: string): string {
+  const u = new URL(url)
+  for (const [k, v] of Object.entries(STAY_PARAMS)) u.searchParams.set(k, v)
+  if (checkIn) u.searchParams.set('checkin', checkIn)
+  if (checkOut) u.searchParams.set('checkout', checkOut)
+  return u.toString()
+}
+
+/** Property page with dates, or a Booking.com search for the given query as fallback. */
+export function hotelBookingUrl(hotel: { name: string; bookingUrl?: string }, city: string, checkIn: string, checkOut: string): string {
+  return hotel.bookingUrl ? withDates(hotel.bookingUrl, checkIn, checkOut) : bookingUrl(`${hotel.name} ${city}`, checkIn, checkOut)
+}
+
+/** Booking.com search; `filters` is the `nflt` value, e.g. 'ht_id=201' for apartments. */
+export function bookingUrl(query: string, checkIn: string, checkOut: string, filters?: string): string {
+  const u = withDates('https://www.booking.com/searchresults.de.html', checkIn, checkOut)
+  const url = new URL(u)
+  url.searchParams.set('ss', query)
+  if (filters) url.searchParams.set('nflt', filters)
+  return url.toString()
 }
 
 export function airbnbUrl(city: string, checkIn: string, checkOut: string): string {

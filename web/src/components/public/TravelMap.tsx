@@ -7,7 +7,8 @@ import type { Stop, StopKind, Travel } from '@/lib/types'
 import { appleDirectionsUrl, distanceMeters, formatKm, googleDirectionsUrl, routeQuery, type LngLat, type Route } from '@/lib/geo'
 import { cn } from '@/lib/utils'
 import { BaseMap, markerElement } from './BaseMap'
-import { drawRoutes, drawTransitLines, FIT_PADDING, venueMarker } from './mapParts'
+import { drawRoutes,
+  drawBikeLines, drawTransitLines, FIT_PADDING, venueMarker } from './mapParts'
 
 export const KIND = {
   tram: { label: 'Tram', color: '#c2554a', Icon: TramFront },
@@ -25,6 +26,7 @@ export const ICON_SVG: Record<StopKind, string> = {
 
 // Parking this close to the venue are "at the location" – no own marker or route.
 const AT_VENUE_METERS = 150
+const BIKE_COLOR = '#5e7f63'
 const isAtVenue = (stop: Stop, venue: LngLat) => distanceMeters([stop.lng, stop.lat], venue) <= AT_VENUE_METERS
 const hasLeg = (kind: StopKind) => kind !== 'parking'
 
@@ -70,7 +72,14 @@ export function TravelMap({ travel, venueName, mode = 'transit' }: { travel: Tra
   useEffect(() => {
     if (!map) return
     drawTransitLines(map, mode === 'transit' ? travel.lines : [], KIND.tram.color)
-  }, [map, mode, travel.lines])
+    const clear = drawBikeLines(map, mode === 'bike' ? travel.lines : [], BIKE_COLOR)
+    if (mode === 'bike' && travel.lines.some((l) => l.kind === 'bike')) {
+      const bounds = new maplibregl.LngLatBounds(venue, venue)
+      travel.lines.filter((l) => l.kind === 'bike').forEach((l) => l.coords.forEach((c) => bounds.extend(c)))
+      map.fitBounds(bounds, { padding: FIT_PADDING, maxZoom: 15, duration: 0 })
+    }
+    return clear
+  }, [map, mode, travel.lines, venue])
 
   useEffect(() => {
     if (!map) return

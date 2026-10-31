@@ -7,6 +7,7 @@ import type { Accommodation, Hotel, Stop, Travel } from '@/lib/types'
 import {
   airbnbUrl,
   bookingUrl,
+  hotelBookingUrl,
   distanceMeters,
   formatKm,
   formatStayDates,
@@ -38,7 +39,7 @@ export function StayMap({ accommodation, travel, city }: { accommodation: Accomm
   const hasVenue = travel.lat !== 0 || travel.lng !== 0
   const { checkIn, checkOut } = accommodation
   const stop = useMemo(() => travel.stops.find((s) => s.kind !== 'parking'), [travel.stops])
-  const line = travel.lines[0]
+  const line = travel.lines.find((l) => l.kind === 'tram')
 
   const footRoutes = useQueries({ queries: accommodation.hotels.map((h) => ({ ...routeQuery('foot', [h.lng, h.lat], venue), enabled: hasVenue })) })
   const bikeRoutes = useQueries({ queries: accommodation.hotels.map((h) => ({ ...routeQuery('bike', [h.lng, h.lat], venue), enabled: hasVenue })) })
@@ -183,7 +184,7 @@ export function StayMap({ accommodation, travel, city }: { accommodation: Accomm
             </a>
           </Button>
           <Button asChild variant="outline">
-            <a href={bookingUrl(`${city} Ferienwohnung`, checkIn, checkOut)} target="_blank" rel="noreferrer">
+            <a href={bookingUrl(city, checkIn, checkOut, 'ht_id=201')} target="_blank" rel="noreferrer">
               Booking.com <ExternalLink className="size-3.5" />
             </a>
           </Button>
@@ -266,7 +267,7 @@ function HotelCard({
           {venue && <TravelTimes hotel={hotel} venue={venue} />}
           <div className="mt-3 flex flex-wrap gap-2" onClick={(e) => e.stopPropagation()}>
             <Button asChild size="sm">
-              <a href={bookingUrl(`${hotel.name} ${city}`, checkIn, checkOut)} target="_blank" rel="noreferrer">
+              <a href={hotelBookingUrl(hotel, city, checkIn, checkOut)} target="_blank" rel="noreferrer">
                 Verfügbarkeit prüfen
               </a>
             </Button>

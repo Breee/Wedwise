@@ -110,6 +110,10 @@
     background: var(--stop-color, var(--primary));
     box-shadow: 0 0 0 3px white, 0 6px 16px -4px rgb(0 0 0 / 0.35);
   }
+  .wed-route-label-bike {
+    --stop-color: oklch(0.52 0.08 150);
+    border: 1px solid oklch(0.52 0.08 150 / 0.4);
+  }
   .wed-route-label {
     pointer-events: none;
     padding: 3px 10px;

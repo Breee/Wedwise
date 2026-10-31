@@ -65,7 +65,25 @@ export function drawRoutes(map: MapLibreMap, routes: RouteFeature[]): () => void
   }
 }
 
-export function drawTransitLines(map: MapLibreMap, lines: { color: string; coords: [number, number][] }[], fallbackColor: string) {
+type MapLine = { name: string; kind?: 'tram' | 'bike'; color: string; coords: [number, number][] }
+
+/** Faint tram tracks in the background. */
+export function drawTransitLines(map: MapLibreMap, lines: MapLine[], fallbackColor: string) {
+  setLines(map, 'tram-lines', lines.filter((l) => (l.kind ?? 'tram') === 'tram'), fallbackColor, { 'line-width': 2, 'line-opacity': 0.35 })
+}
+
+/** Prominent bike routes with a name label; returns cleanup for the labels. */
+export function drawBikeLines(map: MapLibreMap, lines: MapLine[], fallbackColor: string): () => void {
+  const bike = lines.filter((l) => l.kind === 'bike')
+  setLines(map, 'bike-lines', bike, fallbackColor, { 'line-width': 4, 'line-opacity': 0.75, 'line-dasharray': [1.5, 1.5] })
+  const labels = bike.map((l) => {
+    const mid = l.coords[Math.floor(l.coords.length / 4)]
+    return new maplibregl.Marker({ element: markerElement(l.name, 'wed-route-label wed-route-label-bike') }).setLngLat(mid).addTo(map)
+  })
+  return () => labels.forEach((m) => m.remove())
+}
+
+function setLines(map: MapLibreMap, id: string, lines: MapLine[], fallbackColor: string, paint: maplibregl.LineLayerSpecification['paint']) {
   const data = {
     type: 'FeatureCollection' as const,
     features: lines.map((l) => ({
@@ -74,16 +92,16 @@ export function drawTransitLines(map: MapLibreMap, lines: { color: string; coord
       geometry: { type: 'LineString' as const, coordinates: l.coords },
     })),
   }
-  const src = map.getSource('tram-lines') as maplibregl.GeoJSONSource | undefined
+  const src = map.getSource(id) as maplibregl.GeoJSONSource | undefined
   if (src) src.setData(data)
   else {
-    map.addSource('tram-lines', { type: 'geojson', data })
+    map.addSource(id, { type: 'geojson', data })
     map.addLayer({
-      id: 'tram-lines',
+      id,
       type: 'line',
-      source: 'tram-lines',
+      source: id,
       layout: { 'line-cap': 'round', 'line-join': 'round' },
-      paint: { 'line-color': ['get', 'color'], 'line-width': 2, 'line-opacity': 0.35 },
+      paint: { 'line-color': ['get', 'color'], ...paint },
     })
   }
 }
