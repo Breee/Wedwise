@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useQueries, useQuery } from '@tanstack/react-query'
 import * as maplibregl from 'maplibre-gl'
 import type { Map as MapLibreMap } from 'maplibre-gl'
-import { CalendarDays, Car, ExternalLink, Footprints, Home, MapPin, Sparkles, TramFront, Wine } from 'lucide-react'
+import { CalendarDays, Car, ExternalLink, Footprints, Home, MapPin, TramFront } from 'lucide-react'
 import type { Accommodation, Hotel, Stop, Travel } from '@/lib/types'
 import {
   airbnbUrl,
@@ -26,24 +26,12 @@ import { BaseMap, markerElement } from './BaseMap'
 import { drawRoutes, drawTransitLines, FIT_PADDING, venueMarker, type RouteFeature } from './mapParts'
 import { KIND } from './TravelMap'
 
-type StayMode = 'transit' | 'foot' | 'car'
-
 const TIER = { 1: { label: '€', hint: 'günstig' }, 2: { label: '€€', hint: 'mittel' }, 3: { label: '€€€', hint: 'gehoben' } } as const
-
-const WALK_METERS_PER_MINUTE = METERS_PER_MINUTE.foot
-const TRAM_METERS_PER_MINUTE = METERS_PER_MINUTE.transit
 const FOOT_COLOR = '#5e7f63'
-const CAR_COLOR = '#8a8278'
-
-const MODE: Record<StayMode, { label: string; Icon: typeof Footprints; intro: string }> = {
-  transit: { label: 'Tram', Icon: TramFront, intro: 'Sortiert nach Fahrzeit mit der Tram bis zur Haltestelle plus kurzem Fußweg.' },
-  foot: { label: 'Zu Fuß', Icon: Footprints, intro: `Nur Unterkünfte bis ${WALK_MAX_MINUTES} Minuten Fußweg – zum Feiern und Heimschlendern.` },
-  car: { label: 'Auto', Icon: Car, intro: 'Sortiert nach Fahrzeit – ideal, um das Auto am Hotel stehen zu lassen.' },
-}
 
 type Transit = { stop: Stop; ride: Route; totalMinutes: number }
-// walkBetter: walking beats the tram, so the transit tab shows and draws the walk.
-type Ranked = Hotel & { foot?: Route; car?: Route; transit: Transit | null; walkBetter: boolean; minutes: number }
+// walk: walking is realistic (≤ WALK_MAX_MINUTES) and not slower than the tram.
+type Ranked = Hotel & { foot?: Route; car?: Route; transit: Transit | null; walk: boolean; minutes: number }
 
 export function StayMap({ accommodation, travel, city }: { accommodation: Accommodation; travel: Travel; city: string }) {
   const venue = useMemo<LngLat>(() => [travel.lng, travel.lat], [travel.lat, travel.lng])
@@ -51,7 +39,6 @@ export function StayMap({ accommodation, travel, city }: { accommodation: Accomm
   const { checkIn, checkOut } = accommodation
   const stop = useMemo(() => travel.stops.find((s) => s.kind !== 'parking'), [travel.stops])
   const line = travel.lines[0]
-  const [mode, setMode] = useState<StayMode>('transit')
 
   const footRoutes = useQueries({ queries: accommodation.hotels.map((h) => ({ ...routeQuery('foot', [h.lng, h.lat], venue), enabled: hasVenue })) })
   const carRoutes = useQueries({ queries: accommodation.hotels.map((h) => ({ ...routeQuery('car', [h.lng, h.lat], venue), enabled: hasVenue })) })
@@ -66,19 +53,14 @@ export function StayMap({ accommodation, travel, city }: { accommodation: Accomm
       const foot = footRoutes[i].data
       const car = carRoutes[i].data
       const transit = viaStop(here, stop, venue, line, stopWalk.data)
-      const fallbackWalk = hasVenue ? (distanceMeters(here, venue) * 1.3) / WALK_METERS_PER_MINUTE : 0
-      const walkBetter = !!foot && foot.minutes <= WALK_MAX_MINUTES && (!transit || foot.minutes <= transit.totalMinutes)
-      const minutes =
-        mode === 'foot' ? (foot?.minutes ?? fallbackWalk)
-        : mode === 'car' ? (car?.minutes ?? fallbackWalk / 6)
-        : walkBetter ? foot!.minutes
-        : (transit?.totalMinutes ?? foot?.minutes ?? fallbackWalk)
-      return { ...h, foot, car, transit, walkBetter, minutes }
+      const fallbackWalk = hasVenue ? (distanceMeters(here, venue) * 1.3) / METERS_PER_MINUTE.foot : 0
+      const walk = !!foot && foot.minutes <= WALK_MAX_MINUTES && (!transit || foot.minutes <= transit.totalMinutes)
+      const minutes = walk ? foot!.minutes : (transit?.totalMinutes ?? foot?.minutes ?? fallbackWalk)
+      return { ...h, foot, car, transit, walk, minutes }
     })
-    const sorted = ranked.sort((a, b) => a.minutes - b.minutes)
-    return mode === 'foot' ? sorted.filter((h) => h.minutes <= WALK_MAX_MINUTES) : sorted
+    return ranked.sort((a, b) => a.minutes - b.minutes)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [accommodation.hotels, stop, venue, hasVenue, mode, line, stopWalk.data, ...footRoutes.map((r) => r.data), ...carRoutes.map((r) => r.data)])
+  }, [accommodation.hotels, stop, venue, hasVenue, line, stopWalk.data, ...footRoutes.map((r) => r.data), ...carRoutes.map((r) => r.data)])
 
   const [map, setMap] = useState<MapLibreMap | null>(null)
   const [hover, setHover] = useState<number | null>(null)
@@ -118,23 +100,19 @@ export function StayMap({ accommodation, travel, city }: { accommodation: Accomm
 
   useEffect(() => {
     if (!map) return
-    drawTransitLines(map, mode === 'transit' ? travel.lines : [], KIND.tram.color)
-  }, [map, mode, travel.lines])
+    drawTransitLines(map, travel.lines, KIND.tram.color)
+  }, [map, travel.lines])
 
-  // Draw the selected hotel's route for the current mode.
+  // Draw the selected hotel's best route: walk, or tram + walk from the stop.
   useEffect(() => {
     if (!map) return
     const hotel = selectedIndex >= 0 ? hotels[selectedIndex] : undefined
     const features: RouteFeature[] = []
     if (hotel) {
-      if (mode === 'foot' && hotel.foot) features.push({ route: hotel.foot, color: FOOT_COLOR, id: 0 })
-      if (mode === 'car' && hotel.car) features.push({ route: hotel.car, color: CAR_COLOR, id: 0 })
-      if (mode === 'transit') {
-        if (hotel.walkBetter && hotel.foot) features.push({ route: hotel.foot, color: FOOT_COLOR, id: 0 })
-        else if (hotel.transit) {
-          features.push({ route: hotel.transit.ride, color: KIND.tram.color, id: 0 })
-          if (stopWalk.data) features.push({ route: stopWalk.data, color: FOOT_COLOR, id: 1 })
-        }
+      if (hotel.walk && hotel.foot) features.push({ route: hotel.foot, color: FOOT_COLOR, id: 0 })
+      else if (hotel.transit) {
+        features.push({ route: hotel.transit.ride, color: KIND.tram.color, id: 0 })
+        if (stopWalk.data) features.push({ route: stopWalk.data, color: FOOT_COLOR, id: 1 })
       }
     }
     const cleanup = drawRoutes(map, features)
@@ -145,42 +123,16 @@ export function StayMap({ accommodation, travel, city }: { accommodation: Accomm
       map.fitBounds(bounds, { padding: FIT_PADDING, maxZoom: 15, duration: 800 })
     }
     return cleanup
-  }, [map, hotels, selectedIndex, mode, stopWalk.data, venue])
+  }, [map, hotels, selectedIndex, stopWalk.data, venue])
 
   const stay = formatStayDates(checkIn, checkOut)
 
   return (
     <div className="space-y-8">
-      <div className="space-y-4 text-center">
-        <div role="radiogroup" aria-label="Anreise" className="inline-flex rounded-full border bg-card p-1 shadow-sm">
-          {(Object.keys(MODE) as StayMode[]).map((m) => {
-            const { label, Icon } = MODE[m]
-            return (
-              <button
-                key={m}
-                type="button"
-                role="radio"
-                aria-checked={mode === m}
-                onClick={() => setMode(m)}
-                className={cn(
-                  'flex items-center gap-2 rounded-full px-4 py-1.5 text-sm transition-colors',
-                  mode === m ? 'bg-primary text-primary-foreground shadow' : 'text-muted-foreground hover:text-foreground',
-                )}
-              >
-                <Icon className="size-4" /> {label}
-              </button>
-            )
-          })}
-        </div>
-        <p className="text-sm text-muted-foreground">{MODE[mode].intro}</p>
-        {mode === 'car' && (
-          <p className="mx-auto flex max-w-xl items-start gap-2 rounded-2xl border border-gold/40 bg-gold/10 px-4 py-3 text-left text-sm">
-            <Wine className="mt-0.5 size-4 shrink-0 text-primary" />
-            <span>Es wird wahrscheinlich angestoßen – parkt am besten am Hotel und kommt zu Fuß oder mit der Tram zur Location.</span>
-          </p>
-        )}
+      <div className="space-y-2 text-center text-sm text-muted-foreground">
+        <p>Sortiert nach Weg zur Location – zu Fuß oder mit der Tram.</p>
         {stay && (
-          <p className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+          <p className="flex items-center justify-center gap-2">
             <CalendarDays className="size-4 text-primary" /> Alle Links sind bereits für <strong className="text-foreground">{stay}</strong> vorausgefüllt.
           </p>
         )}
@@ -194,17 +146,11 @@ export function StayMap({ accommodation, travel, city }: { accommodation: Accomm
           )}
         </BaseMap>
         <ol className="space-y-3 lg:col-span-2">
-          {hotels.length === 0 && (
-            <li className="rounded-2xl border border-dashed p-5 text-sm text-muted-foreground">
-              Keine Unterkunft liegt in Gehweite – schaut bei Tram oder Auto.
-            </li>
-          )}
           {hotels.map((h, i) => (
             <HotelCard
               key={h.name}
               index={i}
               hotel={h}
-              mode={mode}
               venue={hasVenue ? venue : null}
               active={active === i}
               selected={selectedIndex === i}
@@ -248,13 +194,13 @@ export function StayMap({ accommodation, travel, city }: { accommodation: Accomm
 function viaStop(from: LngLat, stop: Stop | undefined, venue: LngLat, line: TransitLine | undefined, stopWalk: Route | undefined): Transit | null {
   if (!stop) return null
   const at: LngLat = [stop.lng, stop.lat]
-  const walkMinutes = stopWalk?.minutes ?? Math.round((distanceMeters(at, venue) * 1.3) / WALK_METERS_PER_MINUTE)
+  const walkMinutes = stopWalk?.minutes ?? Math.round((distanceMeters(at, venue) * 1.3) / METERS_PER_MINUTE.foot)
   const ride: Route = line
     ? transitRoute(line, from, at)
     : {
         coordinates: [from, at],
         meters: distanceMeters(from, at),
-        minutes: TRAM_WAIT_MINUTES + Math.round(distanceMeters(from, at) / TRAM_METERS_PER_MINUTE),
+        minutes: TRAM_WAIT_MINUTES + Math.round(distanceMeters(from, at) / METERS_PER_MINUTE.transit),
         estimated: true,
       }
   return { stop, ride, totalMinutes: ride.minutes + walkMinutes }
@@ -263,7 +209,6 @@ function viaStop(from: LngLat, stop: Stop | undefined, venue: LngLat, line: Tran
 function HotelCard({
   index,
   hotel,
-  mode,
   venue,
   active,
   selected,
@@ -276,7 +221,6 @@ function HotelCard({
 }: {
   index: number
   hotel: Ranked
-  mode: StayMode
   venue: LngLat | null
   active: boolean
   selected: boolean
@@ -311,20 +255,13 @@ function HotelCard({
               {tier.label}
             </span>
           </div>
-          <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
-            {index === 0 && (
-              <span className="flex items-center gap-1 text-primary">
-                <Sparkles className="size-3.5" /> Unser Tipp für {MODE[mode].label}
-              </span>
-            )}
-            {hotel.area && (
-              <span className="flex items-center gap-1">
-                <MapPin className="size-3.5" /> {hotel.area}
-              </span>
-            )}
-          </p>
+          {hotel.area && (
+            <p className="mt-1 flex items-center gap-1 text-sm text-muted-foreground">
+              <MapPin className="size-3.5" /> {hotel.area}
+            </p>
+          )}
           {hotel.note && <p className="mt-2 text-sm text-foreground/80">{hotel.note}</p>}
-          {venue && <TravelTimes hotel={hotel} mode={mode} venue={venue} />}
+          {venue && <TravelTimes hotel={hotel} venue={venue} />}
           <div className="mt-3 flex flex-wrap gap-2" onClick={(e) => e.stopPropagation()}>
             <Button asChild size="sm">
               <a href={bookingUrl(`${hotel.name} ${city}`, checkIn, checkOut)} target="_blank" rel="noreferrer">
@@ -345,31 +282,28 @@ function HotelCard({
   )
 }
 
-function TravelTimes({ hotel, mode, venue }: { hotel: Ranked; mode: StayMode; venue: LngLat }) {
+function TravelTimes({ hotel, venue }: { hotel: Ranked; venue: LngLat }) {
   const here: LngLat = [hotel.lng, hotel.lat]
-  const row = (m: StayMode) => cn('flex items-center gap-1.5', mode === m ? 'font-medium text-foreground' : 'text-muted-foreground')
-  const fmt = (r?: Route) => (r ? `${r.minutes} Min · ${formatKm(r.meters)}${r.estimated ? ' (geschätzt)' : ''}` : '…')
-  const walkable = !hotel.foot || hotel.foot.minutes <= WALK_MAX_MINUTES
+  const fmt = (r: Route) => `${r.minutes} Min · ${formatKm(r.meters)}${r.estimated ? ' (geschätzt)' : ''}`
   return (
-    <ul className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-sm">
-      <li className={row('transit')}>
-        <TramFront className="size-3.5" />
-        <a href={transitDirectionsUrl(here, venue)} target="_blank" rel="noreferrer" className="underline-offset-4 hover:underline" onClick={(e) => e.stopPropagation()}>
-          {hotel.walkBetter && hotel.foot
-            ? `ca. ${hotel.foot.minutes} Min · zu Fuß schneller als die Tram`
-            : hotel.transit
-              ? `ca. ${hotel.transit.totalMinutes} Min · ${KIND[hotel.transit.stop.kind].label} bis ${hotel.transit.stop.name}`
-              : 'Verbindung anzeigen'}
-        </a>
-      </li>
-      {walkable && (
-        <li className={row('foot')}>
-          <Footprints className="size-3.5" /> {fmt(hotel.foot)}
+    <ul className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
+      {hotel.walk && hotel.foot ? (
+        <li className="flex items-center gap-1.5 font-medium text-foreground">
+          <Footprints className="size-3.5" /> {fmt(hotel.foot)} zu Fuß
+        </li>
+      ) : hotel.transit ? (
+        <li className="flex items-center gap-1.5 font-medium text-foreground">
+          <TramFront className="size-3.5" />
+          <a href={transitDirectionsUrl(here, venue)} target="_blank" rel="noreferrer" className="underline-offset-4 hover:underline" onClick={(e) => e.stopPropagation()}>
+            ca. {hotel.transit.totalMinutes} Min · {KIND[hotel.transit.stop.kind].label} bis {hotel.transit.stop.name}
+          </a>
+        </li>
+      ) : null}
+      {hotel.car && (
+        <li className="flex items-center gap-1.5">
+          <Car className="size-3.5" /> {fmt(hotel.car)}
         </li>
       )}
-      <li className={row('car')}>
-        <Car className="size-3.5" /> {fmt(hotel.car)}
-      </li>
     </ul>
   )
 }

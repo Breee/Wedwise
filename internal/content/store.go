@@ -36,6 +36,7 @@ const (
 	keyLocationNavigation   = "location.navigationUrl"
 	keyLocationTransport    = "location.transport"
 	keyLocationParking      = "location.parking"
+	keyLocationBike         = "location.bike"
 	keyLocationImage        = "location.image"
 	keyTravel               = "travel"
 	keyAccommodation        = "accommodation"
@@ -64,6 +65,7 @@ func (s *Store) Get(ctx context.Context) (Content, error) {
 			NavigationURL: blocks[keyLocationNavigation],
 			Transport:     blocks[keyLocationTransport],
 			Parking:       blocks[keyLocationParking],
+			Bike:          blocks[keyLocationBike],
 			Image:         blocks[keyLocationImage],
 		},
 		UpdatedAt: updatedAt,
@@ -119,6 +121,7 @@ func (s *Store) Replace(ctx context.Context, updated Content) (Content, error) {
 		keyLocationNavigation:  normalized.Location.NavigationURL,
 		keyLocationTransport:   normalized.Location.Transport,
 		keyLocationParking:     normalized.Location.Parking,
+		keyLocationBike:        normalized.Location.Bike,
 		keyLocationImage:       normalized.Location.Image,
 		keyTravel:              encodeBlock(normalized.Travel),
 		keyAccommodation:       encodeBlock(normalized.Accommodation),
@@ -235,7 +238,7 @@ func normalize(input Content) (Content, error) {
 		&input.Hero.Eyebrow, &input.Hero.Headline, &input.Hero.Subtitle, &input.Hero.Note,
 		&input.Introduction.Text,
 		&input.Location.Name, &input.Location.Address, &input.Location.Description,
-		&input.Location.NavigationURL, &input.Location.Transport, &input.Location.Parking, &input.Location.Image,
+		&input.Location.NavigationURL, &input.Location.Transport, &input.Location.Parking, &input.Location.Bike, &input.Location.Image,
 	}
 	for _, field := range fields {
 		*field = strings.TrimSpace(*field)

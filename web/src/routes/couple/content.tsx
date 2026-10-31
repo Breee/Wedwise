@@ -93,6 +93,7 @@ function ContentPage() {
               <Field label="Beschreibung" multiline value={draft.location.description} onChange={(v) => set('location', { ...draft.location, description: v })} className="sm:col-span-2" />
               <Field label="Anreise" multiline value={draft.location.transport} onChange={(v) => set('location', { ...draft.location, transport: v })} />
               <Field label="Parken" multiline value={draft.location.parking} onChange={(v) => set('location', { ...draft.location, parking: v })} />
+              <Field label="Fahrrad" multiline value={draft.location.bike} onChange={(v) => set('location', { ...draft.location, bike: v })} />
             </CardContent>
           </Card>
         </TabsContent>

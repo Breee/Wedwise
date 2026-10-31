@@ -24,6 +24,7 @@ type Location struct {
 	NavigationURL string `json:"navigationUrl"`
 	Transport     string `json:"transport"`
 	Parking       string `json:"parking"`
+	Bike          string `json:"bike"`
 	Image         string `json:"image"` // URL of a venue photo
 }
 

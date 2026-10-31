@@ -2,7 +2,7 @@ import { queryOptions } from '@tanstack/react-query'
 
 export type LngLat = [number, number]
 
-export type Profile = 'foot' | 'car' | 'transit'
+export type Profile = 'foot' | 'bike' | 'car' | 'transit'
 
 export interface Route {
   coordinates: LngLat[]
@@ -21,13 +21,14 @@ export interface TransitLine {
 
 const ROUTER: Record<Exclude<Profile, 'transit'>, string> = {
   foot: 'https://routing.openstreetmap.de/routed-foot/route/v1/foot',
+  bike: 'https://routing.openstreetmap.de/routed-bike/route/v1/bike',
   car: 'https://routing.openstreetmap.de/routed-car/route/v1/driving',
 }
 export const WALK_MAX_MINUTES = 25
 export const WALK_MAX_METERS = 2000
 export const TRAM_WAIT_MINUTES = 5
 
-export const METERS_PER_MINUTE: Record<Profile, number> = { foot: 80, car: 500, transit: 350 }
+export const METERS_PER_MINUTE: Record<Profile, number> = { foot: 80, bike: 250, car: 500, transit: 350 }
 
 export function distanceMeters(a: LngLat, b: LngLat): number {
   const toRad = (d: number) => (d * Math.PI) / 180
@@ -112,13 +113,15 @@ export const routeQuery = (profile: Profile, from: LngLat, to: LngLat, line?: Tr
 export const walkingRouteQuery = (from: LngLat, to: LngLat) => routeQuery('foot', from, to)
 
 // Directions from the user's current position to a point.
-export function googleDirectionsUrl(to: LngLat, mode: 'driving' | 'transit' | 'walking'): string {
+export type DirectionsMode = 'driving' | 'transit' | 'walking' | 'bicycling'
+
+export function googleDirectionsUrl(to: LngLat, mode: DirectionsMode): string {
   const p = new URLSearchParams({ api: '1', destination: `${to[1]},${to[0]}`, travelmode: mode })
   return `https://www.google.com/maps/dir/?${p}`
 }
 
-export function appleDirectionsUrl(to: LngLat, name: string, mode: 'driving' | 'transit' | 'walking'): string {
-  const flag = { driving: 'd', transit: 'r', walking: 'w' }[mode]
+export function appleDirectionsUrl(to: LngLat, name: string, mode: DirectionsMode): string {
+  const flag = { driving: 'd', transit: 'r', walking: 'w', bicycling: 'c' }[mode]
   const p = new URLSearchParams({ daddr: `${to[1]},${to[0]}`, q: name, dirflg: flag })
   return `https://maps.apple.com/?${p}`
 }

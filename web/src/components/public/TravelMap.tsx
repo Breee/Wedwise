@@ -4,7 +4,7 @@ import * as maplibregl from 'maplibre-gl'
 import type { Map as MapLibreMap, ExpressionSpecification } from 'maplibre-gl'
 import { Footprints, ParkingCircle, TramFront, TrainFront, Bus } from 'lucide-react'
 import type { Stop, StopKind, Travel } from '@/lib/types'
-import { appleDirectionsUrl, formatKm, googleDirectionsUrl, routeQuery, type LngLat, type Route } from '@/lib/geo'
+import { appleDirectionsUrl, distanceMeters, formatKm, googleDirectionsUrl, routeQuery, type LngLat, type Route } from '@/lib/geo'
 import { cn } from '@/lib/utils'
 import { BaseMap, markerElement } from './BaseMap'
 import { drawRoutes, drawTransitLines, FIT_PADDING, venueMarker } from './mapParts'
@@ -23,11 +23,28 @@ export const ICON_SVG: Record<StopKind, string> = {
   parking: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 17V7h4a3 3 0 0 1 0 6H9"/></svg>',
 }
 
-export function TravelMap({ travel, venueName }: { travel: Travel; venueName: string }) {
+// Parking this close to the venue are "at the location" – no own marker or route.
+const AT_VENUE_METERS = 150
+const isAtVenue = (stop: Stop, venue: LngLat) => distanceMeters([stop.lng, stop.lat], venue) <= AT_VENUE_METERS
+const hasLeg = (kind: StopKind) => kind !== 'parking'
+
+export type TravelMode = 'transit' | 'bike' | 'car'
+const MODE_KINDS: Record<TravelMode, StopKind[]> = {
+  transit: ['tram', 'train', 'bus'],
+  bike: [],
+  car: ['parking'],
+}
+const HEADER: Record<TravelMode, string> = {
+  transit: 'Haltestellen & Fußwege',
+  bike: 'Mit dem Rad',
+  car: 'Parken',
+}
+
+export function TravelMap({ travel, venueName, mode = 'transit' }: { travel: Travel; venueName: string; mode?: TravelMode }) {
   const venue = useMemo<LngLat>(() => [travel.lng, travel.lat], [travel.lat, travel.lng])
-  const stops = travel.stops
+  const stops = useMemo(() => travel.stops.filter((s) => MODE_KINDS[mode].includes(s.kind)), [travel.stops, mode])
   // Only transit stops have a walking leg to draw.
-  const routed = useMemo(() => stops.filter((s) => s.kind !== 'parking'), [stops])
+  const routed = useMemo(() => stops.filter((s) => hasLeg(s.kind)), [stops])
   const routes = useQueries({ queries: routed.map((s) => routeQuery('foot', [s.lng, s.lat], venue)) })
   const [map, setMap] = useState<MapLibreMap | null>(null)
   const [active, setActive] = useState<number | null>(null)
@@ -37,6 +54,7 @@ export function TravelMap({ travel, venueName }: { travel: Travel; venueName: st
     if (!map) return
     const markers = [venueMarker(map, venue)]
     for (const stop of stops) {
+      if (isAtVenue(stop, venue)) continue
       const el = markerElement(ICON_SVG[stop.kind], 'wed-marker wed-marker-stop')
       el.style.setProperty('--stop-color', KIND[stop.kind].color)
       el.title = stop.name
@@ -45,13 +63,14 @@ export function TravelMap({ travel, venueName }: { travel: Travel; venueName: st
     const bounds = new maplibregl.LngLatBounds(venue, venue)
     stops.forEach((s) => bounds.extend([s.lng, s.lat]))
     map.fitBounds(bounds, { padding: FIT_PADDING, maxZoom: 16, duration: 0 })
+    setActive(null)
     return () => markers.forEach((m) => m.remove())
   }, [map, stops, venue])
 
   useEffect(() => {
     if (!map) return
-    drawTransitLines(map, travel.lines, KIND.tram.color)
-  }, [map, travel.lines])
+    drawTransitLines(map, mode === 'transit' ? travel.lines : [], KIND.tram.color)
+  }, [map, mode, travel.lines])
 
   useEffect(() => {
     if (!map) return
@@ -87,7 +106,7 @@ export function TravelMap({ travel, venueName }: { travel: Travel; venueName: st
       <BaseMap onReady={setMap} className="h-[420px] md:h-[520px]">
         <div className="pointer-events-none absolute top-4 left-4 rounded-full bg-background/90 px-4 py-2 text-sm shadow backdrop-blur">
           <span className="font-display text-lg text-primary">{venueName}</span>
-          <span className="ml-2 text-muted-foreground">Haltestellen, Parken & Fußwege</span>
+          <span className="ml-2 text-muted-foreground">{HEADER[mode]}</span>
         </div>
       </BaseMap>
       {stops.length > 0 && (
@@ -151,7 +170,7 @@ function StopCard({
           {stop.line && <span className="rounded px-1.5 py-0.5 font-semibold text-white" style={{ background: color }}>{stop.line}</span>}
         </span>
         <span className="mt-0.5 block truncate font-medium">{stop.name}</span>
-        {stop.kind === 'parking' ? (
+        {!hasLeg(stop.kind) ? (
           <span className="mt-1 block text-sm text-muted-foreground">direkt an der Location</span>
         ) : loading ? (
           <span className="mt-1 block text-sm text-muted-foreground">Route wird berechnet…</span>

@@ -25,6 +25,7 @@ export interface Location {
   navigationUrl: string
   transport: string
   parking: string
+  bike: string
   image?: string
 }
 
