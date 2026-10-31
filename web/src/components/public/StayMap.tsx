@@ -87,10 +87,10 @@ export function StayMap({ accommodation, travel, city }: { accommodation: Accomm
         setSelected(h.name)
         document.getElementById(`hotel-${i}`)?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
       })
-      markers.push(new maplibregl.Marker({ element: el, anchor: 'bottom' }).setLngLat([h.lng, h.lat]).addTo(map))
+      markers.push(new maplibregl.Marker({ element: el, anchor: 'center' }).setLngLat([h.lng, h.lat]).addTo(map))
       bounds.extend([h.lng, h.lat])
     })
-    if (!bounds.isEmpty() && selectedIndex < 0) map.fitBounds(bounds, { padding: 70, maxZoom: 14, duration: 0 })
+    if (!bounds.isEmpty() && selectedIndex < 0) map.fitBounds(bounds, { padding: fitPadding(map), maxZoom: 14, duration: 0 })
     return () => markers.forEach((m) => m.remove())
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [map, hotels, hasVenue, venue])
@@ -134,8 +134,9 @@ export function StayMap({ accommodation, travel, city }: { accommodation: Accomm
       <div className="space-y-2 text-center text-sm text-muted-foreground">
         <p>Sortiert nach Weg zur Location – zu Fuß oder mit der Tram.</p>
         {stay && (
-          <p className="flex items-center justify-center gap-2">
-            <CalendarDays className="size-4 text-primary" /> Alle Links sind bereits für <strong className="text-foreground">{stay}</strong> vorausgefüllt.
+          <p>
+            <CalendarDays className="mr-1.5 inline size-4 align-text-bottom text-primary" />
+            Alle Links sind für <strong className="whitespace-nowrap text-foreground">{stay}</strong> vorausgefüllt.
           </p>
         )}
       </div>
