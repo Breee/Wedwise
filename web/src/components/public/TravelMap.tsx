@@ -4,7 +4,7 @@ import * as maplibregl from 'maplibre-gl'
 import type { Map as MapLibreMap, ExpressionSpecification } from 'maplibre-gl'
 import { Footprints, ParkingCircle, TramFront, TrainFront, Bus, BedDouble, Car } from 'lucide-react'
 import type { Hotel, StopKind, Travel } from '@/lib/types'
-import { distanceMeters, formatKm, routeQuery, WALK_MAX_METERS, type LngLat, type Profile, type Route } from '@/lib/geo'
+import { distanceMeters, formatKm, nearestLineStop, routeQuery, WALK_MAX_METERS, type LngLat, type Profile, type Route, type TransitLine } from '@/lib/geo'
 import { cn } from '@/lib/utils'
 import { BaseMap, markerElement } from './BaseMap'
 
@@ -18,7 +18,7 @@ type Origin = {
   lat: number
   lng: number
   // Routed leg drawn on the map; parking has none.
-  leg?: { profile: Profile; to: LngLat; via?: string }
+  leg?: { profile: Profile; to: LngLat; via?: string; line?: TransitLine }
 }
 
 const NEAREST_HOTELS = 3
@@ -56,13 +56,20 @@ function originsFor(mode: TravelMode, travel: Travel, hotels: Hotel[]): Origin[]
     case 'transit': {
       const stops = travel.stops.filter((s) => s.kind !== 'parking')
       const stopOrigins: Origin[] = stops.map((s) => ({ ...s, leg: { profile: 'foot', to: venue } }))
+      const line = travel.lines[0]
       const hotelOrigins = nearest(hotels, venue, NEAREST_HOTELS).map((h) => {
-        const stop = nearest(stops, [h.lng, h.lat], 1)[0]
+        const here: LngLat = [h.lng, h.lat]
+        const stop = nearest(stops, here, 1)[0]
         if (!stop) return hotelOrigin(h, { profile: 'foot', to: venue })
         const to: LngLat = [stop.lng, stop.lat]
-        return distanceMeters([h.lng, h.lat], to) * 1.3 <= WALK_MAX_METERS
-          ? hotelOrigin(h, { profile: 'foot', to, via: `bis ${stop.name}` })
-          : hotelOrigin(h, { profile: 'transit', to, via: `${KIND[stop.kind].label} bis ${stop.name}` })
+        if (distanceMeters(here, to) * 1.3 <= WALK_MAX_METERS) return hotelOrigin(h, { profile: 'foot', to, via: `bis ${stop.name}` })
+        const board = line ? nearestLineStop(line, here) : undefined
+        return hotelOrigin(h, {
+          profile: 'transit',
+          to,
+          line,
+          via: board ? `${KIND[stop.kind].label} ab ${board.name}` : `${KIND[stop.kind].label} bis ${stop.name}`,
+        })
       })
       return [...stopOrigins, ...hotelOrigins]
     }
@@ -99,7 +106,7 @@ export function TravelMap({
   const origins = useMemo(() => originsFor(mode, travel, hotels), [mode, travel, hotels])
   const walkable = useMemo(() => origins.filter((s) => s.leg), [origins])
   const routes = useQueries({
-    queries: walkable.map((s) => routeQuery(s.leg!.profile, [s.lng, s.lat], s.leg!.to)),
+    queries: walkable.map((s) => routeQuery(s.leg!.profile, [s.lng, s.lat], s.leg!.to, s.leg!.line)),
   })
   const [map, setMap] = useState<MapLibreMap | null>(null)
   const [active, setActive] = useState<number | null>(null)
@@ -121,6 +128,31 @@ export function TravelMap({
     map.fitBounds(bounds, { padding: { top: 80, bottom: 60, left: 60, right: 60 }, maxZoom: 16, duration: 0 })
     return () => markers.forEach((m) => m.remove())
   }, [map, origins, venue])
+
+  useEffect(() => {
+    if (!map) return
+    const lines = {
+      type: 'FeatureCollection' as const,
+      features: (mode === 'transit' ? travel.lines : []).map((l) => ({
+        type: 'Feature' as const,
+        properties: { color: l.color || KIND.tram.color },
+        geometry: { type: 'LineString' as const, coordinates: l.coords },
+      })),
+    }
+    const lineSrc = map.getSource('tram-lines') as maplibregl.GeoJSONSource | undefined
+    if (lineSrc) lineSrc.setData(lines)
+    else {
+      map.addSource('tram-lines', { type: 'geojson', data: lines })
+      map.addLayer({
+        id: 'tram-lines',
+        type: 'line',
+        source: 'tram-lines',
+        layout: { 'line-cap': 'round', 'line-join': 'round' },
+        paint: { 'line-color': ['get', 'color'], 'line-width': 2, 'line-opacity': 0.35 },
+      })
+    }
+    return () => {}
+  }, [map, mode, travel.lines])
 
   useEffect(() => {
     if (!map) return

@@ -37,7 +37,7 @@ function ContentPage() {
   })
 
   const set = <K extends keyof Content>(key: K, value: Content[K]) => setDraft((d) => ({ ...d, [key]: value }))
-  const travel = draft.travel ?? { lat: 0, lng: 0, stops: [] }
+  const travel = draft.travel ?? { lat: 0, lng: 0, stops: [], lines: [] }
   const stay = draft.accommodation ?? { checkIn: '', checkOut: '', hotels: [] }
 
   return (

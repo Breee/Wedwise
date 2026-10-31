@@ -14,6 +14,8 @@ import {
   routeQuery,
   TRAM_WAIT_MINUTES,
   transitDirectionsUrl,
+  transitRoute,
+  type TransitLine,
   WALK_MAX_MINUTES,
   type LngLat,
   type Route,
@@ -70,7 +72,7 @@ export function StayMap({
       const here: LngLat = [h.lng, h.lat]
       const foot = footRoutes[i].data
       const car = carRoutes[i].data
-      const transit = viaStop(here, stops[0], venue)
+      const transit = viaStop(here, stops[0], venue, travel.lines[0])
       const fallbackWalk = hasVenue ? (distanceMeters(here, venue) * 1.3) / WALK_METERS_PER_MINUTE : 0
       const minutes =
         mode === 'foot' ? (foot?.minutes ?? fallbackWalk)
@@ -208,11 +210,15 @@ export function StayMap({
   )
 }
 
-function viaStop(from: LngLat, stop: Stop | undefined, venue: LngLat): Ranked['transit'] {
+function viaStop(from: LngLat, stop: Stop | undefined, venue: LngLat, line?: TransitLine): Ranked['transit'] {
   if (!stop) return null
   const at: LngLat = [stop.lng, stop.lat]
-  const rideMinutes = Math.round(distanceMeters(from, at) / TRAM_METERS_PER_MINUTE)
   const walkMinutes = Math.round((distanceMeters(at, venue) * 1.3) / WALK_METERS_PER_MINUTE)
+  if (line) {
+    const ride = transitRoute(line, from, at)
+    return { stop, rideMinutes: ride.minutes, totalMinutes: ride.minutes + walkMinutes }
+  }
+  const rideMinutes = Math.round(distanceMeters(from, at) / TRAM_METERS_PER_MINUTE)
   return { stop, rideMinutes, totalMinutes: TRAM_WAIT_MINUTES + rideMinutes + walkMinutes }
 }
 

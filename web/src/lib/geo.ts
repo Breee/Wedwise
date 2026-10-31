@@ -12,6 +12,13 @@ export interface Route {
 }
 export type WalkingRoute = Route
 
+export interface TransitLine {
+  name: string
+  color: string
+  coords: LngLat[]
+  stops: { name: string; lat: number; lng: number }[]
+}
+
 const ROUTER: Record<Exclude<Profile, 'transit'>, string> = {
   foot: 'https://routing.openstreetmap.de/routed-foot/route/v1/foot',
   car: 'https://routing.openstreetmap.de/routed-car/route/v1/driving',
@@ -41,9 +48,39 @@ function estimate(profile: Profile, from: LngLat, to: LngLat): Route {
   return { coordinates: [from, to], minutes: Math.round(meters / METERS_PER_MINUTE[profile]), meters, estimated: true }
 }
 
-export async function route(profile: Profile, from: LngLat, to: LngLat): Promise<Route> {
+function nearestIndex(coords: LngLat[], p: LngLat): number {
+  let best = 0
+  let bestD = Infinity
+  coords.forEach((c, i) => {
+    const d = (c[0] - p[0]) ** 2 + (c[1] - p[1]) ** 2
+    if (d < bestD) (bestD = d), (best = i)
+  })
+  return best
+}
+
+export function nearestLineStop(line: TransitLine, p: LngLat) {
+  return [...line.stops].sort((a, b) => distanceMeters([a.lng, a.lat], p) - distanceMeters([b.lng, b.lat], p))[0]
+}
+
+// Walk to the nearest stop, ride along the track to the stop nearest `to`.
+export function transitRoute(line: TransitLine, from: LngLat, to: LngLat): Route {
+  const board = nearestLineStop(line, from)
+  const alight = nearestLineStop(line, to)
+  if (!board || !alight) return estimate('transit', from, to)
+  const i = nearestIndex(line.coords, [board.lng, board.lat])
+  const j = nearestIndex(line.coords, [alight.lng, alight.lat])
+  const slice = line.coords.slice(Math.min(i, j), Math.max(i, j) + 1)
+  if (i > j) slice.reverse()
+  let ride = 0
+  for (let k = 1; k < slice.length; k++) ride += distanceMeters(slice[k - 1], slice[k])
+  const walk = distanceMeters(from, [board.lng, board.lat]) * 1.3
+  const minutes = Math.round(walk / METERS_PER_MINUTE.foot) + TRAM_WAIT_MINUTES + Math.round(ride / METERS_PER_MINUTE.transit)
+  return { coordinates: [from, ...slice], minutes, meters: walk + ride, estimated: false }
+}
+
+export async function route(profile: Profile, from: LngLat, to: LngLat, line?: TransitLine): Promise<Route> {
   const estimated = () => estimate(profile, from, to)
-  if (profile === 'transit') return estimated()
+  if (profile === 'transit') return line ? transitRoute(line, from, to) : estimated()
   try {
     const res = await fetch(`${ROUTER[profile]}/${from.join(',')};${to.join(',')}?overview=full&geometries=geojson`)
     if (!res.ok) return estimated()
@@ -63,10 +100,10 @@ export async function route(profile: Profile, from: LngLat, to: LngLat): Promise
   }
 }
 
-export const routeQuery = (profile: Profile, from: LngLat, to: LngLat) =>
+export const routeQuery = (profile: Profile, from: LngLat, to: LngLat, line?: TransitLine) =>
   queryOptions({
-    queryKey: ['route', profile, from, to],
-    queryFn: () => route(profile, from, to),
+    queryKey: ['route', profile, from, to, line?.name ?? ''],
+    queryFn: () => route(profile, from, to, line),
     staleTime: Infinity,
     gcTime: Infinity,
     retry: false,

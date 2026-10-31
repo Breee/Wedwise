@@ -52,10 +52,24 @@ export interface Stop {
   lng: number
 }
 
+export interface LineStop {
+  name: string
+  lat: number
+  lng: number
+}
+
+export interface TransitLine {
+  name: string
+  color: string
+  coords: [number, number][]
+  stops: LineStop[]
+}
+
 export interface Travel {
   lat: number
   lng: number
   stops: Stop[]
+  lines: TransitLine[]
 }
 
 export interface Hotel {

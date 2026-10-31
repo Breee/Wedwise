@@ -52,11 +52,27 @@ type Stop struct {
 	Lng  float64 `json:"lng"`
 }
 
+// LineStop is a stop along a transit line.
+type LineStop struct {
+	Name string  `json:"name"`
+	Lat  float64 `json:"lat"`
+	Lng  float64 `json:"lng"`
+}
+
+// Line is the track geometry of a transit line, used to draw tram legs.
+type Line struct {
+	Name   string       `json:"name"`
+	Color  string       `json:"color"`
+	Coords [][2]float64 `json:"coords"` // [lng, lat]
+	Stops  []LineStop   `json:"stops"`
+}
+
 // Travel holds the venue coordinates and the stops shown on the arrival map.
 type Travel struct {
 	Lat   float64 `json:"lat"`
 	Lng   float64 `json:"lng"`
 	Stops []Stop  `json:"stops"`
+	Lines []Line  `json:"lines"`
 }
 
 // Hotel is one recommended place to stay.

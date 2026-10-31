@@ -75,6 +75,9 @@ func (s *Store) Get(ctx context.Context) (Content, error) {
 	if result.Travel.Stops == nil {
 		result.Travel.Stops = []Stop{}
 	}
+	if result.Travel.Lines == nil {
+		result.Travel.Lines = []Line{}
+	}
 	if result.Accommodation.Hotels == nil {
 		result.Accommodation.Hotels = []Hotel{}
 	}
@@ -279,7 +282,10 @@ func isHTTPURL(value string) bool {
 	return strings.HasPrefix(lower, "http://") || strings.HasPrefix(lower, "https://")
 }
 
-const maxMapEntries = 50
+const (
+	maxMapEntries = 50
+	maxLinePoints = 5000
+)
 
 var stopKinds = map[string]bool{"tram": true, "train": true, "bus": true, "parking": true}
 
@@ -325,6 +331,41 @@ func normalizeTravel(t *Travel) error {
 		}
 		if !validCoordinate(stop.Lat, stop.Lng) {
 			return fmt.Errorf("%w: stop coordinates out of range", ErrValidation)
+		}
+	}
+	if t.Lines == nil {
+		t.Lines = []Line{}
+	}
+	if len(t.Lines) > maxMapEntries {
+		return fmt.Errorf("%w: too many lines", ErrValidation)
+	}
+	for i := range t.Lines {
+		line := &t.Lines[i]
+		line.Name = strings.TrimSpace(line.Name)
+		line.Color = strings.TrimSpace(line.Color)
+		if line.Name == "" || len(line.Name) > 50 || len(line.Color) > 20 {
+			return fmt.Errorf("%w: lines need a name (max 50 chars)", ErrValidation)
+		}
+		if len(line.Coords) < 2 || len(line.Coords) > maxLinePoints {
+			return fmt.Errorf("%w: line %q needs 2..%d points", ErrValidation, line.Name, maxLinePoints)
+		}
+		for _, c := range line.Coords {
+			if !validCoordinate(c[1], c[0]) {
+				return fmt.Errorf("%w: line coordinates out of range", ErrValidation)
+			}
+		}
+		if len(line.Stops) > maxMapEntries {
+			return fmt.Errorf("%w: too many line stops", ErrValidation)
+		}
+		if line.Stops == nil {
+			line.Stops = []LineStop{}
+		}
+		for j := range line.Stops {
+			st := &line.Stops[j]
+			st.Name = strings.TrimSpace(st.Name)
+			if st.Name == "" || len(st.Name) > 200 || !validCoordinate(st.Lat, st.Lng) {
+				return fmt.Errorf("%w: invalid line stop", ErrValidation)
+			}
 		}
 	}
 	return nil
