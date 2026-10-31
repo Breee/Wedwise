@@ -2,7 +2,7 @@ import { createFileRoute } from '@tanstack/react-router'
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { motion } from 'motion/react'
 import { Car, MapPin, Navigation, TramFront } from 'lucide-react'
-import { lazy, Suspense, useState } from 'react'
+import { lazy, Suspense } from 'react'
 import { publicContentQuery } from '@/lib/queries'
 import { formatDate } from '@/lib/format'
 import { Section } from '@/components/public/Section'
@@ -10,12 +10,9 @@ import { Linkify, Paragraphs } from '@/components/public/Linkify'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
 const TravelMap = lazy(() => import('@/components/public/TravelMap').then((m) => ({ default: m.TravelMap })))
 const StayMap = lazy(() => import('@/components/public/StayMap').then((m) => ({ default: m.StayMap })))
-
-type TravelMode = import('@/components/public/TravelMap').TravelMode
 
 export const Route = createFileRoute('/')({
   loader: ({ context }) => context.queryClient.ensureQueryData(publicContentQuery),
@@ -44,7 +41,6 @@ function HomePage() {
   const hasMap = !!travel && (travel.lat !== 0 || travel.lng !== 0)
   const hotels = content.accommodation?.hotels ?? []
   const city = event.venue.city || 'Freiburg im Breisgau'
-  const [mode, setMode] = useState<TravelMode>('transit')
 
   return (
     <>
@@ -139,48 +135,43 @@ function HomePage() {
               </Button>
             )}
           </div>
-          {hasMap && (
-            <Suspense fallback={<Skeleton className="h-[420px] rounded-3xl md:h-[520px]" />}>
-              <TravelMap travel={travel} venueName={location.name || 'Location'} mode="transit" />
-            </Suspense>
-          )}
         </div>
       </Section>
 
-      {(location.transport || location.parking) && (
+      {(location.transport || location.parking || hasMap) && (
         <Section id="anreise" eyebrow="Anreise" title="So kommt ihr hin" className="bg-card/50">
-          <Tabs value={mode} onValueChange={(v) => setMode(v as TravelMode)}>
-            <TabsList className="mx-auto">
-              <TabsTrigger value="transit"><TramFront className="size-4" /> Tram</TabsTrigger>
-              <TabsTrigger value="car"><Car className="size-4" /> Auto</TabsTrigger>
-            </TabsList>
-            {(
-              [
-                { mode: 'transit', text: location.transport },
-                { mode: 'car', text: location.parking },
-              ] as const
-            ).map(({ mode, text }) => (
-              <TabsContent key={mode} value={mode} className="mt-6 space-y-6">
-                {text && (
-                  <div className="mx-auto max-w-2xl space-y-2 text-center text-muted-foreground">
-                    <Paragraphs text={text} />
-                    {mode === 'car' && location.navigationUrl && (
-                      <Button asChild className="mt-2">
+          <div className="space-y-10">
+            {hasMap && (
+              <Suspense fallback={<Skeleton className="h-[420px] rounded-3xl md:h-[520px]" />}>
+                <TravelMap travel={travel} venueName={location.name || 'Location'} />
+              </Suspense>
+            )}
+            <div className="mx-auto grid max-w-4xl gap-6 md:grid-cols-2">
+              {location.transport && (
+                <Card>
+                  <CardContent className="space-y-3 pt-6">
+                    <h3 className="flex items-center gap-2 text-2xl"><TramFront className="size-5 text-primary" /> Mit der Tram</h3>
+                    <div className="space-y-2 text-muted-foreground"><Paragraphs text={location.transport} /></div>
+                  </CardContent>
+                </Card>
+              )}
+              {location.parking && (
+                <Card>
+                  <CardContent className="space-y-3 pt-6">
+                    <h3 className="flex items-center gap-2 text-2xl"><Car className="size-5 text-primary" /> Mit dem Auto</h3>
+                    <div className="space-y-2 text-muted-foreground"><Paragraphs text={location.parking} /></div>
+                    {location.navigationUrl && (
+                      <Button asChild variant="outline" size="sm">
                         <a href={location.navigationUrl} target="_blank" rel="noreferrer">
                           <Navigation className="size-4" /> Route planen
                         </a>
                       </Button>
                     )}
-                  </div>
-                )}
-                {hasMap && mode === 'car' && (
-                  <Suspense fallback={<Skeleton className="h-[420px] rounded-3xl md:h-[520px]" />}>
-                    <TravelMap travel={travel} venueName={location.name || 'Location'} mode="car" />
-                  </Suspense>
-                )}
-              </TabsContent>
-            ))}
-          </Tabs>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          </div>
         </Section>
       )}
 

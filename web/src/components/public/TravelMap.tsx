@@ -4,12 +4,10 @@ import * as maplibregl from 'maplibre-gl'
 import type { Map as MapLibreMap, ExpressionSpecification } from 'maplibre-gl'
 import { Footprints, ParkingCircle, TramFront, TrainFront, Bus } from 'lucide-react'
 import type { Stop, StopKind, Travel } from '@/lib/types'
-import { formatKm, routeQuery, type LngLat, type Route } from '@/lib/geo'
+import { appleDirectionsUrl, formatKm, googleDirectionsUrl, routeQuery, type LngLat, type Route } from '@/lib/geo'
 import { cn } from '@/lib/utils'
 import { BaseMap, markerElement } from './BaseMap'
 import { drawRoutes, drawTransitLines, FIT_PADDING, venueMarker } from './mapParts'
-
-export type TravelMode = 'transit' | 'car'
 
 export const KIND = {
   tram: { label: 'Tram', color: '#c2554a', Icon: TramFront },
@@ -25,17 +23,9 @@ export const ICON_SVG: Record<StopKind, string> = {
   parking: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 17V7h4a3 3 0 0 1 0 6H9"/></svg>',
 }
 
-const HEADER: Record<TravelMode, string> = {
-  transit: 'Haltestellen & Fußweg zur Location',
-  car: 'Parken an der Location',
-}
-
-export function TravelMap({ travel, venueName, mode = 'transit' }: { travel: Travel; venueName: string; mode?: TravelMode }) {
+export function TravelMap({ travel, venueName }: { travel: Travel; venueName: string }) {
   const venue = useMemo<LngLat>(() => [travel.lng, travel.lat], [travel.lat, travel.lng])
-  const stops = useMemo(
-    () => travel.stops.filter((s) => (mode === 'car' ? s.kind === 'parking' : s.kind !== 'parking')),
-    [mode, travel.stops],
-  )
+  const stops = travel.stops
   // Only transit stops have a walking leg to draw.
   const routed = useMemo(() => stops.filter((s) => s.kind !== 'parking'), [stops])
   const routes = useQueries({ queries: routed.map((s) => routeQuery('foot', [s.lng, s.lat], venue)) })
@@ -60,8 +50,8 @@ export function TravelMap({ travel, venueName, mode = 'transit' }: { travel: Tra
 
   useEffect(() => {
     if (!map) return
-    drawTransitLines(map, mode === 'transit' ? travel.lines : [], KIND.tram.color)
-  }, [map, mode, travel.lines])
+    drawTransitLines(map, travel.lines, KIND.tram.color)
+  }, [map, travel.lines])
 
   useEffect(() => {
     if (!map) return
@@ -97,7 +87,7 @@ export function TravelMap({ travel, venueName, mode = 'transit' }: { travel: Tra
       <BaseMap onReady={setMap} className="h-[420px] md:h-[520px]">
         <div className="pointer-events-none absolute top-4 left-4 rounded-full bg-background/90 px-4 py-2 text-sm shadow backdrop-blur">
           <span className="font-display text-lg text-primary">{venueName}</span>
-          <span className="ml-2 text-muted-foreground">{HEADER[mode]}</span>
+          <span className="ml-2 text-muted-foreground">Haltestellen, Parken & Fußwege</span>
         </div>
       </BaseMap>
       {stops.length > 0 && (
@@ -138,9 +128,11 @@ function StopCard({
   onLeave: () => void
 }) {
   const { Icon, label, color } = KIND[stop.kind]
+  const to: LngLat = [stop.lng, stop.lat]
+  const travelMode = stop.kind === 'parking' ? 'driving' : 'transit'
   return (
-    <button
-      type="button"
+    <div
+      tabIndex={0}
       onMouseEnter={onEnter}
       onMouseLeave={onLeave}
       onFocus={onEnter}
@@ -169,7 +161,15 @@ function StopCard({
             {route.estimated && ' (geschätzt)'}
           </span>
         ) : null}
+        <span className="mt-3 flex flex-wrap gap-2 text-xs">
+          <a href={googleDirectionsUrl(to, travelMode)} target="_blank" rel="noreferrer" className="rounded-full border px-2.5 py-1 hover:bg-muted">
+            Google Maps ↗
+          </a>
+          <a href={appleDirectionsUrl(to, stop.name, travelMode)} target="_blank" rel="noreferrer" className="rounded-full border px-2.5 py-1 hover:bg-muted">
+            Apple Karten ↗
+          </a>
+        </span>
       </span>
-    </button>
+    </div>
   )
 }

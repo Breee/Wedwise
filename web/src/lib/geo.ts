@@ -111,6 +111,18 @@ export const routeQuery = (profile: Profile, from: LngLat, to: LngLat, line?: Tr
 
 export const walkingRouteQuery = (from: LngLat, to: LngLat) => routeQuery('foot', from, to)
 
+// Directions from the user's current position to a point.
+export function googleDirectionsUrl(to: LngLat, mode: 'driving' | 'transit' | 'walking'): string {
+  const p = new URLSearchParams({ api: '1', destination: `${to[1]},${to[0]}`, travelmode: mode })
+  return `https://www.google.com/maps/dir/?${p}`
+}
+
+export function appleDirectionsUrl(to: LngLat, name: string, mode: 'driving' | 'transit' | 'walking'): string {
+  const flag = { driving: 'd', transit: 'r', walking: 'w' }[mode]
+  const p = new URLSearchParams({ daddr: `${to[1]},${to[0]}`, q: name, dirflg: flag })
+  return `https://maps.apple.com/?${p}`
+}
+
 export function transitDirectionsUrl(from: LngLat, to: LngLat): string {
   const p = new URLSearchParams({ api: '1', origin: `${from[1]},${from[0]}`, destination: `${to[1]},${to[0]}`, travelmode: 'transit' })
   return `https://www.google.com/maps/dir/?${p}`
