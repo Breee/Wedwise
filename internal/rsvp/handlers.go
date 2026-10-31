@@ -41,6 +41,8 @@ type submitRequest struct {
 	Phone        string                 `json:"phone"`
 	Status       string                 `json:"status"`
 	Message      string                 `json:"message"`
+	MusicGenres  string                 `json:"musicGenres"`
+	MusicSong    string                 `json:"musicSong"`
 	Attendees    []attendeeRequest      `json:"attendees"`
 	Contribution *contributions.Request `json:"contribution"`
 }
@@ -52,6 +54,8 @@ func (req submitRequest) toParams() SubmitParams {
 		Phone:       req.Phone,
 		Status:      req.Status,
 		Message:     req.Message,
+		MusicGenres: req.MusicGenres,
+		MusicSong:   req.MusicSong,
 	}
 	for _, attendee := range req.Attendees {
 		params.Attendees = append(params.Attendees, AttendeeInput(attendee))

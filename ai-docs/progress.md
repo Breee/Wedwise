@@ -21,6 +21,7 @@ Status values: `todo`, `in progress`, `blocked (reason)`, `done (commit)`.
 
 ## Log
 
+- 2026-10-31 — RSVP form polish: no email/phone in contact step (phone only with contribution), follow-up questions only on "Ja", contribution Ja/Nein, needs as checkboxes + Sonstiges, music genres (chips) + must-play song via iTunes search (`music_genres`, `music_song` on responses), couple dashboard genre histogram + song list; invite link URL hidden by default; Done screen fixed after link submit.
 - 2026-10-30 — F-10 done: `RSVP_ACCESS_CODE` replaced by invite links (`internal/invites`), optional argon2id PIN per link with HMAC unlock cookie, couple/admin UI at `/couple/invites`, guests use `/rsvp/<token>`. Backend `278e502`, frontend + docs in follow-up commit.
 - 2026-10-30 — F-09 done: invitations/guests removed; single `/rsvp` form with optional access code (`RSVP_ACCESS_CODE`), edit token per response, contribution (what/needs/phone, 15‑min hint) inside RSVP; couple sees only attendance + food; witness board uses `PUT /contributions/{id}/status`. Backend `74a4946`, frontend + docs in follow-up commit. Dev DB volume recreated.
 - 2026-10-30 — F-06 done: in-memory fixed-window limiter (`internal/middleware/ratelimit.go`), login 10/min/IP, RSVP token routes 30/min/IP, `TRUST_PROXY_HEADERS` option, unit + integration tests, README security section.

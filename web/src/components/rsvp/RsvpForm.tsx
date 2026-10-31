@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion, AnimatePresence } from 'motion/react'
-import { CheckCircle2, Clock, Copy, Minus, Music, Plus } from 'lucide-react'
+import { CheckCircle2, Clock, Copy, Minus, Plus } from 'lucide-react'
 import { toast } from 'sonner'
 import { api, errorMessage } from '@/lib/api'
 import { rsvpQuery } from '@/lib/queries'
@@ -17,6 +17,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
+import { GENRES, NEEDS_OPTIONS, SongSearch, formatNeeds, joinList, parseNeeds, splitList } from '@/components/rsvp/music'
 
 const MAX_ATTENDEES = 10
 
@@ -46,13 +47,14 @@ export function RsvpForm({ initial, link, onDone }: FormProps) {
   const queryClient = useQueryClient()
 
   const [contactName, setContactName] = useState(initial?.contactName ?? '')
-  const [email, setEmail] = useState(initial?.email ?? '')
-  const [phone, setPhone] = useState(initial?.phone ?? '')
   const [status, setStatus] = useState<RsvpStatus>(initial?.status ?? 'yes')
   const [attendees, setAttendees] = useState<Attendee[]>(initial?.attendees?.length ? initial.attendees : [newAttendee()])
   const [message, setMessage] = useState(initial?.message ?? '')
+  const [genres, setGenres] = useState<string[]>(splitList(initial?.musicGenres ?? ''))
+  const [song, setSong] = useState(initial?.musicSong ?? '')
   const [wantsContribution, setWantsContribution] = useState(Boolean(initial?.contribution))
   const [contribution, setContribution] = useState<ContributionRequest>(initial?.contribution ?? emptyContribution)
+  const [needs, setNeeds] = useState(() => parseNeeds(initial?.contribution?.needs ?? ''))
 
   const attending = status === 'yes'
 
@@ -60,12 +62,14 @@ export function RsvpForm({ initial, link, onDone }: FormProps) {
     mutationFn: () => {
       const body: RsvpSubmit = {
         contactName,
-        email,
-        phone,
+        email: initial?.email ?? '',
+        phone: initial?.phone ?? '',
         status,
         message,
+        musicGenres: attending ? joinList(genres) : '',
+        musicSong: attending ? song : '',
         attendees: attending ? attendees.filter((a) => a.name.trim()).map(({ id: _id, ...a }) => a) : [],
-        contribution: attending && wantsContribution ? { ...contribution, phone: contribution.phone || phone } : null,
+        contribution: attending && wantsContribution ? { ...contribution, needs: formatNeeds(needs.selected, needs.other) } : null,
       }
       return initial
         ? api.put<GuestView>(`/rsvp/${encodeURIComponent(initial.editToken)}`, body)
@@ -74,7 +78,7 @@ export function RsvpForm({ initial, link, onDone }: FormProps) {
     onSuccess: (view) => {
       queryClient.setQueryData(rsvpQuery(view.editToken).queryKey, view)
       onDone(view)
-      navigate({ to: '/rsvp', search: { token: view.editToken }, replace: true })
+      if (initial) navigate({ to: '/rsvp', search: { token: view.editToken }, replace: true })
       window.scrollTo({ top: 0, behavior: 'smooth' })
     },
     onError: (e) => toast.error(errorMessage(e)),
@@ -104,16 +108,6 @@ export function RsvpForm({ initial, link, onDone }: FormProps) {
             <div className="space-y-2">
               <Label htmlFor="contactName">Name</Label>
               <Input id="contactName" value={contactName} onChange={(e) => setContactName(e.target.value)} required autoComplete="name" />
-            </div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="email">E-Mail <span className="font-normal text-muted-foreground">(optional)</span></Label>
-                <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="phone">Telefon <span className="font-normal text-muted-foreground">(optional)</span></Label>
-                <Input id="phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} autoComplete="tel" />
-              </div>
             </div>
           </CardContent>
         </Card>
@@ -212,7 +206,7 @@ export function RsvpForm({ initial, link, onDone }: FormProps) {
                   Ja, gern
                 </Button>
                 <Button type="button" variant={!wantsContribution ? 'default' : 'outline'} onClick={() => setWantsContribution(false)}>
-                  Nein, diesmal nicht
+                  Nein
                 </Button>
               </div>
               {wantsContribution && (
@@ -229,16 +223,61 @@ export function RsvpForm({ initial, link, onDone }: FormProps) {
                     <Label htmlFor="c-desc">Kurze Beschreibung <span className="font-normal text-muted-foreground">(optional)</span></Label>
                     <Textarea id="c-desc" rows={3} value={contribution.description} onChange={(e) => setContribution({ ...contribution, description: e.target.value })} />
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="c-needs">Was braucht ihr dafür? <span className="font-normal text-muted-foreground">(Technik, Platz, Beamer …)</span></Label>
-                    <Textarea id="c-needs" rows={2} value={contribution.needs} onChange={(e) => setContribution({ ...contribution, needs: e.target.value })} />
+                  <div className="space-y-3">
+                    <Label>Was braucht ihr dafür?</Label>
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      {NEEDS_OPTIONS.map((o) => (
+                        <Label key={o} className="flex items-center gap-2 text-sm font-normal">
+                          <Checkbox
+                            checked={needs.selected.includes(o)}
+                            onCheckedChange={(c) =>
+                              setNeeds((n) => ({ ...n, selected: c === true ? [...n.selected, o] : n.selected.filter((x) => x !== o) }))
+                            }
+                          />
+                          {o}
+                        </Label>
+                      ))}
+                    </div>
+                    <Input placeholder="Sonstiges …" value={needs.other} onChange={(e) => setNeeds((n) => ({ ...n, other: e.target.value }))} />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="c-phone">Telefonnummer für die Trauzeugen</Label>
-                    <Input id="c-phone" type="tel" value={contribution.phone || phone} onChange={(e) => setContribution({ ...contribution, phone: e.target.value })} required autoComplete="tel" />
+                    <Input id="c-phone" type="tel" value={contribution.phone} onChange={(e) => setContribution({ ...contribution, phone: e.target.value })} required autoComplete="tel" />
                   </div>
                 </div>
               )}
+            </CardContent>
+          </Card>
+        )}
+
+        {attending && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Musikwünsche</CardTitle>
+              <CardDescription>Was bringt euch auf die Tanzfläche?</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-5">
+              <div className="flex flex-wrap gap-2">
+                {GENRES.map((g) => {
+                  const on = genres.includes(g)
+                  return (
+                    <Button
+                      key={g}
+                      type="button"
+                      size="sm"
+                      variant={on ? 'default' : 'outline'}
+                      className="rounded-full"
+                      onClick={() => setGenres((l) => (on ? l.filter((x) => x !== g) : [...l, g]))}
+                    >
+                      {g}
+                    </Button>
+                  )
+                })}
+              </div>
+              <div className="space-y-2">
+                <Label>Euer Must-play-Song <span className="font-normal text-muted-foreground">(optional)</span></Label>
+                <SongSearch value={song} onChange={setSong} />
+              </div>
             </CardContent>
           </Card>
         )}
@@ -248,9 +287,6 @@ export function RsvpForm({ initial, link, onDone }: FormProps) {
             <CardTitle className="flex items-center gap-2">
               Nachricht an uns <span className="text-sm font-normal text-muted-foreground">(optional)</span>
             </CardTitle>
-            <CardDescription className="flex items-center gap-1">
-              <Music className="size-3.5" /> Musikwünsche gern hier hinein.
-            </CardDescription>
           </CardHeader>
           <CardContent>
             <Textarea rows={4} value={message} onChange={(e) => setMessage(e.target.value)} />

@@ -31,6 +31,11 @@ function InviteLinkPage() {
   const { link } = Route.useParams()
   const { data: status } = useSuspenseQuery(inviteLinkQuery(link))
   const [done, setDone] = useState<GuestView | null>(null)
+  const [saved, setSaved] = useState<GuestView | null>(null)
+  const finish = (v: GuestView) => {
+    setSaved(v)
+    setDone(v)
+  }
 
   return (
     <section className="mx-auto max-w-2xl px-6 py-16">
@@ -40,7 +45,7 @@ function InviteLinkPage() {
       ) : done ? (
         <Done view={done} onEdit={() => setDone(null)} />
       ) : (
-        <RsvpForm link={link} onDone={setDone} />
+        <RsvpForm link={link} initial={saved ?? undefined} onDone={finish} />
       )}
     </section>
   )

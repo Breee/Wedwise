@@ -34,6 +34,8 @@ type Response struct {
 	Phone       string    `json:"phone"`
 	Status      string    `json:"status"`
 	Message     string    `json:"message"`
+	MusicGenres string    `json:"musicGenres"`
+	MusicSong   string    `json:"musicSong"`
 	SubmittedAt time.Time `json:"submittedAt"`
 	UpdatedAt   time.Time `json:"updatedAt"`
 }

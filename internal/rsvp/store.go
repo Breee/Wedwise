@@ -48,6 +48,8 @@ type SubmitParams struct {
 	Phone        string
 	Status       string
 	Message      string
+	MusicGenres  string
+	MusicSong    string
 	Attendees    []AttendeeInput
 	Contribution *contributions.Input
 }
@@ -58,6 +60,8 @@ func (p *SubmitParams) normalize() error {
 	p.Phone = strings.TrimSpace(p.Phone)
 	p.Status = strings.TrimSpace(strings.ToLower(p.Status))
 	p.Message = strings.TrimSpace(p.Message)
+	p.MusicGenres = strings.TrimSpace(p.MusicGenres)
+	p.MusicSong = strings.TrimSpace(p.MusicSong)
 
 	if p.ContactName == "" {
 		return fmt.Errorf("%w: contactName must not be empty", ErrValidation)
@@ -70,6 +74,9 @@ func (p *SubmitParams) normalize() error {
 	}
 	if !IsValidStatus(p.Status) {
 		return fmt.Errorf("%w: status must be one of %s", ErrValidation, strings.Join(ValidStatuses(), ", "))
+	}
+	if len(p.MusicGenres) > maxShortLen || len(p.MusicSong) > maxShortLen {
+		return fmt.Errorf("%w: music wish is too long", ErrValidation)
 	}
 	if len(p.Message) > maxMessageLen {
 		return fmt.Errorf("%w: message is too long", ErrValidation)
@@ -125,9 +132,9 @@ func (s *Store) Create(ctx context.Context, inviteLinkID int64, params SubmitPar
 
 	now := time.Now().UTC()
 	res, err := tx.ExecContext(ctx,
-		`INSERT INTO responses (invite_link_id, edit_token, contact_name, email, phone, status, message, submitted_at, updated_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		inviteLinkID, token, params.ContactName, params.Email, params.Phone, params.Status, params.Message, now, now)
+		`INSERT INTO responses (invite_link_id, edit_token, contact_name, email, phone, status, message, music_genres, music_song, submitted_at, updated_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		inviteLinkID, token, params.ContactName, params.Email, params.Phone, params.Status, params.Message, params.MusicGenres, params.MusicSong, now, now)
 	if err != nil {
 		return Response{}, "", fmt.Errorf("insert response: %w", err)
 	}
@@ -163,9 +170,9 @@ func (s *Store) Update(ctx context.Context, token string, params SubmitParams) (
 	defer func() { _ = tx.Rollback() }()
 
 	if _, err := tx.ExecContext(ctx,
-		`UPDATE responses SET contact_name = ?, email = ?, phone = ?, status = ?, message = ?, updated_at = ?
+		`UPDATE responses SET contact_name = ?, email = ?, phone = ?, status = ?, message = ?, music_genres = ?, music_song = ?, updated_at = ?
 		 WHERE id = ?`,
-		params.ContactName, params.Email, params.Phone, params.Status, params.Message, time.Now().UTC(), existing.ID); err != nil {
+		params.ContactName, params.Email, params.Phone, params.Status, params.Message, params.MusicGenres, params.MusicSong, time.Now().UTC(), existing.ID); err != nil {
 		return Response{}, fmt.Errorf("update response: %w", err)
 	}
 	if _, err := tx.ExecContext(ctx, "DELETE FROM response_attendees WHERE response_id = ?", existing.ID); err != nil {
@@ -194,7 +201,7 @@ func (s *Store) writeDetails(ctx context.Context, tx *sql.Tx, responseID int64, 
 	return s.contributions.Upsert(ctx, tx, responseID, *params.Contribution)
 }
 
-const responseColumns = "id, contact_name, email, phone, status, message, submitted_at, updated_at"
+const responseColumns = "id, contact_name, email, phone, status, message, music_genres, music_song, submitted_at, updated_at"
 
 // GetByID returns a response by id.
 func (s *Store) GetByID(ctx context.Context, id int64) (Response, error) {
@@ -330,6 +337,6 @@ type scanner interface {
 
 func scanResponse(row scanner) (Response, error) {
 	var r Response
-	err := row.Scan(&r.ID, &r.ContactName, &r.Email, &r.Phone, &r.Status, &r.Message, &r.SubmittedAt, &r.UpdatedAt)
+	err := row.Scan(&r.ID, &r.ContactName, &r.Email, &r.Phone, &r.Status, &r.Message, &r.MusicGenres, &r.MusicSong, &r.SubmittedAt, &r.UpdatedAt)
 	return r, err
 }

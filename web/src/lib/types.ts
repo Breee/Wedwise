@@ -98,6 +98,8 @@ export interface RsvpSubmit {
   phone: string
   status: RsvpStatus
   message: string
+  musicGenres: string
+  musicSong: string
   attendees: Omit<Attendee, 'id'>[]
   contribution: ContributionRequest | null
 }
@@ -109,6 +111,8 @@ export interface Response {
   phone: string
   status: RsvpStatus
   message: string
+  musicGenres: string
+  musicSong: string
   submittedAt: string
   updatedAt: string
 }

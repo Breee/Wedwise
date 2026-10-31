@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQueryClient, useSuspenseQuery } from '@tanstack/react-query'
-import { Copy, KeyRound, Plus, RefreshCw, Trash2 } from 'lucide-react'
+import { Copy, Eye, EyeOff, KeyRound, Plus, RefreshCw, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { api, errorMessage } from '@/lib/api'
 import { inviteLinksQuery } from '@/lib/queries'
@@ -34,6 +34,7 @@ function InvitesPage() {
   const queryClient = useQueryClient()
   const { data: links } = useSuspenseQuery(inviteLinksQuery)
   const [pinTarget, setPinTarget] = useState<InviteLink | null>(null)
+  const [revealed, setRevealed] = useState<number | null>(null)
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: inviteLinksQuery.queryKey })
   const onError = (e: unknown) => toast.error(errorMessage(e))
@@ -93,9 +94,15 @@ function InvitesPage() {
           {links.map((l) => (
             <TableRow key={l.id} className={l.active ? '' : 'opacity-60'}>
               <TableCell>
-                <button type="button" onClick={() => copy(l.token)} className="flex items-center gap-2 font-mono text-xs hover:text-primary" title="Link kopieren">
-                  {linkUrl(l.token)} <Copy className="size-3.5" />
-                </button>
+                <div className="flex items-center gap-1 font-mono text-xs">
+                  <span className="truncate">{revealed === l.id ? linkUrl(l.token) : `${window.location.origin}/rsvp/••••••••••••`}</span>
+                  <Button type="button" variant="ghost" size="icon" className="size-7" title={revealed === l.id ? 'Verbergen' : 'Anzeigen'} onClick={() => setRevealed(revealed === l.id ? null : l.id)}>
+                    {revealed === l.id ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
+                  </Button>
+                  <Button type="button" variant="ghost" size="icon" className="size-7" title="Link kopieren" onClick={() => copy(l.token)}>
+                    <Copy className="size-3.5" />
+                  </Button>
+                </div>
               </TableCell>
               <TableCell>{l.hasPin ? <Badge>PIN</Badge> : <span className="text-muted-foreground">–</span>}</TableCell>
               <TableCell>{l.responses}</TableCell>
