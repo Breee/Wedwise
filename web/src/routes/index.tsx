@@ -1,8 +1,8 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { motion } from 'motion/react'
-import { Car, Footprints, MapPin, Navigation, TrainFront } from 'lucide-react'
-import { lazy, Suspense } from 'react'
+import { Car, Footprints, MapPin, Navigation, TramFront } from 'lucide-react'
+import { lazy, Suspense, useState } from 'react'
 import { publicContentQuery } from '@/lib/queries'
 import { formatDate } from '@/lib/format'
 import { Section } from '@/components/public/Section'
@@ -14,6 +14,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
 const TravelMap = lazy(() => import('@/components/public/TravelMap').then((m) => ({ default: m.TravelMap })))
 const StayMap = lazy(() => import('@/components/public/StayMap').then((m) => ({ default: m.StayMap })))
+
+type TravelMode = import('@/components/public/TravelMap').TravelMode
 
 export const Route = createFileRoute('/')({
   loader: ({ context }) => context.queryClient.ensureQueryData(publicContentQuery),
@@ -42,6 +44,7 @@ function HomePage() {
   const hasMap = !!travel && (travel.lat !== 0 || travel.lng !== 0)
   const hotels = content.accommodation?.hotels ?? []
   const city = event.venue.city || 'Freiburg im Breisgau'
+  const [mode, setMode] = useState<TravelMode>('transit')
 
   return (
     <>
@@ -125,9 +128,9 @@ function HomePage() {
             </CardContent>
           </Card>
         </div>
-        <Tabs defaultValue="transit" className="mt-12">
+        <Tabs value={mode} onValueChange={(v) => setMode(v as TravelMode)} className="mt-12">
           <TabsList className="mx-auto">
-            <TabsTrigger value="transit"><TrainFront className="size-4" /> Bahn &amp; Tram</TabsTrigger>
+            <TabsTrigger value="transit"><TramFront className="size-4" /> Tram</TabsTrigger>
             <TabsTrigger value="foot"><Footprints className="size-4" /> Zu Fuß</TabsTrigger>
             <TabsTrigger value="car"><Car className="size-4" /> Auto</TabsTrigger>
           </TabsList>
@@ -164,7 +167,7 @@ function HomePage() {
       {hotels.length > 0 && (
         <Section id="unterkunft" eyebrow="Übernachten" title="Unterkünfte" className="bg-card/50">
           <Suspense fallback={<Skeleton className="h-[380px] rounded-3xl" />}>
-            <StayMap accommodation={content.accommodation} travel={travel} city={city} />
+            <StayMap accommodation={content.accommodation} travel={travel} city={city} mode={mode} onModeChange={setMode} />
           </Suspense>
         </Section>
       )}

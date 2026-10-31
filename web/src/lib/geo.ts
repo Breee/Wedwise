@@ -2,15 +2,21 @@ import { queryOptions } from '@tanstack/react-query'
 
 export type LngLat = [number, number]
 
-export interface WalkingRoute {
+export type Profile = 'foot' | 'car'
+
+export interface Route {
   coordinates: LngLat[]
   minutes: number
   meters: number
   estimated: boolean
 }
+export type WalkingRoute = Route
 
-const FOOT_ROUTER = 'https://routing.openstreetmap.de/routed-foot/route/v1/foot'
-const WALKING_METERS_PER_MINUTE = 80
+const ROUTER: Record<Profile, string> = {
+  foot: 'https://routing.openstreetmap.de/routed-foot/route/v1/foot',
+  car: 'https://routing.openstreetmap.de/routed-car/route/v1/driving',
+}
+const METERS_PER_MINUTE: Record<Profile, number> = { foot: 80, car: 500 }
 
 export function distanceMeters(a: LngLat, b: LngLat): number {
   const toRad = (d: number) => (d * Math.PI) / 180
@@ -22,39 +28,47 @@ export function distanceMeters(a: LngLat, b: LngLat): number {
   return 6371000 * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h))
 }
 
-function estimate(from: LngLat, to: LngLat): WalkingRoute {
+function estimate(profile: Profile, from: LngLat, to: LngLat): Route {
   const meters = distanceMeters(from, to) * 1.3
-  return { coordinates: [from, to], minutes: Math.round(meters / WALKING_METERS_PER_MINUTE), meters, estimated: true }
+  return { coordinates: [from, to], minutes: Math.round(meters / METERS_PER_MINUTE[profile]), meters, estimated: true }
 }
 
-export async function walkingRoute(from: LngLat, to: LngLat): Promise<WalkingRoute> {
+export async function route(profile: Profile, from: LngLat, to: LngLat): Promise<Route> {
+  const estimated = () => estimate(profile, from, to)
   try {
-    const res = await fetch(`${FOOT_ROUTER}/${from.join(',')};${to.join(',')}?overview=full&geometries=geojson`)
-    if (!res.ok) return estimate(from, to)
+    const res = await fetch(`${ROUTER[profile]}/${from.join(',')};${to.join(',')}?overview=full&geometries=geojson`)
+    if (!res.ok) return estimated()
     const data = (await res.json()) as {
       routes?: { duration: number; distance: number; geometry: { coordinates: LngLat[] } }[]
     }
-    const route = data.routes?.[0]
-    if (!route) return estimate(from, to)
+    const r = data.routes?.[0]
+    if (!r) return estimated()
     return {
-      coordinates: route.geometry.coordinates,
-      minutes: Math.max(1, Math.round(route.duration / 60)),
-      meters: route.distance,
+      coordinates: r.geometry.coordinates,
+      minutes: Math.max(1, Math.round(r.duration / 60)),
+      meters: r.distance,
       estimated: false,
     }
   } catch {
-    return estimate(from, to)
+    return estimated()
   }
 }
 
-export const walkingRouteQuery = (from: LngLat, to: LngLat) =>
+export const routeQuery = (profile: Profile, from: LngLat, to: LngLat) =>
   queryOptions({
-    queryKey: ['route', from, to],
-    queryFn: () => walkingRoute(from, to),
+    queryKey: ['route', profile, from, to],
+    queryFn: () => route(profile, from, to),
     staleTime: Infinity,
     gcTime: Infinity,
     retry: false,
   })
+
+export const walkingRouteQuery = (from: LngLat, to: LngLat) => routeQuery('foot', from, to)
+
+export function transitDirectionsUrl(from: LngLat, to: LngLat): string {
+  const p = new URLSearchParams({ api: '1', origin: `${from[1]},${from[0]}`, destination: `${to[1]},${to[0]}`, travelmode: 'transit' })
+  return `https://www.google.com/maps/dir/?${p}`
+}
 
 export function formatKm(meters: number): string {
   return meters < 950 ? `${Math.round(meters / 50) * 50} m` : `${(meters / 1000).toLocaleString('de-DE', { maximumFractionDigits: 1 })} km`
