@@ -1,7 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { motion } from 'motion/react'
-import { Bus, Car, MapPin, Navigation } from 'lucide-react'
+import { Car, Footprints, MapPin, Navigation, TrainFront } from 'lucide-react'
 import { lazy, Suspense } from 'react'
 import { publicContentQuery } from '@/lib/queries'
 import { formatDate } from '@/lib/format'
@@ -10,6 +10,7 @@ import { Linkify, Paragraphs } from '@/components/public/Linkify'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
 const TravelMap = lazy(() => import('@/components/public/TravelMap').then((m) => ({ default: m.TravelMap })))
 const StayMap = lazy(() => import('@/components/public/StayMap').then((m) => ({ default: m.StayMap })))
@@ -97,8 +98,8 @@ function HomePage() {
       )}
 
       <Section id="ort" eyebrow="Die Location" title={location.name || 'Ort'}>
-        <div className="grid gap-8 md:grid-cols-5">
-          <Card className="md:col-span-3">
+        <div className="mx-auto max-w-3xl">
+          <Card>
             <CardContent className="space-y-4 pt-6 leading-relaxed">
               {location.address && (
                 <p className="flex items-start gap-3">
@@ -123,40 +124,41 @@ function HomePage() {
               )}
             </CardContent>
           </Card>
-          <div className="space-y-4 md:col-span-2">
-            {location.transport && (
-              <Card>
-                <CardContent className="pt-6">
-                  <h3 className="flex items-center gap-2 text-xl">
-                    <Bus className="size-4 text-sage" /> Anreise
-                  </h3>
-                  <div className="mt-2 space-y-2 text-sm text-muted-foreground">
-                    <Paragraphs text={location.transport} />
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-            {location.parking && (
-              <Card>
-                <CardContent className="pt-6">
-                  <h3 className="flex items-center gap-2 text-xl">
-                    <Car className="size-4 text-sage" /> Parken
-                  </h3>
-                  <div className="mt-2 space-y-2 text-sm text-muted-foreground">
-                    <Paragraphs text={location.parking} />
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-          </div>
         </div>
-        {hasMap && (
-          <div className="mt-12">
-            <Suspense fallback={<Skeleton className="h-[420px] rounded-3xl md:h-[520px]" />}>
-              <TravelMap travel={travel} venueName={location.name || 'Location'} />
-            </Suspense>
-          </div>
-        )}
+        <Tabs defaultValue="transit" className="mt-12">
+          <TabsList className="mx-auto">
+            <TabsTrigger value="transit"><TrainFront className="size-4" /> Bahn &amp; Tram</TabsTrigger>
+            <TabsTrigger value="foot"><Footprints className="size-4" /> Zu Fuß</TabsTrigger>
+            <TabsTrigger value="car"><Car className="size-4" /> Auto</TabsTrigger>
+          </TabsList>
+          {(
+            [
+              { mode: 'transit', text: location.transport },
+              { mode: 'foot', text: hotels.length ? 'Diese Unterkünfte liegen in Gehweite der Location.' : '' },
+              { mode: 'car', text: location.parking },
+            ] as const
+          ).map(({ mode, text }) => (
+            <TabsContent key={mode} value={mode} className="mt-6 space-y-6">
+              {text && (
+                <div className="mx-auto max-w-2xl space-y-2 text-center text-muted-foreground">
+                  <Paragraphs text={text} />
+                  {mode === 'car' && location.navigationUrl && (
+                    <Button asChild className="mt-2">
+                      <a href={location.navigationUrl} target="_blank" rel="noreferrer">
+                        <Navigation className="size-4" /> Route planen
+                      </a>
+                    </Button>
+                  )}
+                </div>
+              )}
+              {hasMap && (
+                <Suspense fallback={<Skeleton className="h-[420px] rounded-3xl md:h-[520px]" />}>
+                  <TravelMap travel={travel} venueName={location.name || 'Location'} mode={mode} hotels={hotels} />
+                </Suspense>
+              )}
+            </TabsContent>
+          ))}
+        </Tabs>
       </Section>
 
       {hotels.length > 0 && (
