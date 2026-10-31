@@ -178,7 +178,7 @@ function HomePage() {
                   <CardContent className="space-y-3 pt-6">
                     <h3 className="flex items-center gap-2 text-2xl"><Icon className="size-5 text-primary" /> {label}</h3>
                     {text && <div className="space-y-2 text-muted-foreground"><Paragraphs text={text} /></div>}
-                    {hasMap && !(m === 'car' && travel.stops.some((s) => s.kind === 'parking')) && (
+                    {hasMap && m === 'bike' && (
                       <div className="flex flex-wrap items-center gap-2 pt-1 text-sm text-muted-foreground">
                         <span>Route zur Location:</span>
                         <DirectionsLinks to={[travel.lng, travel.lat]} name={location.name || 'Location'} mode={directions} />
