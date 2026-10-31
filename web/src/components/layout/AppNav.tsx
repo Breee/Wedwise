@@ -45,12 +45,12 @@ export function AppNav() {
         isPublic ? 'bg-background/70' : 'bg-card/80',
       )}
     >
-      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
-        <Link to="/" className="flex items-center gap-2 font-display text-2xl tracking-wide">
+      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-3 px-4 sm:px-6">
+        <Link to="/" className="flex shrink-0 items-center gap-2 font-display text-xl tracking-wide whitespace-nowrap sm:text-2xl">
           <Heart className="size-5 fill-primary/20 text-primary" />
           Unsere Hochzeit
         </Link>
-        <nav className="flex items-center gap-1 text-sm">
+        <nav className="flex min-w-0 items-center gap-1 overflow-x-auto text-sm">
           {authed &&
             links.map((l) => (
               <Link

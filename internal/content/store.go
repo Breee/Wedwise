@@ -341,6 +341,16 @@ func normalizeTravel(t *Travel) error {
 		if !validCoordinate(stop.Lat, stop.Lng) {
 			return fmt.Errorf("%w: stop coordinates out of range", ErrValidation)
 		}
+		if w := stop.Walk; w != nil {
+			if w.Minutes < 0 || w.Minutes > 600 || w.Meters < 0 || w.Meters > 50000 || len(w.Coords) < 2 || len(w.Coords) > maxLinePoints {
+				return fmt.Errorf("%w: invalid walking route for stop %q", ErrValidation, stop.Name)
+			}
+			for _, c := range w.Coords {
+				if !validCoordinate(c[1], c[0]) {
+					return fmt.Errorf("%w: walking route coordinates out of range", ErrValidation)
+				}
+			}
+		}
 	}
 	if t.Lines == nil {
 		t.Lines = []Line{}

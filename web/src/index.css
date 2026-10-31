@@ -85,19 +85,19 @@
     height: 55%;
   }
   .wed-marker-venue {
-    width: 52px;
-    height: 52px;
+    width: 36px;
+    height: 36px;
     border-radius: 9999px;
     color: var(--primary-foreground);
     background: var(--primary);
-    box-shadow: 0 0 0 4px white, 0 10px 24px -6px oklch(0.6 0.12 30 / 0.6);
+    box-shadow: 0 0 0 3px white, 0 8px 20px -6px oklch(0.6 0.12 30 / 0.6);
     position: relative;
     z-index: 2;
   }
   .wed-marker-venue::before {
     content: '';
     position: absolute;
-    inset: -6px;
+    inset: -5px;
     border-radius: 9999px;
     border: 2px solid var(--primary);
     animation: wed-pulse 2.2s ease-out infinite;
@@ -109,6 +109,22 @@
     color: white;
     background: var(--stop-color, var(--primary));
     box-shadow: 0 0 0 3px white, 0 6px 16px -4px rgb(0 0 0 / 0.35);
+  }
+  .wed-route-label-turn {
+    --stop-color: var(--primary);
+    pointer-events: none;
+  }
+  .wed-route-label-turn::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    bottom: -7px;
+    width: 8px;
+    height: 8px;
+    background: white;
+    border-right: 1.5px solid var(--stop-color);
+    border-bottom: 1.5px solid var(--stop-color);
+    transform: translateX(-50%) rotate(45deg);
   }
   .wed-route-label-bike {
     --stop-color: oklch(0.52 0.08 150);

@@ -52,6 +52,7 @@ export interface Stop {
   line: string
   lat: number
   lng: number
+  walk?: { minutes: number; meters: number; coords: [number, number][] }
 }
 
 export interface LineStop {

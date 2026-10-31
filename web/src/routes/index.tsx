@@ -44,10 +44,10 @@ function HomePage() {
   const hotels = content.accommodation?.hotels ?? []
   const city = event.venue.city || 'Freiburg im Breisgau'
   const [mode, setMode] = useState<TravelMode>('transit')
-  const ARRIVAL: { mode: TravelMode; label: string; Icon: typeof Car; text: string }[] = [
-    { mode: 'transit', label: 'Mit der Tram', Icon: TramFront, text: location.transport },
-    { mode: 'bike', label: 'Mit dem Rad', Icon: Bike, text: location.bike ?? '' },
-    { mode: 'car', label: 'Mit dem Auto', Icon: Car, text: location.parking },
+  const ARRIVAL: { mode: TravelMode; label: string; short: string; Icon: typeof Car; text: string }[] = [
+    { mode: 'transit', label: 'Mit der Tram', short: 'Tram', Icon: TramFront, text: location.transport },
+    { mode: 'bike', label: 'Mit dem Rad', short: 'Rad', Icon: Bike, text: location.bike ?? '' },
+    { mode: 'car', label: 'Mit dem Auto', short: 'Auto', Icon: Car, text: location.parking },
   ]
 
   return (
@@ -149,20 +149,15 @@ function HomePage() {
       {(location.transport || location.parking || location.bike || hasMap) && (
         <Section id="anreise" eyebrow="Anreise" title="So kommt ihr hin" className="bg-card/50">
           <Tabs value={mode} onValueChange={(v) => setMode(v as TravelMode)} className="space-y-8">
-            <TabsList className="mx-auto flex w-fit">
-              {ARRIVAL.map(({ mode: m, label, Icon }) => (
-                <TabsTrigger key={m} value={m} className="gap-2 px-4">
-                  <Icon className="size-4" /> {label}
+            <TabsList className="mx-auto grid w-full max-w-md grid-cols-3 sm:flex sm:w-fit">
+              {ARRIVAL.map(({ mode: m, label, short, Icon }) => (
+                <TabsTrigger key={m} value={m} className="gap-1.5 px-2 text-xs sm:gap-2 sm:px-4 sm:text-sm">
+                  <Icon className="size-4" /> <span className="sm:hidden">{short}</span><span className="hidden sm:inline">{label}</span>
                 </TabsTrigger>
               ))}
             </TabsList>
             {ARRIVAL.map(({ mode: m, label, Icon, text }) => (
-              <TabsContent key={m} value={m} className="space-y-10">
-                {hasMap && (
-                  <Suspense fallback={<Skeleton className="h-[420px] rounded-3xl md:h-[520px]" />}>
-                    <TravelMap travel={travel} venueName={location.name || 'Location'} mode={m} />
-                  </Suspense>
-                )}
+              <TabsContent key={m} value={m} className="space-y-6">
                 {(text || (m === 'car' && location.navigationUrl)) && (
                   <Card className="mx-auto max-w-2xl">
                     <CardContent className="space-y-3 pt-6">
@@ -177,6 +172,11 @@ function HomePage() {
                       )}
                     </CardContent>
                   </Card>
+                )}
+                {hasMap && (
+                  <Suspense fallback={<Skeleton className="h-[60svh] max-h-[520px] min-h-[320px] rounded-3xl" />}>
+                    <TravelMap travel={travel} venueName={location.name || 'Location'} mode={m} />
+                  </Suspense>
                 )}
               </TabsContent>
             ))}

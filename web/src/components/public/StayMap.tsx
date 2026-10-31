@@ -9,7 +9,6 @@ import {
   bookingUrl,
   hotelBookingUrl,
   distanceMeters,
-  formatKm,
   formatStayDates,
   METERS_PER_MINUTE,
   routeQuery,
@@ -24,7 +23,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { BaseMap, markerElement } from './BaseMap'
-import { drawRoutes, drawTransitLines, FIT_PADDING, venueMarker, type RouteFeature } from './mapParts'
+import { drawRoutes, drawTransitLines, fitPadding, venueMarker, type RouteFeature } from './mapParts'
 import { KIND } from './TravelMap'
 
 const TIER = { 1: { label: '€', hint: 'günstig' }, 2: { label: '€€', hint: 'mittel' }, 3: { label: '€€€', hint: 'gehoben' } } as const
@@ -123,7 +122,7 @@ export function StayMap({ accommodation, travel, city }: { accommodation: Accomm
       const bounds = new maplibregl.LngLatBounds(venue, venue)
       bounds.extend([hotel.lng, hotel.lat])
       features.forEach((f) => f.route.coordinates.forEach((c) => bounds.extend(c)))
-      map.fitBounds(bounds, { padding: FIT_PADDING, maxZoom: 15, duration: 800 })
+      map.fitBounds(bounds, { padding: fitPadding(map), maxZoom: 15, duration: 800 })
     }
     return cleanup
   }, [map, hotels, selectedIndex, stopWalk.data, venue])
@@ -141,9 +140,9 @@ export function StayMap({ accommodation, travel, city }: { accommodation: Accomm
         )}
       </div>
       <div className="grid gap-6 lg:grid-cols-5">
-        <BaseMap onReady={setMap} className="h-[380px] lg:sticky lg:top-24 lg:col-span-3 lg:h-[640px]">
+        <BaseMap onReady={setMap} className="h-[50svh] max-h-[640px] min-h-[300px] lg:sticky lg:top-24 lg:col-span-3 lg:h-[640px]">
           {selectedIndex < 0 && (
-            <div className="pointer-events-none absolute top-4 left-4 rounded-full bg-background/90 px-4 py-2 text-sm text-muted-foreground shadow backdrop-blur">
+            <div className="pointer-events-none absolute top-3 left-3 rounded-full bg-background/90 px-3 py-1.5 text-xs text-muted-foreground shadow backdrop-blur sm:text-sm">
               Unterkunft auswählen, um den Weg zu sehen
             </div>
           )}
@@ -287,11 +286,11 @@ function HotelCard({
 
 function TravelTimes({ hotel, venue }: { hotel: Ranked; venue: LngLat }) {
   const here: LngLat = [hotel.lng, hotel.lat]
-  const fmt = (r?: Route) => (r ? `${r.minutes} Min · ${formatKm(r.meters)}${r.estimated ? ' (geschätzt)' : ''}` : '…')
+  const fmt = (r?: Route) => (r ? `${r.estimated ? 'ca. ' : ''}${r.minutes} Min` : '…')
   const row = (highlight: boolean) => cn('flex items-center gap-1.5', highlight && 'font-medium text-foreground')
   return (
-    <ul className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
-      <li className={row(!hotel.walk)}>
+    <ul className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm text-muted-foreground sm:flex sm:flex-wrap">
+      <li className={cn(row(!hotel.walk), 'col-span-2')}>
         <TramFront className="size-3.5" />
         <a href={transitDirectionsUrl(here, venue)} target="_blank" rel="noreferrer" className="underline-offset-4 hover:underline" onClick={(e) => e.stopPropagation()}>
           {hotel.transit ? `ca. ${hotel.transit.totalMinutes} Min · ${KIND[hotel.transit.stop.kind].label} bis ${hotel.transit.stop.name}` : 'Verbindung anzeigen'}

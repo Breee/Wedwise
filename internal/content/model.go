@@ -52,6 +52,16 @@ type Stop struct {
 	Line string  `json:"line"`
 	Lat  float64 `json:"lat"`
 	Lng  float64 `json:"lng"`
+	// Walk is the precomputed walking route from the stop to the venue so the
+	// public page does not depend on an external router.
+	Walk *Walk `json:"walk,omitempty"`
+}
+
+// Walk is a stored walking route.
+type Walk struct {
+	Minutes int          `json:"minutes"`
+	Meters  int          `json:"meters"`
+	Coords  [][2]float64 `json:"coords"` // lng, lat
 }
 
 // LineStop is a stop along a transit line.

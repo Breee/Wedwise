@@ -6,7 +6,12 @@ import { markerElement } from './BaseMap'
 export const HEART_SVG =
   '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>'
 
-export const FIT_PADDING = { top: 80, bottom: 60, left: 60, right: 60 }
+const FIT_PADDING_DESKTOP = { top: 80, bottom: 60, left: 60, right: 60 }
+const FIT_PADDING_MOBILE = { top: 64, bottom: 40, left: 28, right: 28 }
+/** Smaller padding on narrow maps so routes stay legible on phones. */
+export function fitPadding(map: MapLibreMap) {
+  return map.getContainer().clientWidth < 640 ? FIT_PADDING_MOBILE : FIT_PADDING_DESKTOP
+}
 
 export function venueMarker(map: MapLibreMap, venue: LngLat): maplibregl.Marker {
   return new maplibregl.Marker({ element: markerElement(HEART_SVG, 'wed-marker wed-marker-venue'), anchor: 'center' })
@@ -65,7 +70,7 @@ export function drawRoutes(map: MapLibreMap, routes: RouteFeature[]): () => void
   }
 }
 
-type MapLine = { name: string; kind?: 'tram' | 'bike'; color: string; coords: [number, number][] }
+type MapLine = { name: string; kind?: 'tram' | 'bike'; color: string; coords: [number, number][]; stops?: { name: string; lat: number; lng: number }[] }
 
 /** Faint tram tracks in the background. */
 export function drawTransitLines(map: MapLibreMap, lines: MapLine[], fallbackColor: string) {
@@ -76,11 +81,15 @@ export function drawTransitLines(map: MapLibreMap, lines: MapLine[], fallbackCol
 export function drawBikeLines(map: MapLibreMap, lines: MapLine[], fallbackColor: string): () => void {
   const bike = lines.filter((l) => l.kind === 'bike')
   setLines(map, 'bike-lines', bike, fallbackColor, { 'line-width': 4, 'line-opacity': 0.75, 'line-dasharray': [1.5, 1.5] })
-  const labels = bike.map((l) => {
-    const mid = l.coords[Math.floor(l.coords.length / 4)]
-    return new maplibregl.Marker({ element: markerElement(l.name, 'wed-route-label wed-route-label-bike') }).setLngLat(mid).addTo(map)
+  const markers = bike.flatMap((l) => {
+    const mid = l.coords[Math.floor(l.coords.length / 3)]
+    const label = new maplibregl.Marker({ element: markerElement(l.name, 'wed-route-label wed-route-label-bike') }).setLngLat(mid).addTo(map)
+    const stops = (l.stops ?? []).map((s) =>
+      new maplibregl.Marker({ element: markerElement(s.name, 'wed-route-label wed-route-label-turn'), anchor: 'bottom', offset: [0, -10] }).setLngLat([s.lng, s.lat]).addTo(map),
+    )
+    return [label, ...stops]
   })
-  return () => labels.forEach((m) => m.remove())
+  return () => markers.forEach((m) => m.remove())
 }
 
 function setLines(map: MapLibreMap, id: string, lines: MapLine[], fallbackColor: string, paint: maplibregl.LineLayerSpecification['paint']) {

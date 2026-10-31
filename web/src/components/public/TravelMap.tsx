@@ -8,7 +8,7 @@ import { appleDirectionsUrl, distanceMeters, formatKm, googleDirectionsUrl, rout
 import { cn } from '@/lib/utils'
 import { BaseMap, markerElement } from './BaseMap'
 import { drawRoutes,
-  drawBikeLines, drawTransitLines, FIT_PADDING, venueMarker } from './mapParts'
+  drawBikeLines, drawTransitLines, fitPadding, venueMarker } from './mapParts'
 
 export const KIND = {
   tram: { label: 'Tram', color: '#c2554a', Icon: TramFront },
@@ -47,10 +47,15 @@ export function TravelMap({ travel, venueName, mode = 'transit' }: { travel: Tra
   const stops = useMemo(() => travel.stops.filter((s) => MODE_KINDS[mode].includes(s.kind)), [travel.stops, mode])
   // Only transit stops have a walking leg to draw.
   const routed = useMemo(() => stops.filter((s) => hasLeg(s.kind)), [stops])
-  const routes = useQueries({ queries: routed.map((s) => routeQuery('foot', [s.lng, s.lat], venue)) })
+  // Stored walking routes win; the external router is only a fallback.
+  const routes = useQueries({
+    queries: routed.map((s) => ({ ...routeQuery('foot', [s.lng, s.lat], venue), enabled: !s.walk })),
+  })
   const [map, setMap] = useState<MapLibreMap | null>(null)
   const [active, setActive] = useState<number | null>(null)
-  const resolved = routes.map((r) => r.data)
+  const resolved: (Route | undefined)[] = routed.map((s, i) =>
+    s.walk ? { coordinates: s.walk.coords, minutes: s.walk.minutes, meters: s.walk.meters, estimated: false } : routes[i].data,
+  )
 
   useEffect(() => {
     if (!map) return
@@ -64,10 +69,10 @@ export function TravelMap({ travel, venueName, mode = 'transit' }: { travel: Tra
     }
     const bounds = new maplibregl.LngLatBounds(venue, venue)
     stops.forEach((s) => bounds.extend([s.lng, s.lat]))
-    map.fitBounds(bounds, { padding: FIT_PADDING, maxZoom: 16, duration: 0 })
+    map.fitBounds(bounds, { padding: fitPadding(map), maxZoom: mode === 'car' ? 14 : 16, duration: 0 })
     setActive(null)
     return () => markers.forEach((m) => m.remove())
-  }, [map, stops, venue])
+  }, [map, stops, venue, mode])
 
   useEffect(() => {
     if (!map) return
@@ -76,7 +81,7 @@ export function TravelMap({ travel, venueName, mode = 'transit' }: { travel: Tra
     if (mode === 'bike' && travel.lines.some((l) => l.kind === 'bike')) {
       const bounds = new maplibregl.LngLatBounds(venue, venue)
       travel.lines.filter((l) => l.kind === 'bike').forEach((l) => l.coords.forEach((c) => bounds.extend(c)))
-      map.fitBounds(bounds, { padding: FIT_PADDING, maxZoom: 15, duration: 0 })
+      map.fitBounds(bounds, { padding: fitPadding(map), maxZoom: 15, duration: 0 })
     }
     return clear
   }, [map, mode, travel.lines, venue])
@@ -85,7 +90,7 @@ export function TravelMap({ travel, venueName, mode = 'transit' }: { travel: Tra
     if (!map) return
     return drawRoutes(
       map,
-      resolved.flatMap((route, i) => (route ? [{ route, color: KIND[routed[i].kind].color, id: i }] : [])),
+      resolved.flatMap((route, i) => (route && !route.estimated ? [{ route, color: KIND[routed[i].kind].color, id: i }] : [])),
     )
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [map, routed, ...resolved])
@@ -107,15 +112,15 @@ export function TravelMap({ travel, venueName, mode = 'transit' }: { travel: Tra
       bounds.extend([routed[i].lng, routed[i].lat])
       resolved[i]?.coordinates.forEach((c) => bounds.extend(c))
     }
-    map.fitBounds(bounds, { padding: FIT_PADDING, maxZoom: 16, duration: 900 })
+    map.fitBounds(bounds, { padding: fitPadding(map), maxZoom: 16, duration: 900 })
   }
 
   return (
     <div className="space-y-6">
-      <BaseMap onReady={setMap} className="h-[420px] md:h-[520px]">
-        <div className="pointer-events-none absolute top-4 left-4 rounded-full bg-background/90 px-4 py-2 text-sm shadow backdrop-blur">
-          <span className="font-display text-lg text-primary">{venueName}</span>
-          <span className="ml-2 text-muted-foreground">{HEADER[mode]}</span>
+      <BaseMap onReady={setMap} className="h-[60svh] max-h-[520px] min-h-[320px]">
+        <div className="pointer-events-none absolute top-3 left-3 max-w-[calc(100%-5rem)] truncate rounded-full bg-background/90 px-3 py-1.5 text-xs shadow backdrop-blur sm:text-sm">
+          <span className="font-display text-base text-primary sm:text-lg">{venueName}</span>
+          <span className="ml-2 hidden text-muted-foreground sm:inline">{HEADER[mode]}</span>
         </div>
       </BaseMap>
       {stops.length > 0 && (
@@ -127,7 +132,7 @@ export function TravelMap({ travel, venueName, mode = 'transit' }: { travel: Tra
                 key={`${stop.kind}-${stop.name}`}
                 stop={stop}
                 route={i >= 0 ? resolved[i] : undefined}
-                loading={i >= 0 && routes[i].isPending}
+                loading={i >= 0 && !resolved[i] && routes[i].isPending}
                 active={i >= 0 && active === i}
                 onEnter={() => i >= 0 && focus(i)}
                 onLeave={() => focus(null)}
@@ -185,15 +190,14 @@ function StopCard({
           <span className="mt-1 block text-sm text-muted-foreground">Route wird berechnet…</span>
         ) : route ? (
           <span className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground">
-            <Footprints className="size-3.5" /> {route.minutes} Min · {formatKm(route.meters)}
-            {route.estimated && ' (geschätzt)'}
+            <Footprints className="size-3.5" /> {route.estimated ? 'ca. ' : ''}{route.minutes} Min · {formatKm(route.meters)}
           </span>
         ) : null}
         <span className="mt-3 flex flex-wrap gap-2 text-xs">
-          <a href={googleDirectionsUrl(to, travelMode)} target="_blank" rel="noreferrer" className="rounded-full border px-2.5 py-1 hover:bg-muted">
+          <a href={googleDirectionsUrl(to, travelMode)} target="_blank" rel="noreferrer" className="rounded-full border px-3 py-1.5 hover:bg-muted">
             Google Maps ↗
           </a>
-          <a href={appleDirectionsUrl(to, stop.name, travelMode)} target="_blank" rel="noreferrer" className="rounded-full border px-2.5 py-1 hover:bg-muted">
+          <a href={appleDirectionsUrl(to, stop.name, travelMode)} target="_blank" rel="noreferrer" className="rounded-full border px-3 py-1.5 hover:bg-muted">
             Apple Karten ↗
           </a>
         </span>
