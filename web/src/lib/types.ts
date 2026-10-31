@@ -42,10 +42,44 @@ export interface FAQEntry {
   order: number
 }
 
+export type StopKind = 'tram' | 'train' | 'bus' | 'parking'
+
+export interface Stop {
+  name: string
+  kind: StopKind
+  line: string
+  lat: number
+  lng: number
+}
+
+export interface Travel {
+  lat: number
+  lng: number
+  stops: Stop[]
+}
+
+export interface Hotel {
+  name: string
+  area: string
+  lat: number
+  lng: number
+  priceTier: 1 | 2 | 3
+  note: string
+  url: string
+}
+
+export interface Accommodation {
+  checkIn: string
+  checkOut: string
+  hotels: Hotel[]
+}
+
 export interface Content {
   hero: Hero
   introduction: { text: string }
   location: Location
+  travel: Travel
+  accommodation: Accommodation
   schedule: ScheduleEntry[]
   faq: FAQEntry[]
   updatedAt?: string

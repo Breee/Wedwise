@@ -2,6 +2,7 @@ import { createFileRoute } from '@tanstack/react-router'
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { motion } from 'motion/react'
 import { Bus, Car, MapPin, Navigation } from 'lucide-react'
+import { lazy, Suspense } from 'react'
 import { publicContentQuery } from '@/lib/queries'
 import { formatDate } from '@/lib/format'
 import { Section } from '@/components/public/Section'
@@ -9,6 +10,9 @@ import { Linkify, Paragraphs } from '@/components/public/Linkify'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
+
+const TravelMap = lazy(() => import('@/components/public/TravelMap').then((m) => ({ default: m.TravelMap })))
+const StayMap = lazy(() => import('@/components/public/StayMap').then((m) => ({ default: m.StayMap })))
 
 export const Route = createFileRoute('/')({
   loader: ({ context }) => context.queryClient.ensureQueryData(publicContentQuery),
@@ -33,6 +37,10 @@ function HomePage() {
   const tagline = names ? hero.headline : ''
   const schedule = [...(content.schedule ?? [])].sort((a, b) => a.order - b.order)
   const faq = [...(content.faq ?? [])].sort((a, b) => a.order - b.order)
+  const travel = content.travel
+  const hasMap = !!travel && (travel.lat !== 0 || travel.lng !== 0)
+  const hotels = content.accommodation?.hotels ?? []
+  const city = event.venue.city || 'Freiburg im Breisgau'
 
   return (
     <>
@@ -142,10 +150,25 @@ function HomePage() {
             )}
           </div>
         </div>
+        {hasMap && (
+          <div className="mt-12">
+            <Suspense fallback={<Skeleton className="h-[420px] rounded-3xl md:h-[520px]" />}>
+              <TravelMap travel={travel} venueName={location.name || 'Location'} />
+            </Suspense>
+          </div>
+        )}
       </Section>
 
+      {hotels.length > 0 && (
+        <Section id="unterkunft" eyebrow="Übernachten" title="Unterkünfte" className="bg-card/50">
+          <Suspense fallback={<Skeleton className="h-[380px] rounded-3xl" />}>
+            <StayMap accommodation={content.accommodation} travel={travel} city={city} />
+          </Suspense>
+        </Section>
+      )}
+
       {faq.length > 0 && (
-        <Section id="faq" eyebrow="Gut zu wissen" title="Fragen & Antworten" className="bg-card/50">
+        <Section id="faq" eyebrow="Gut zu wissen" title="Fragen & Antworten">
           <div className="mx-auto grid max-w-3xl gap-4">
             {faq.map((entry, i) => (
               <Card key={entry.id ?? i}>

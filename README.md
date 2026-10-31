@@ -11,6 +11,12 @@ tools.
 
 - 📖 **Wedding site** — customizable hero, venue details, schedule, and story
   content driven by a simple YAML configuration file.
+- 🗺️ **Arrival & stay maps** — interactive MapLibre maps (OpenFreeMap tiles,
+  no API key): walking routes with minutes from nearby stops to the venue,
+  and recommended hotels with price tier plus Booking.com/Airbnb links
+  pre-filled with the wedding dates. Stops and hotels are edited in the
+  content UI. Routes come from the public OSM foot router (straight-line
+  estimate as fallback); the guest's browser talks to these services directly.
 - 🎨 **Theming** — swap colors, typography, and spacing via YAML theme files
   (see `themes/`), no rebuild required.
 - 💌 **Invite links** — no personalized invitations: create one or more

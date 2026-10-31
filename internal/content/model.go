@@ -43,12 +43,48 @@ type FAQEntry struct {
 	Order    int    `json:"order"`
 }
 
+// Stop is a public transport stop or parking spot near the venue.
+type Stop struct {
+	Name string  `json:"name"`
+	Kind string  `json:"kind"` // tram, train, bus, parking
+	Line string  `json:"line"`
+	Lat  float64 `json:"lat"`
+	Lng  float64 `json:"lng"`
+}
+
+// Travel holds the venue coordinates and the stops shown on the arrival map.
+type Travel struct {
+	Lat   float64 `json:"lat"`
+	Lng   float64 `json:"lng"`
+	Stops []Stop  `json:"stops"`
+}
+
+// Hotel is one recommended place to stay.
+type Hotel struct {
+	Name      string  `json:"name"`
+	Area      string  `json:"area"`
+	Lat       float64 `json:"lat"`
+	Lng       float64 `json:"lng"`
+	PriceTier int     `json:"priceTier"` // 1..3
+	Note      string  `json:"note"`
+	URL       string  `json:"url"`
+}
+
+// Accommodation is the stay section: dates for booking links plus hotels.
+type Accommodation struct {
+	CheckIn  string  `json:"checkIn"`  // YYYY-MM-DD
+	CheckOut string  `json:"checkOut"` // YYYY-MM-DD
+	Hotels   []Hotel `json:"hotels"`
+}
+
 // Content is the complete editable website content.
 type Content struct {
-	Hero         Hero            `json:"hero"`
-	Introduction Introduction    `json:"introduction"`
-	Location     Location        `json:"location"`
-	Schedule     []ScheduleEntry `json:"schedule"`
-	FAQ          []FAQEntry      `json:"faq"`
-	UpdatedAt    time.Time       `json:"updatedAt"`
+	Hero          Hero            `json:"hero"`
+	Introduction  Introduction    `json:"introduction"`
+	Location      Location        `json:"location"`
+	Travel        Travel          `json:"travel"`
+	Accommodation Accommodation   `json:"accommodation"`
+	Schedule      []ScheduleEntry `json:"schedule"`
+	FAQ           []FAQEntry      `json:"faq"`
+	UpdatedAt     time.Time       `json:"updatedAt"`
 }

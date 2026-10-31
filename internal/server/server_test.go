@@ -178,6 +178,12 @@ func validContent() map[string]any {
 			{"time": "14:30", "title": "Trauung"},
 		},
 		"faq": []map[string]any{{"question": "Dresscode?", "answer": "Festlich"}},
+		"travel": map[string]any{"lat": 47.98, "lng": 7.87, "stops": []map[string]any{
+			{"name": "Laßbergstraße", "kind": "tram", "line": "1", "lat": 47.984, "lng": 7.893},
+		}},
+		"accommodation": map[string]any{"checkIn": "2027-06-24", "checkOut": "2027-06-26", "hotels": []map[string]any{
+			{"name": "Hotel Löwen", "area": "Littenweiler", "lat": 47.976, "lng": 7.911, "priceTier": 2, "url": "https://example.com"},
+		}},
 	}
 }
 
@@ -326,6 +332,17 @@ func TestContentUpdate_Couple(t *testing.T) {
 				Title string `json:"title"`
 				Order int    `json:"order"`
 			} `json:"schedule"`
+			Travel struct {
+				Stops []struct {
+					Kind string `json:"kind"`
+				} `json:"stops"`
+			} `json:"travel"`
+			Accommodation struct {
+				CheckIn string `json:"checkIn"`
+				Hotels  []struct {
+					PriceTier int `json:"priceTier"`
+				} `json:"hotels"`
+			} `json:"accommodation"`
 		} `json:"content"`
 	}
 	if err := json.NewDecoder(pub.Body).Decode(&body); err != nil {
@@ -336,6 +353,12 @@ func TestContentUpdate_Couple(t *testing.T) {
 	}
 	if len(body.Content.Schedule) != 2 || body.Content.Schedule[1].Title != "Trauung" || body.Content.Schedule[1].Order != 2 {
 		t.Fatalf("schedule not persisted in order: %+v", body.Content.Schedule)
+	}
+	if len(body.Content.Travel.Stops) != 1 || body.Content.Travel.Stops[0].Kind != "tram" {
+		t.Fatalf("travel not persisted: %+v", body.Content.Travel)
+	}
+	if body.Content.Accommodation.CheckIn != "2027-06-24" || len(body.Content.Accommodation.Hotels) != 1 || body.Content.Accommodation.Hotels[0].PriceTier != 2 {
+		t.Fatalf("accommodation not persisted: %+v", body.Content.Accommodation)
 	}
 }
 
@@ -374,6 +397,21 @@ func TestContentUpdate_Validation(t *testing.T) {
 		}},
 		{"non-http navigation url", func(c map[string]any) {
 			c["location"] = map[string]any{"navigationUrl": "javascript:alert(1)"}
+		}},
+		{"unknown stop kind", func(c map[string]any) {
+			c["travel"] = map[string]any{"stops": []map[string]any{{"name": "X", "kind": "boat", "lat": 1, "lng": 1}}}
+		}},
+		{"stop coordinates out of range", func(c map[string]any) {
+			c["travel"] = map[string]any{"stops": []map[string]any{{"name": "X", "kind": "tram", "lat": 91, "lng": 1}}}
+		}},
+		{"hotel price tier out of range", func(c map[string]any) {
+			c["accommodation"] = map[string]any{"hotels": []map[string]any{{"name": "H", "lat": 1, "lng": 1, "priceTier": 4}}}
+		}},
+		{"hotel non-http url", func(c map[string]any) {
+			c["accommodation"] = map[string]any{"hotels": []map[string]any{{"name": "H", "lat": 1, "lng": 1, "priceTier": 1, "url": "javascript:1"}}}
+		}},
+		{"bad check-in date", func(c map[string]any) {
+			c["accommodation"] = map[string]any{"checkIn": "24.06.2027"}
 		}},
 	}
 	for _, tc := range cases {

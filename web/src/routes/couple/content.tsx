@@ -5,7 +5,7 @@ import { ArrowDown, ArrowUp, Plus, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { api, errorMessage } from '@/lib/api'
 import { contentQuery } from '@/lib/queries'
-import type { Content, FAQEntry, ScheduleEntry } from '@/lib/types'
+import type { Content, FAQEntry, Hotel, ScheduleEntry, Stop } from '@/lib/types'
 import { PageHeader } from '@/components/admin/PageHeader'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -13,6 +13,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
 export const Route = createFileRoute('/couple/content')({
   loader: ({ context }) => context.queryClient.ensureQueryData(contentQuery),
@@ -36,6 +37,8 @@ function ContentPage() {
   })
 
   const set = <K extends keyof Content>(key: K, value: Content[K]) => setDraft((d) => ({ ...d, [key]: value }))
+  const travel = draft.travel ?? { lat: 0, lng: 0, stops: [] }
+  const stay = draft.accommodation ?? { checkIn: '', checkOut: '', hotels: [] }
 
   return (
     <>
@@ -52,6 +55,8 @@ function ContentPage() {
         <TabsList>
           <TabsTrigger value="hero">Begrüßung</TabsTrigger>
           <TabsTrigger value="location">Ort</TabsTrigger>
+          <TabsTrigger value="travel">Anreise</TabsTrigger>
+          <TabsTrigger value="stay">Unterkünfte</TabsTrigger>
           <TabsTrigger value="schedule">Ablauf</TabsTrigger>
           <TabsTrigger value="faq">FAQ</TabsTrigger>
         </TabsList>
@@ -89,6 +94,86 @@ function ContentPage() {
               <Field label="Parken" multiline value={draft.location.parking} onChange={(v) => set('location', { ...draft.location, parking: v })} />
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="travel" className="mt-4 space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Koordinaten der Location</CardTitle>
+            </CardHeader>
+            <CardContent className="grid gap-4 sm:grid-cols-2">
+              <NumberField label="Breitengrad (lat)" value={travel.lat} onChange={(v) => set('travel', { ...travel, lat: v })} />
+              <NumberField label="Längengrad (lng)" value={travel.lng} onChange={(v) => set('travel', { ...travel, lng: v })} />
+              <p className="text-sm text-muted-foreground sm:col-span-2">
+                Koordinaten findet ihr z. B. per Rechtsklick in Google Maps. Ohne Koordinaten wird keine Karte angezeigt.
+              </p>
+            </CardContent>
+          </Card>
+          <ListEditor<Stop>
+            items={travel.stops}
+            onChange={(items) => set('travel', { ...travel, stops: items })}
+            create={() => ({ name: '', kind: 'tram', line: '', lat: travel.lat, lng: travel.lng })}
+            addLabel="Haltestelle / Parkplatz hinzufügen"
+            render={(item, update) => (
+              <div className="grid flex-1 gap-3 sm:grid-cols-4">
+                <Field label="Name" value={item.name} onChange={(v) => update({ ...item, name: v })} className="sm:col-span-2" />
+                <div className="space-y-2">
+                  <Label>Art</Label>
+                  <Select value={item.kind} onValueChange={(v) => update({ ...item, kind: v as Stop['kind'] })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="tram">Tram</SelectItem>
+                      <SelectItem value="train">S-Bahn / Zug</SelectItem>
+                      <SelectItem value="bus">Bus</SelectItem>
+                      <SelectItem value="parking">Parkplatz</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Field label="Linie" value={item.line} onChange={(v) => update({ ...item, line: v })} />
+                <NumberField label="Breitengrad (lat)" value={item.lat} onChange={(v) => update({ ...item, lat: v })} className="sm:col-span-2" />
+                <NumberField label="Längengrad (lng)" value={item.lng} onChange={(v) => update({ ...item, lng: v })} className="sm:col-span-2" />
+              </div>
+            )}
+          />
+        </TabsContent>
+
+        <TabsContent value="stay" className="mt-4 space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Reisezeitraum für Buchungslinks</CardTitle>
+            </CardHeader>
+            <CardContent className="grid gap-4 sm:grid-cols-2">
+              <DateField label="Anreise" value={stay.checkIn} onChange={(v) => set('accommodation', { ...stay, checkIn: v })} />
+              <DateField label="Abreise" value={stay.checkOut} onChange={(v) => set('accommodation', { ...stay, checkOut: v })} />
+            </CardContent>
+          </Card>
+          <ListEditor<Hotel>
+            items={stay.hotels}
+            onChange={(items) => set('accommodation', { ...stay, hotels: items })}
+            create={() => ({ name: '', area: '', lat: travel.lat, lng: travel.lng, priceTier: 2, note: '', url: '' })}
+            addLabel="Unterkunft hinzufügen"
+            render={(item, update) => (
+              <div className="grid flex-1 gap-3 sm:grid-cols-4">
+                <Field label="Name" value={item.name} onChange={(v) => update({ ...item, name: v })} className="sm:col-span-2" />
+                <Field label="Stadtteil" value={item.area} onChange={(v) => update({ ...item, area: v })} />
+                <div className="space-y-2">
+                  <Label>Preisklasse</Label>
+                  <Select value={String(item.priceTier)} onValueChange={(v) => update({ ...item, priceTier: Number(v) as Hotel['priceTier'] })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="1">€ günstig</SelectItem>
+                      <SelectItem value="2">€€ mittel</SelectItem>
+                      <SelectItem value="3">€€€ gehoben</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <NumberField label="Breitengrad (lat)" value={item.lat} onChange={(v) => update({ ...item, lat: v })} className="sm:col-span-2" />
+                <NumberField label="Längengrad (lng)" value={item.lng} onChange={(v) => update({ ...item, lng: v })} className="sm:col-span-2" />
+                <Field label="Website" value={item.url} onChange={(v) => update({ ...item, url: v })} className="sm:col-span-2" />
+                <Field label="Hinweis" value={item.note} onChange={(v) => update({ ...item, note: v })} className="sm:col-span-2" />
+              </div>
+            )}
+          />
         </TabsContent>
 
         <TabsContent value="schedule" className="mt-4">
@@ -159,7 +244,27 @@ function Field({
   )
 }
 
-function ListEditor<T extends { order: number }>({
+function NumberField({ label, value, onChange, className }: { label: string; value: number; onChange: (v: number) => void; className?: string }) {
+  return (
+    <div className={className ? `space-y-2 ${className}` : 'space-y-2'}>
+      <Label>{label}</Label>
+      <Input type="number" step="any" value={Number.isFinite(value) ? value : ''} onChange={(e) => onChange(e.target.value === '' ? 0 : Number(e.target.value))} />
+    </div>
+  )
+}
+
+function DateField({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+  return (
+    <div className="space-y-2">
+      <Label>{label}</Label>
+      <Input type="date" value={value ?? ''} onChange={(e) => onChange(e.target.value)} />
+    </div>
+  )
+}
+
+const orderOf = (x: object) => (x as { order?: number }).order
+
+function ListEditor<T extends object>({
   items,
   onChange,
   create,
@@ -172,13 +277,13 @@ function ListEditor<T extends { order: number }>({
   render: (item: T, update: (item: T) => void) => React.ReactNode
   addLabel: string
 }) {
-  const sorted = [...items].sort((a, b) => a.order - b.order)
+  const sorted = [...items].sort((a, b) => (orderOf(a) ?? 0) - (orderOf(b) ?? 0))
   const move = (i: number, dir: -1 | 1) => {
     const next = [...sorted]
     const j = i + dir
     if (j < 0 || j >= next.length) return
     ;[next[i], next[j]] = [next[j]!, next[i]!]
-    onChange(next.map((x, k) => ({ ...x, order: k + 1 })))
+    onChange(next.map((x, k) => (orderOf(x) === undefined ? x : { ...x, order: k + 1 })))
   }
   return (
     <div className="space-y-3">
@@ -201,7 +306,13 @@ function ListEditor<T extends { order: number }>({
           </CardContent>
         </Card>
       ))}
-      <Button variant="outline" onClick={() => onChange([...sorted, { ...create(), order: sorted.length + 1 }])}>
+      <Button
+        variant="outline"
+        onClick={() => {
+          const item = create()
+          onChange([...sorted, orderOf(item) === undefined ? item : { ...item, order: sorted.length + 1 }])
+        }}
+      >
         <Plus className="size-4" /> {addLabel}
       </Button>
     </div>

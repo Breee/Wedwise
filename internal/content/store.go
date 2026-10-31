@@ -3,6 +3,7 @@ package content
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -35,6 +36,8 @@ const (
 	keyLocationNavigation   = "location.navigationUrl"
 	keyLocationTransport    = "location.transport"
 	keyLocationParking      = "location.parking"
+	keyTravel               = "travel"
+	keyAccommodation        = "accommodation"
 	maxContentBlockLenBytes = 20000
 )
 
@@ -62,6 +65,18 @@ func (s *Store) Get(ctx context.Context) (Content, error) {
 			Parking:       blocks[keyLocationParking],
 		},
 		UpdatedAt: updatedAt,
+	}
+	if err := decodeBlock(blocks[keyTravel], &result.Travel); err != nil {
+		return Content{}, err
+	}
+	if err := decodeBlock(blocks[keyAccommodation], &result.Accommodation); err != nil {
+		return Content{}, err
+	}
+	if result.Travel.Stops == nil {
+		result.Travel.Stops = []Stop{}
+	}
+	if result.Accommodation.Hotels == nil {
+		result.Accommodation.Hotels = []Hotel{}
 	}
 
 	if result.Schedule, err = s.schedule(ctx); err != nil {
@@ -99,6 +114,8 @@ func (s *Store) Replace(ctx context.Context, updated Content) (Content, error) {
 		keyLocationNavigation:  normalized.Location.NavigationURL,
 		keyLocationTransport:   normalized.Location.Transport,
 		keyLocationParking:     normalized.Location.Parking,
+		keyTravel:              encodeBlock(normalized.Travel),
+		keyAccommodation:       encodeBlock(normalized.Accommodation),
 	}
 	for key, value := range values {
 		if _, err := tx.ExecContext(ctx,
@@ -224,6 +241,13 @@ func normalize(input Content) (Content, error) {
 		return Content{}, fmt.Errorf("%w: navigationUrl must be an http(s) URL", ErrValidation)
 	}
 
+	if err := normalizeTravel(&input.Travel); err != nil {
+		return Content{}, err
+	}
+	if err := normalizeAccommodation(&input.Accommodation); err != nil {
+		return Content{}, err
+	}
+
 	for i := range input.Schedule {
 		entry := &input.Schedule[i]
 		entry.Time = strings.TrimSpace(entry.Time)
@@ -253,4 +277,94 @@ func normalize(input Content) (Content, error) {
 func isHTTPURL(value string) bool {
 	lower := strings.ToLower(value)
 	return strings.HasPrefix(lower, "http://") || strings.HasPrefix(lower, "https://")
+}
+
+const maxMapEntries = 50
+
+var stopKinds = map[string]bool{"tram": true, "train": true, "bus": true, "parking": true}
+
+func decodeBlock(raw string, target any) error {
+	if raw == "" {
+		return nil
+	}
+	if err := json.Unmarshal([]byte(raw), target); err != nil {
+		return fmt.Errorf("decode content block: %w", err)
+	}
+	return nil
+}
+
+func encodeBlock(value any) string {
+	raw, _ := json.Marshal(value)
+	return string(raw)
+}
+
+func validCoordinate(lat, lng float64) bool {
+	return lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180
+}
+
+func normalizeTravel(t *Travel) error {
+	if !validCoordinate(t.Lat, t.Lng) {
+		return fmt.Errorf("%w: venue coordinates out of range", ErrValidation)
+	}
+	if len(t.Stops) > maxMapEntries {
+		return fmt.Errorf("%w: too many stops", ErrValidation)
+	}
+	if t.Stops == nil {
+		t.Stops = []Stop{}
+	}
+	for i := range t.Stops {
+		stop := &t.Stops[i]
+		stop.Name = strings.TrimSpace(stop.Name)
+		stop.Line = strings.TrimSpace(stop.Line)
+		stop.Kind = strings.ToLower(strings.TrimSpace(stop.Kind))
+		if stop.Name == "" || len(stop.Name) > 200 || len(stop.Line) > 50 {
+			return fmt.Errorf("%w: stops need a name (max 200 chars)", ErrValidation)
+		}
+		if !stopKinds[stop.Kind] {
+			return fmt.Errorf("%w: unknown stop kind %q", ErrValidation, stop.Kind)
+		}
+		if !validCoordinate(stop.Lat, stop.Lng) {
+			return fmt.Errorf("%w: stop coordinates out of range", ErrValidation)
+		}
+	}
+	return nil
+}
+
+func normalizeAccommodation(a *Accommodation) error {
+	a.CheckIn = strings.TrimSpace(a.CheckIn)
+	a.CheckOut = strings.TrimSpace(a.CheckOut)
+	for _, day := range []string{a.CheckIn, a.CheckOut} {
+		if day == "" {
+			continue
+		}
+		if _, err := time.Parse("2006-01-02", day); err != nil {
+			return fmt.Errorf("%w: dates must be YYYY-MM-DD", ErrValidation)
+		}
+	}
+	if len(a.Hotels) > maxMapEntries {
+		return fmt.Errorf("%w: too many hotels", ErrValidation)
+	}
+	if a.Hotels == nil {
+		a.Hotels = []Hotel{}
+	}
+	for i := range a.Hotels {
+		h := &a.Hotels[i]
+		h.Name = strings.TrimSpace(h.Name)
+		h.Area = strings.TrimSpace(h.Area)
+		h.Note = strings.TrimSpace(h.Note)
+		h.URL = strings.TrimSpace(h.URL)
+		if h.Name == "" || len(h.Name) > 200 || len(h.Area) > 200 || len(h.Note) > 1000 || len(h.URL) > 2000 {
+			return fmt.Errorf("%w: hotels need a name (max 200 chars)", ErrValidation)
+		}
+		if h.PriceTier < 1 || h.PriceTier > 3 {
+			return fmt.Errorf("%w: priceTier must be 1..3", ErrValidation)
+		}
+		if h.URL != "" && !isHTTPURL(h.URL) {
+			return fmt.Errorf("%w: hotel url must be an http(s) URL", ErrValidation)
+		}
+		if !validCoordinate(h.Lat, h.Lng) {
+			return fmt.Errorf("%w: hotel coordinates out of range", ErrValidation)
+		}
+	}
+	return nil
 }
