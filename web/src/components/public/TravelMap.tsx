@@ -2,229 +2,75 @@ import { useEffect, useMemo, useState } from 'react'
 import { useQueries } from '@tanstack/react-query'
 import * as maplibregl from 'maplibre-gl'
 import type { Map as MapLibreMap, ExpressionSpecification } from 'maplibre-gl'
-import { Footprints, ParkingCircle, TramFront, TrainFront, Bus, BedDouble, Car } from 'lucide-react'
-import type { Hotel, StopKind, Travel } from '@/lib/types'
-import { distanceMeters, formatKm, nearestLineStop, routeQuery, WALK_MAX_METERS, type LngLat, type Profile, type Route, type TransitLine } from '@/lib/geo'
+import { Footprints, ParkingCircle, TramFront, TrainFront, Bus } from 'lucide-react'
+import type { Stop, StopKind, Travel } from '@/lib/types'
+import { formatKm, routeQuery, type LngLat, type Route } from '@/lib/geo'
 import { cn } from '@/lib/utils'
 import { BaseMap, markerElement } from './BaseMap'
+import { drawRoutes, drawTransitLines, FIT_PADDING, venueMarker } from './mapParts'
 
-export type TravelMode = 'transit' | 'foot' | 'car'
+export type TravelMode = 'transit' | 'car'
 
-type OriginKind = StopKind | 'hotel'
-type Origin = {
-  name: string
-  kind: OriginKind
-  line: string
-  lat: number
-  lng: number
-  // Routed leg drawn on the map; parking has none.
-  leg?: { profile: Profile; to: LngLat; via?: string; line?: TransitLine }
-}
-
-const NEAREST_HOTELS = 3
-
-const KIND = {
+export const KIND = {
   tram: { label: 'Tram', color: '#c2554a', Icon: TramFront },
   train: { label: 'S-Bahn', color: '#5e7f63', Icon: TrainFront },
   bus: { label: 'Bus', color: '#7a6ea3', Icon: Bus },
   parking: { label: 'Parken', color: '#8a8278', Icon: ParkingCircle },
-  hotel: { label: 'Unterkunft', color: '#b58a4a', Icon: BedDouble },
-} satisfies Record<OriginKind, { label: string; color: string; Icon: typeof TramFront }>
+} satisfies Record<StopKind, { label: string; color: string; Icon: typeof TramFront }>
 
-const ICON_SVG: Record<OriginKind, string> = {
+export const ICON_SVG: Record<StopKind, string> = {
   tram: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="16" height="16" x="4" y="3" rx="2"/><path d="M4 11h16M12 3v8M8 19l-2 3M18 22l-2-3M8 15h.01M16 15h.01"/></svg>',
   train: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3.1V7a4 4 0 0 0 8 0V3.1M9 15h.01M15 15h.01M9 19c-2.8 0-5-2.2-5-5v-4a8 8 0 0 1 16 0v4c0 2.8-2.2 5-5 5ZM8 19l-2 3M16 19l2 3"/></svg>',
   bus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6v6M15 6v6M2 12h19.6M18 18h3s.5-1.7.8-2.8c.1-.4.2-.8.2-1.2 0-.4-.1-.8-.2-1.2l-1.4-5C20.1 6.8 19.1 6 18 6H4a2 2 0 0 0-2 2v10h3"/><circle cx="7" cy="18" r="2"/><path d="M9 18h5"/><circle cx="16" cy="18" r="2"/></svg>',
   parking: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 17V7h4a3 3 0 0 1 0 6H9"/></svg>',
-  hotel: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 20v-8a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v8M4 10V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v4M12 4v6M2 18h20"/></svg>',
 }
 
 const HEADER: Record<TravelMode, string> = {
-  transit: 'Haltestellen & nächste Unterkünfte',
-  foot: 'zu Fuß von den nächsten Unterkünften',
-  car: 'Parken an der Location & nächste Unterkünfte',
+  transit: 'Haltestellen & Fußweg zur Location',
+  car: 'Parken an der Location',
 }
 
-function nearest<T extends { lat: number; lng: number }>(items: T[], to: LngLat, n: number): T[] {
-  return [...items].sort((a, b) => distanceMeters([a.lng, a.lat], to) - distanceMeters([b.lng, b.lat], to)).slice(0, n)
-}
-
-function originsFor(mode: TravelMode, travel: Travel, hotels: Hotel[]): Origin[] {
-  const venue: LngLat = [travel.lng, travel.lat]
-  const hotelOrigin = (h: Hotel, leg: Origin['leg']): Origin => ({ name: h.name, kind: 'hotel', line: '', lat: h.lat, lng: h.lng, leg })
-  switch (mode) {
-    case 'transit': {
-      const stops = travel.stops.filter((s) => s.kind !== 'parking')
-      const stopOrigins: Origin[] = stops.map((s) => ({ ...s, leg: { profile: 'foot', to: venue } }))
-      const line = travel.lines[0]
-      const hotelOrigins = nearest(hotels, venue, NEAREST_HOTELS).map((h) => {
-        const here: LngLat = [h.lng, h.lat]
-        const stop = nearest(stops, here, 1)[0]
-        if (!stop) return hotelOrigin(h, { profile: 'foot', to: venue })
-        const to: LngLat = [stop.lng, stop.lat]
-        if (distanceMeters(here, to) * 1.3 <= WALK_MAX_METERS) return hotelOrigin(h, { profile: 'foot', to, via: `bis ${stop.name}` })
-        const board = line ? nearestLineStop(line, here) : undefined
-        return hotelOrigin(h, {
-          profile: 'transit',
-          to,
-          line,
-          via: board ? `${KIND[stop.kind].label} ab ${board.name}` : `${KIND[stop.kind].label} bis ${stop.name}`,
-        })
-      })
-      return [...stopOrigins, ...hotelOrigins]
-    }
-    case 'car': {
-      const parking = travel.stops.filter((s) => s.kind === 'parking')
-      const target = parking[0] ? ([parking[0].lng, parking[0].lat] as LngLat) : venue
-      return [
-        ...parking.map((s): Origin => ({ ...s })),
-        ...nearest(hotels, venue, NEAREST_HOTELS).map((h) => hotelOrigin(h, { profile: 'car', to: target })),
-      ]
-    }
-    case 'foot': {
-      const walkable = hotels.filter((h) => distanceMeters([h.lng, h.lat], venue) <= WALK_MAX_METERS)
-      return nearest(walkable.length ? walkable : hotels, venue, NEAREST_HOTELS).map((h) => hotelOrigin(h, { profile: 'foot', to: venue }))
-    }
-  }
-}
-
-const HEART_SVG =
-  '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>'
-
-export function TravelMap({
-  travel,
-  venueName,
-  mode = 'transit',
-  hotels = [],
-}: {
-  travel: Travel
-  venueName: string
-  mode?: TravelMode
-  hotels?: Hotel[]
-}) {
+export function TravelMap({ travel, venueName, mode = 'transit' }: { travel: Travel; venueName: string; mode?: TravelMode }) {
   const venue = useMemo<LngLat>(() => [travel.lng, travel.lat], [travel.lat, travel.lng])
-  const origins = useMemo(() => originsFor(mode, travel, hotels), [mode, travel, hotels])
-  const walkable = useMemo(() => origins.filter((s) => s.leg), [origins])
-  const routes = useQueries({
-    queries: walkable.map((s) => routeQuery(s.leg!.profile, [s.lng, s.lat], s.leg!.to, s.leg!.line)),
-  })
+  const stops = useMemo(
+    () => travel.stops.filter((s) => (mode === 'car' ? s.kind === 'parking' : s.kind !== 'parking')),
+    [mode, travel.stops],
+  )
+  // Only transit stops have a walking leg to draw.
+  const routed = useMemo(() => stops.filter((s) => s.kind !== 'parking'), [stops])
+  const routes = useQueries({ queries: routed.map((s) => routeQuery('foot', [s.lng, s.lat], venue)) })
   const [map, setMap] = useState<MapLibreMap | null>(null)
   const [active, setActive] = useState<number | null>(null)
-
   const resolved = routes.map((r) => r.data)
 
   useEffect(() => {
     if (!map) return
-    const venueEl = markerElement(HEART_SVG, 'wed-marker wed-marker-venue')
-    const markers = [new maplibregl.Marker({ element: venueEl, anchor: 'center' }).setLngLat(venue).addTo(map)]
-    for (const stop of origins) {
+    const markers = [venueMarker(map, venue)]
+    for (const stop of stops) {
       const el = markerElement(ICON_SVG[stop.kind], 'wed-marker wed-marker-stop')
       el.style.setProperty('--stop-color', KIND[stop.kind].color)
       el.title = stop.name
       markers.push(new maplibregl.Marker({ element: el, anchor: 'center' }).setLngLat([stop.lng, stop.lat]).addTo(map))
     }
     const bounds = new maplibregl.LngLatBounds(venue, venue)
-    origins.forEach((s) => bounds.extend([s.lng, s.lat]))
-    map.fitBounds(bounds, { padding: { top: 80, bottom: 60, left: 60, right: 60 }, maxZoom: 16, duration: 0 })
+    stops.forEach((s) => bounds.extend([s.lng, s.lat]))
+    map.fitBounds(bounds, { padding: FIT_PADDING, maxZoom: 16, duration: 0 })
     return () => markers.forEach((m) => m.remove())
-  }, [map, origins, venue])
+  }, [map, stops, venue])
 
   useEffect(() => {
     if (!map) return
-    const lines = {
-      type: 'FeatureCollection' as const,
-      features: (mode === 'transit' ? travel.lines : []).map((l) => ({
-        type: 'Feature' as const,
-        properties: { color: l.color || KIND.tram.color },
-        geometry: { type: 'LineString' as const, coordinates: l.coords },
-      })),
-    }
-    const lineSrc = map.getSource('tram-lines') as maplibregl.GeoJSONSource | undefined
-    if (lineSrc) lineSrc.setData(lines)
-    else {
-      map.addSource('tram-lines', { type: 'geojson', data: lines })
-      map.addLayer({
-        id: 'tram-lines',
-        type: 'line',
-        source: 'tram-lines',
-        layout: { 'line-cap': 'round', 'line-join': 'round' },
-        paint: { 'line-color': ['get', 'color'], 'line-width': 2, 'line-opacity': 0.35 },
-      })
-    }
-    return () => {}
+    drawTransitLines(map, mode === 'transit' ? travel.lines : [], KIND.tram.color)
   }, [map, mode, travel.lines])
 
   useEffect(() => {
     if (!map) return
-    const features = resolved.flatMap((route, i) =>
-      route
-        ? [{ type: 'Feature' as const, properties: { i, color: KIND[walkable[i].kind].color }, geometry: { type: 'LineString' as const, coordinates: route.coordinates } }]
-        : [],
+    return drawRoutes(
+      map,
+      resolved.flatMap((route, i) => (route ? [{ route, color: KIND[routed[i].kind].color, id: i }] : [])),
     )
-    const data = { type: 'FeatureCollection' as const, features }
-    const src = map.getSource('routes') as maplibregl.GeoJSONSource | undefined
-    if (src) {
-      src.setData(data)
-    } else {
-      map.addSource('routes', { type: 'geojson', data })
-      map.addLayer({
-        id: 'routes-casing',
-        type: 'line',
-        source: 'routes',
-        layout: { 'line-cap': 'round', 'line-join': 'round' },
-        paint: { 'line-color': '#ffffff', 'line-width': 7, 'line-opacity': 0.9 },
-      })
-      map.addLayer({
-        id: 'routes-line',
-        type: 'line',
-        source: 'routes',
-        layout: { 'line-cap': 'round', 'line-join': 'round' },
-        paint: { 'line-color': ['get', 'color'], 'line-width': 3.5, 'line-opacity': 0.55 },
-      })
-      map.addLayer({
-        id: 'routes-dash',
-        type: 'line',
-        source: 'routes',
-        layout: { 'line-cap': 'round', 'line-join': 'round' },
-        paint: { 'line-color': ['get', 'color'], 'line-width': 3.5, 'line-dasharray': [0, 4, 3] },
-      })
-    }
-
-    const labels = resolved.flatMap((route, i) => {
-      if (!route) return []
-      const c = route.coordinates
-      const mid: LngLat =
-        c.length === 2 ? [(c[0][0] + c[1][0]) / 2, (c[0][1] + c[1][1]) / 2] : c[Math.floor(c.length / 2)]
-      const el = markerElement(
-        `<span>${route.minutes} Min</span>`,
-        'wed-route-label',
-      )
-      el.style.setProperty('--stop-color', KIND[walkable[i].kind].color)
-      return [new maplibregl.Marker({ element: el, anchor: 'center' }).setLngLat(mid).addTo(map)]
-    })
-
-    const sequence = [
-      [0, 4, 3], [0.5, 4, 2.5], [1, 4, 2], [1.5, 4, 1.5], [2, 4, 1], [2.5, 4, 0.5], [3, 4, 0],
-      [0, 0.5, 3, 3.5], [0, 1, 3, 3], [0, 1.5, 3, 2.5], [0, 2, 3, 2], [0, 2.5, 3, 1.5], [0, 3, 3, 1], [0, 3.5, 3, 0.5],
-    ]
-    let step = 0
-    let frame = 0
-    let last = 0
-    const animate = (t: number) => {
-      if (t - last > 70) {
-        step = (step + 1) % sequence.length
-        if (map.getLayer('routes-dash')) map.setPaintProperty('routes-dash', 'line-dasharray', sequence[step])
-        last = t
-      }
-      frame = requestAnimationFrame(animate)
-    }
-    frame = requestAnimationFrame(animate)
-    return () => {
-      cancelAnimationFrame(frame)
-      labels.forEach((l) => l.remove())
-    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [map, walkable, ...resolved])
+  }, [map, routed, ...resolved])
 
   useEffect(() => {
     if (!map || !map.getLayer('routes-line')) return
@@ -238,13 +84,12 @@ export function TravelMap({
     setActive(i)
     if (!map) return
     const bounds = new maplibregl.LngLatBounds(venue, venue)
-    if (i === null) origins.forEach((s) => bounds.extend([s.lng, s.lat]))
+    if (i === null) stops.forEach((s) => bounds.extend([s.lng, s.lat]))
     else {
-      const stop = walkable[i]
-      bounds.extend([stop.lng, stop.lat])
+      bounds.extend([routed[i].lng, routed[i].lat])
       resolved[i]?.coordinates.forEach((c) => bounds.extend(c))
     }
-    map.fitBounds(bounds, { padding: { top: 80, bottom: 60, left: 60, right: 60 }, maxZoom: 16, duration: 900 })
+    map.fitBounds(bounds, { padding: FIT_PADDING, maxZoom: 16, duration: 900 })
   }
 
   return (
@@ -255,23 +100,24 @@ export function TravelMap({
           <span className="ml-2 text-muted-foreground">{HEADER[mode]}</span>
         </div>
       </BaseMap>
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        {origins.map((stop) => {
-          const i = walkable.indexOf(stop)
-          const route = i >= 0 ? resolved[i] : undefined
-          return (
-            <StopCard
-              key={`${stop.kind}-${stop.name}`}
-              stop={stop}
-              route={route}
-              loading={i >= 0 && routes[i].isPending}
-              active={active === i && i >= 0}
-              onEnter={() => i >= 0 && focus(i)}
-              onLeave={() => focus(null)}
-            />
-          )
-        })}
-      </div>
+      {stops.length > 0 && (
+        <div className="mx-auto grid max-w-3xl gap-3 sm:grid-cols-2">
+          {stops.map((stop) => {
+            const i = routed.indexOf(stop)
+            return (
+              <StopCard
+                key={`${stop.kind}-${stop.name}`}
+                stop={stop}
+                route={i >= 0 ? resolved[i] : undefined}
+                loading={i >= 0 && routes[i].isPending}
+                active={i >= 0 && active === i}
+                onEnter={() => i >= 0 && focus(i)}
+                onLeave={() => focus(null)}
+              />
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }
@@ -284,7 +130,7 @@ function StopCard({
   onEnter,
   onLeave,
 }: {
-  stop: Origin
+  stop: Stop
   route?: Route
   loading: boolean
   active: boolean
@@ -292,7 +138,6 @@ function StopCard({
   onLeave: () => void
 }) {
   const { Icon, label, color } = KIND[stop.kind]
-  const LegIcon = stop.leg?.profile === 'car' ? Car : stop.leg?.profile === 'transit' ? TramFront : Footprints
   return (
     <button
       type="button"
@@ -314,15 +159,14 @@ function StopCard({
           {stop.line && <span className="rounded px-1.5 py-0.5 font-semibold text-white" style={{ background: color }}>{stop.line}</span>}
         </span>
         <span className="mt-0.5 block truncate font-medium">{stop.name}</span>
-        {!stop.leg ? (
+        {stop.kind === 'parking' ? (
           <span className="mt-1 block text-sm text-muted-foreground">direkt an der Location</span>
         ) : loading ? (
           <span className="mt-1 block text-sm text-muted-foreground">Route wird berechnet…</span>
         ) : route ? (
           <span className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground">
-            <LegIcon className="size-3.5" /> {route.minutes} Min · {formatKm(route.meters)}
-            {stop.leg.via && ` · ${stop.leg.via}`}
-            {route.estimated && stop.leg.profile !== 'transit' && ' (geschätzt)'}
+            <Footprints className="size-3.5" /> {route.minutes} Min · {formatKm(route.meters)}
+            {route.estimated && ' (geschätzt)'}
           </span>
         ) : null}
       </span>

@@ -89,6 +89,7 @@ function ContentPage() {
               <Field label="Name" value={draft.location.name} onChange={(v) => set('location', { ...draft.location, name: v })} />
               <Field label="Adresse" value={draft.location.address} onChange={(v) => set('location', { ...draft.location, address: v })} />
               <Field label="Navigationslink" value={draft.location.navigationUrl} onChange={(v) => set('location', { ...draft.location, navigationUrl: v })} className="sm:col-span-2" />
+              <Field label="Bild-URL" value={draft.location.image ?? ''} onChange={(v) => set('location', { ...draft.location, image: v })} className="sm:col-span-2" />
               <Field label="Beschreibung" multiline value={draft.location.description} onChange={(v) => set('location', { ...draft.location, description: v })} className="sm:col-span-2" />
               <Field label="Anreise" multiline value={draft.location.transport} onChange={(v) => set('location', { ...draft.location, transport: v })} />
               <Field label="Parken" multiline value={draft.location.parking} onChange={(v) => set('location', { ...draft.location, parking: v })} />

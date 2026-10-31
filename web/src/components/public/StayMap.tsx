@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useQueries } from '@tanstack/react-query'
+import { useQueries, useQuery } from '@tanstack/react-query'
 import * as maplibregl from 'maplibre-gl'
 import type { Map as MapLibreMap } from 'maplibre-gl'
 import { CalendarDays, Car, ExternalLink, Footprints, Home, MapPin, Sparkles, TramFront, Wine } from 'lucide-react'
@@ -23,90 +23,92 @@ import {
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { BaseMap, markerElement } from './BaseMap'
-import type { TravelMode } from './TravelMap'
+import { drawRoutes, drawTransitLines, FIT_PADDING, venueMarker, type RouteFeature } from './mapParts'
+import { KIND } from './TravelMap'
 
-const HEART_SVG =
-  '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>'
+type StayMode = 'transit' | 'foot' | 'car'
 
 const TIER = { 1: { label: '€', hint: 'günstig' }, 2: { label: '€€', hint: 'mittel' }, 3: { label: '€€€', hint: 'gehoben' } } as const
 
 const WALK_METERS_PER_MINUTE = METERS_PER_MINUTE.foot
 const TRAM_METERS_PER_MINUTE = METERS_PER_MINUTE.transit
+const FOOT_COLOR = '#5e7f63'
+const CAR_COLOR = '#8a8278'
 
-const MODE: Record<TravelMode, { label: string; Icon: typeof Footprints; intro: string }> = {
+const MODE: Record<StayMode, { label: string; Icon: typeof Footprints; intro: string }> = {
   transit: { label: 'Tram', Icon: TramFront, intro: 'Sortiert nach Fahrzeit mit der Tram bis zur Haltestelle plus kurzem Fußweg.' },
   foot: { label: 'Zu Fuß', Icon: Footprints, intro: `Nur Unterkünfte bis ${WALK_MAX_MINUTES} Minuten Fußweg – zum Feiern und Heimschlendern.` },
   car: { label: 'Auto', Icon: Car, intro: 'Sortiert nach Fahrzeit – ideal, um das Auto am Hotel stehen zu lassen.' },
 }
 
-type Ranked = Hotel & {
-  foot?: Route
-  car?: Route
-  transit: { stop: Stop; rideMinutes: number; totalMinutes: number } | null
-  minutes: number
-}
+type Transit = { stop: Stop; ride: Route; totalMinutes: number }
+// walkBetter: walking beats the tram, so the transit tab shows and draws the walk.
+type Ranked = Hotel & { foot?: Route; car?: Route; transit: Transit | null; walkBetter: boolean; minutes: number }
 
-export function StayMap({
-  accommodation,
-  travel,
-  city,
-  mode,
-  onModeChange,
-}: {
-  accommodation: Accommodation
-  travel: Travel
-  city: string
-  mode: TravelMode
-  onModeChange: (mode: TravelMode) => void
-}) {
+export function StayMap({ accommodation, travel, city }: { accommodation: Accommodation; travel: Travel; city: string }) {
   const venue = useMemo<LngLat>(() => [travel.lng, travel.lat], [travel.lat, travel.lng])
   const hasVenue = travel.lat !== 0 || travel.lng !== 0
   const { checkIn, checkOut } = accommodation
-  const stops = useMemo(() => travel.stops.filter((s) => s.kind !== 'parking'), [travel.stops])
+  const stop = useMemo(() => travel.stops.find((s) => s.kind !== 'parking'), [travel.stops])
+  const line = travel.lines[0]
+  const [mode, setMode] = useState<StayMode>('transit')
 
   const footRoutes = useQueries({ queries: accommodation.hotels.map((h) => ({ ...routeQuery('foot', [h.lng, h.lat], venue), enabled: hasVenue })) })
   const carRoutes = useQueries({ queries: accommodation.hotels.map((h) => ({ ...routeQuery('car', [h.lng, h.lat], venue), enabled: hasVenue })) })
+  const stopWalk = useQuery({
+    ...routeQuery('foot', stop ? [stop.lng, stop.lat] : venue, venue),
+    enabled: hasVenue && !!stop,
+  })
 
   const hotels = useMemo<Ranked[]>(() => {
     const ranked = accommodation.hotels.map((h, i): Ranked => {
       const here: LngLat = [h.lng, h.lat]
       const foot = footRoutes[i].data
       const car = carRoutes[i].data
-      const transit = viaStop(here, stops[0], venue, travel.lines[0])
+      const transit = viaStop(here, stop, venue, line, stopWalk.data)
       const fallbackWalk = hasVenue ? (distanceMeters(here, venue) * 1.3) / WALK_METERS_PER_MINUTE : 0
+      const walkBetter = !!foot && foot.minutes <= WALK_MAX_MINUTES && (!transit || foot.minutes <= transit.totalMinutes)
       const minutes =
         mode === 'foot' ? (foot?.minutes ?? fallbackWalk)
         : mode === 'car' ? (car?.minutes ?? fallbackWalk / 6)
+        : walkBetter ? foot!.minutes
         : (transit?.totalMinutes ?? foot?.minutes ?? fallbackWalk)
-      return { ...h, foot, car, transit, minutes }
+      return { ...h, foot, car, transit, walkBetter, minutes }
     })
     const sorted = ranked.sort((a, b) => a.minutes - b.minutes)
     return mode === 'foot' ? sorted.filter((h) => h.minutes <= WALK_MAX_MINUTES) : sorted
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [accommodation.hotels, stops, venue, hasVenue, mode, ...footRoutes.map((r) => r.data), ...carRoutes.map((r) => r.data)])
+  }, [accommodation.hotels, stop, venue, hasVenue, mode, line, stopWalk.data, ...footRoutes.map((r) => r.data), ...carRoutes.map((r) => r.data)])
 
   const [map, setMap] = useState<MapLibreMap | null>(null)
-  const [active, setActive] = useState<number | null>(null)
+  const [hover, setHover] = useState<number | null>(null)
+  const [selected, setSelected] = useState<string | null>(null)
+  const selectedIndex = hotels.findIndex((h) => h.name === selected)
+  const active = hover ?? (selectedIndex >= 0 ? selectedIndex : null)
 
   useEffect(() => {
     if (!map) return
     const markers: maplibregl.Marker[] = []
     const bounds = new maplibregl.LngLatBounds()
     if (hasVenue) {
-      markers.push(new maplibregl.Marker({ element: markerElement(HEART_SVG, 'wed-marker wed-marker-venue'), anchor: 'center' }).setLngLat(venue).addTo(map))
+      markers.push(venueMarker(map, venue))
       bounds.extend(venue)
     }
     hotels.forEach((h, i) => {
       const el = markerElement(`<span>${i + 1}</span>`, 'wed-marker wed-marker-hotel')
       el.title = h.name
-      el.addEventListener('mouseenter', () => setActive(i))
-      el.addEventListener('mouseleave', () => setActive(null))
-      el.addEventListener('click', () => document.getElementById(`hotel-${i}`)?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }))
+      el.addEventListener('mouseenter', () => setHover(i))
+      el.addEventListener('mouseleave', () => setHover(null))
+      el.addEventListener('click', () => {
+        setSelected(h.name)
+        document.getElementById(`hotel-${i}`)?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+      })
       markers.push(new maplibregl.Marker({ element: el, anchor: 'bottom' }).setLngLat([h.lng, h.lat]).addTo(map))
       bounds.extend([h.lng, h.lat])
     })
-    if (!bounds.isEmpty()) map.fitBounds(bounds, { padding: 70, maxZoom: 14, duration: 0 })
+    if (!bounds.isEmpty() && selectedIndex < 0) map.fitBounds(bounds, { padding: 70, maxZoom: 14, duration: 0 })
     return () => markers.forEach((m) => m.remove())
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [map, hotels, hasVenue, venue])
 
   useEffect(() => {
@@ -114,13 +116,44 @@ export function StayMap({
     map.getContainer().querySelectorAll<HTMLElement>('.wed-marker-hotel').forEach((el, i) => el.classList.toggle('is-active', i === active))
   }, [map, active])
 
+  useEffect(() => {
+    if (!map) return
+    drawTransitLines(map, mode === 'transit' ? travel.lines : [], KIND.tram.color)
+  }, [map, mode, travel.lines])
+
+  // Draw the selected hotel's route for the current mode.
+  useEffect(() => {
+    if (!map) return
+    const hotel = selectedIndex >= 0 ? hotels[selectedIndex] : undefined
+    const features: RouteFeature[] = []
+    if (hotel) {
+      if (mode === 'foot' && hotel.foot) features.push({ route: hotel.foot, color: FOOT_COLOR, id: 0 })
+      if (mode === 'car' && hotel.car) features.push({ route: hotel.car, color: CAR_COLOR, id: 0 })
+      if (mode === 'transit') {
+        if (hotel.walkBetter && hotel.foot) features.push({ route: hotel.foot, color: FOOT_COLOR, id: 0 })
+        else if (hotel.transit) {
+          features.push({ route: hotel.transit.ride, color: KIND.tram.color, id: 0 })
+          if (stopWalk.data) features.push({ route: stopWalk.data, color: FOOT_COLOR, id: 1 })
+        }
+      }
+    }
+    const cleanup = drawRoutes(map, features)
+    if (hotel) {
+      const bounds = new maplibregl.LngLatBounds(venue, venue)
+      bounds.extend([hotel.lng, hotel.lat])
+      features.forEach((f) => f.route.coordinates.forEach((c) => bounds.extend(c)))
+      map.fitBounds(bounds, { padding: FIT_PADDING, maxZoom: 15, duration: 800 })
+    }
+    return cleanup
+  }, [map, hotels, selectedIndex, mode, stopWalk.data, venue])
+
   const stay = formatStayDates(checkIn, checkOut)
 
   return (
     <div className="space-y-8">
       <div className="space-y-4 text-center">
         <div role="radiogroup" aria-label="Anreise" className="inline-flex rounded-full border bg-card p-1 shadow-sm">
-          {(Object.keys(MODE) as TravelMode[]).map((m) => {
+          {(Object.keys(MODE) as StayMode[]).map((m) => {
             const { label, Icon } = MODE[m]
             return (
               <button
@@ -128,7 +161,7 @@ export function StayMap({
                 type="button"
                 role="radio"
                 aria-checked={mode === m}
-                onClick={() => onModeChange(m)}
+                onClick={() => setMode(m)}
                 className={cn(
                   'flex items-center gap-2 rounded-full px-4 py-1.5 text-sm transition-colors',
                   mode === m ? 'bg-primary text-primary-foreground shadow' : 'text-muted-foreground hover:text-foreground',
@@ -143,10 +176,7 @@ export function StayMap({
         {mode === 'car' && (
           <p className="mx-auto flex max-w-xl items-start gap-2 rounded-2xl border border-gold/40 bg-gold/10 px-4 py-3 text-left text-sm">
             <Wine className="mt-0.5 size-4 shrink-0 text-primary" />
-            <span>
-              Es wird wahrscheinlich angestoßen – parkt am besten am Hotel und kommt zu Fuß oder mit der Tram zur Location.
-              Deshalb zeigen wir euch auch diese Wege.
-            </span>
+            <span>Es wird wahrscheinlich angestoßen – parkt am besten am Hotel und kommt zu Fuß oder mit der Tram zur Location.</span>
           </p>
         )}
         {stay && (
@@ -156,7 +186,13 @@ export function StayMap({
         )}
       </div>
       <div className="grid gap-6 lg:grid-cols-5">
-        <BaseMap onReady={setMap} className="h-[380px] lg:sticky lg:top-24 lg:col-span-3 lg:h-[640px]" />
+        <BaseMap onReady={setMap} className="h-[380px] lg:sticky lg:top-24 lg:col-span-3 lg:h-[640px]">
+          {selectedIndex < 0 && (
+            <div className="pointer-events-none absolute top-4 left-4 rounded-full bg-background/90 px-4 py-2 text-sm text-muted-foreground shadow backdrop-blur">
+              Unterkunft auswählen, um den Weg zu sehen
+            </div>
+          )}
+        </BaseMap>
         <ol className="space-y-3 lg:col-span-2">
           {hotels.length === 0 && (
             <li className="rounded-2xl border border-dashed p-5 text-sm text-muted-foreground">
@@ -171,14 +207,13 @@ export function StayMap({
               mode={mode}
               venue={hasVenue ? venue : null}
               active={active === i}
+              selected={selectedIndex === i}
               city={city}
               checkIn={checkIn}
               checkOut={checkOut}
-              onEnter={() => {
-                setActive(i)
-                map?.easeTo({ center: [h.lng, h.lat], duration: 600 })
-              }}
-              onLeave={() => setActive(null)}
+              onSelect={() => setSelected(selectedIndex === i ? null : h.name)}
+              onEnter={() => setHover(i)}
+              onLeave={() => setHover(null)}
             />
           ))}
         </ol>
@@ -210,16 +245,19 @@ export function StayMap({
   )
 }
 
-function viaStop(from: LngLat, stop: Stop | undefined, venue: LngLat, line?: TransitLine): Ranked['transit'] {
+function viaStop(from: LngLat, stop: Stop | undefined, venue: LngLat, line: TransitLine | undefined, stopWalk: Route | undefined): Transit | null {
   if (!stop) return null
   const at: LngLat = [stop.lng, stop.lat]
-  const walkMinutes = Math.round((distanceMeters(at, venue) * 1.3) / WALK_METERS_PER_MINUTE)
-  if (line) {
-    const ride = transitRoute(line, from, at)
-    return { stop, rideMinutes: ride.minutes, totalMinutes: ride.minutes + walkMinutes }
-  }
-  const rideMinutes = Math.round(distanceMeters(from, at) / TRAM_METERS_PER_MINUTE)
-  return { stop, rideMinutes, totalMinutes: TRAM_WAIT_MINUTES + rideMinutes + walkMinutes }
+  const walkMinutes = stopWalk?.minutes ?? Math.round((distanceMeters(at, venue) * 1.3) / WALK_METERS_PER_MINUTE)
+  const ride: Route = line
+    ? transitRoute(line, from, at)
+    : {
+        coordinates: [from, at],
+        meters: distanceMeters(from, at),
+        minutes: TRAM_WAIT_MINUTES + Math.round(distanceMeters(from, at) / TRAM_METERS_PER_MINUTE),
+        estimated: true,
+      }
+  return { stop, ride, totalMinutes: ride.minutes + walkMinutes }
 }
 
 function HotelCard({
@@ -228,20 +266,24 @@ function HotelCard({
   mode,
   venue,
   active,
+  selected,
   city,
   checkIn,
   checkOut,
+  onSelect,
   onEnter,
   onLeave,
 }: {
   index: number
   hotel: Ranked
-  mode: TravelMode
+  mode: StayMode
   venue: LngLat | null
   active: boolean
+  selected: boolean
   city: string
   checkIn: string
   checkOut: string
+  onSelect: () => void
   onEnter: () => void
   onLeave: () => void
 }) {
@@ -251,9 +293,11 @@ function HotelCard({
       id={`hotel-${index}`}
       onMouseEnter={onEnter}
       onMouseLeave={onLeave}
+      onClick={onSelect}
+      aria-current={selected || undefined}
       className={cn(
-        'rounded-2xl border bg-card p-5 transition-all',
-        active ? 'border-primary shadow-lg' : 'border-border/60',
+        'cursor-pointer rounded-2xl border bg-card p-5 transition-all',
+        selected ? 'border-primary bg-primary/5 shadow-lg' : active ? 'border-primary/60 shadow-lg' : 'border-border/60',
       )}
     >
       <div className="flex items-start gap-4">
@@ -281,7 +325,7 @@ function HotelCard({
           </p>
           {hotel.note && <p className="mt-2 text-sm text-foreground/80">{hotel.note}</p>}
           {venue && <TravelTimes hotel={hotel} mode={mode} venue={venue} />}
-          <div className="mt-3 flex flex-wrap gap-2">
+          <div className="mt-3 flex flex-wrap gap-2" onClick={(e) => e.stopPropagation()}>
             <Button asChild size="sm">
               <a href={bookingUrl(`${hotel.name} ${city}`, checkIn, checkOut)} target="_blank" rel="noreferrer">
                 Verfügbarkeit prüfen
@@ -301,27 +345,28 @@ function HotelCard({
   )
 }
 
-function TravelTimes({ hotel, mode, venue }: { hotel: Ranked; mode: TravelMode; venue: LngLat }) {
+function TravelTimes({ hotel, mode, venue }: { hotel: Ranked; mode: StayMode; venue: LngLat }) {
   const here: LngLat = [hotel.lng, hotel.lat]
-  const row = (m: TravelMode) => cn('flex items-center gap-1.5', mode === m ? 'font-medium text-foreground' : 'text-muted-foreground')
+  const row = (m: StayMode) => cn('flex items-center gap-1.5', mode === m ? 'font-medium text-foreground' : 'text-muted-foreground')
   const fmt = (r?: Route) => (r ? `${r.minutes} Min · ${formatKm(r.meters)}${r.estimated ? ' (geschätzt)' : ''}` : '…')
+  const walkable = !hotel.foot || hotel.foot.minutes <= WALK_MAX_MINUTES
   return (
     <ul className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-sm">
       <li className={row('transit')}>
         <TramFront className="size-3.5" />
-        {hotel.transit ? (
-          <a href={transitDirectionsUrl(here, venue)} target="_blank" rel="noreferrer" className="underline-offset-4 hover:underline">
-            ca. {hotel.transit.totalMinutes} Min · {hotel.transit.stop.kind === 'tram' ? 'Tram' : 'Bahn'} bis {hotel.transit.stop.name}
-          </a>
-        ) : (
-          <a href={transitDirectionsUrl(here, venue)} target="_blank" rel="noreferrer" className="underline-offset-4 hover:underline">
-            Verbindung anzeigen
-          </a>
-        )}
+        <a href={transitDirectionsUrl(here, venue)} target="_blank" rel="noreferrer" className="underline-offset-4 hover:underline" onClick={(e) => e.stopPropagation()}>
+          {hotel.walkBetter && hotel.foot
+            ? `ca. ${hotel.foot.minutes} Min · zu Fuß schneller als die Tram`
+            : hotel.transit
+              ? `ca. ${hotel.transit.totalMinutes} Min · ${KIND[hotel.transit.stop.kind].label} bis ${hotel.transit.stop.name}`
+              : 'Verbindung anzeigen'}
+        </a>
       </li>
-      <li className={cn(row('foot'), hotel.foot && hotel.foot.minutes > WALK_MAX_MINUTES && 'line-through opacity-60')}>
-        <Footprints className="size-3.5" /> {fmt(hotel.foot)}
-      </li>
+      {walkable && (
+        <li className={row('foot')}>
+          <Footprints className="size-3.5" /> {fmt(hotel.foot)}
+        </li>
+      )}
       <li className={row('car')}>
         <Car className="size-3.5" /> {fmt(hotel.car)}
       </li>

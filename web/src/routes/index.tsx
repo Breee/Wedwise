@@ -1,7 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { motion } from 'motion/react'
-import { Car, Footprints, MapPin, Navigation, TramFront } from 'lucide-react'
+import { Car, MapPin, Navigation, TramFront } from 'lucide-react'
 import { lazy, Suspense, useState } from 'react'
 import { publicContentQuery } from '@/lib/queries'
 import { formatDate } from '@/lib/format'
@@ -101,79 +101,99 @@ function HomePage() {
       )}
 
       <Section id="ort" eyebrow="Die Location" title={location.name || 'Ort'}>
-        <div className="mx-auto max-w-3xl">
-          <Card>
-            <CardContent className="space-y-4 pt-6 leading-relaxed">
-              {location.address && (
-                <p className="flex items-start gap-3">
-                  <MapPin className="mt-1 size-4 shrink-0 text-primary" />
-                  <span>
+        <div className="mx-auto max-w-5xl space-y-10">
+          {location.image && (
+            <motion.figure
+              initial={{ opacity: 0, scale: 0.98 }}
+              whileInView={{ opacity: 1, scale: 1 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.8 }}
+              className="relative overflow-hidden rounded-3xl border border-gold/40 shadow-xl shadow-primary/10"
+            >
+              <img src={location.image} alt={location.name || 'Location'} className="aspect-[21/9] w-full object-cover" loading="lazy" />
+              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent p-6 text-white md:p-8">
+                {location.address && (
+                  <p className="flex items-center gap-2 text-sm md:text-base">
+                    <MapPin className="size-4 shrink-0" />
                     {location.address}
                     {'city' in location && location.city ? `, ${location.city}` : ''}
-                  </span>
-                </p>
-              )}
-              {location.description && (
-                <div className="space-y-3 text-foreground/85">
-                  <Paragraphs text={location.description} />
-                </div>
-              )}
-              {location.navigationUrl && (
-                <Button asChild>
-                  <a href={location.navigationUrl} target="_blank" rel="noreferrer">
-                    <Navigation className="size-4" /> Route planen
-                  </a>
-                </Button>
-              )}
-            </CardContent>
-          </Card>
+                  </p>
+                )}
+              </div>
+            </motion.figure>
+          )}
+          <div className="mx-auto max-w-2xl space-y-4 text-center text-lg leading-relaxed text-foreground/85">
+            {!location.image && location.address && (
+              <p className="flex items-center justify-center gap-2">
+                <MapPin className="size-4 shrink-0 text-primary" />
+                {location.address}
+                {'city' in location && location.city ? `, ${location.city}` : ''}
+              </p>
+            )}
+            {location.description && <Paragraphs text={location.description} />}
+            {location.navigationUrl && (
+              <Button asChild>
+                <a href={location.navigationUrl} target="_blank" rel="noreferrer">
+                  <Navigation className="size-4" /> Route planen
+                </a>
+              </Button>
+            )}
+          </div>
+          {hasMap && (
+            <Suspense fallback={<Skeleton className="h-[420px] rounded-3xl md:h-[520px]" />}>
+              <TravelMap travel={travel} venueName={location.name || 'Location'} mode="transit" />
+            </Suspense>
+          )}
         </div>
-        <Tabs value={mode} onValueChange={(v) => setMode(v as TravelMode)} className="mt-12">
-          <TabsList className="mx-auto">
-            <TabsTrigger value="transit"><TramFront className="size-4" /> Tram</TabsTrigger>
-            <TabsTrigger value="foot"><Footprints className="size-4" /> Zu Fuß</TabsTrigger>
-            <TabsTrigger value="car"><Car className="size-4" /> Auto</TabsTrigger>
-          </TabsList>
-          {(
-            [
-              { mode: 'transit', text: location.transport },
-              { mode: 'foot', text: hotels.length ? 'Diese Unterkünfte liegen in Gehweite der Location.' : '' },
-              { mode: 'car', text: location.parking },
-            ] as const
-          ).map(({ mode, text }) => (
-            <TabsContent key={mode} value={mode} className="mt-6 space-y-6">
-              {text && (
-                <div className="mx-auto max-w-2xl space-y-2 text-center text-muted-foreground">
-                  <Paragraphs text={text} />
-                  {mode === 'car' && location.navigationUrl && (
-                    <Button asChild className="mt-2">
-                      <a href={location.navigationUrl} target="_blank" rel="noreferrer">
-                        <Navigation className="size-4" /> Route planen
-                      </a>
-                    </Button>
-                  )}
-                </div>
-              )}
-              {hasMap && (
-                <Suspense fallback={<Skeleton className="h-[420px] rounded-3xl md:h-[520px]" />}>
-                  <TravelMap travel={travel} venueName={location.name || 'Location'} mode={mode} hotels={hotels} />
-                </Suspense>
-              )}
-            </TabsContent>
-          ))}
-        </Tabs>
       </Section>
 
-      {hotels.length > 0 && (
-        <Section id="unterkunft" eyebrow="Übernachten" title="Unterkünfte" className="bg-card/50">
+      {(location.transport || location.parking) && (
+        <Section id="anreise" eyebrow="Anreise" title="So kommt ihr hin" className="bg-card/50">
+          <Tabs value={mode} onValueChange={(v) => setMode(v as TravelMode)}>
+            <TabsList className="mx-auto">
+              <TabsTrigger value="transit"><TramFront className="size-4" /> Tram</TabsTrigger>
+              <TabsTrigger value="car"><Car className="size-4" /> Auto</TabsTrigger>
+            </TabsList>
+            {(
+              [
+                { mode: 'transit', text: location.transport },
+                { mode: 'car', text: location.parking },
+              ] as const
+            ).map(({ mode, text }) => (
+              <TabsContent key={mode} value={mode} className="mt-6 space-y-6">
+                {text && (
+                  <div className="mx-auto max-w-2xl space-y-2 text-center text-muted-foreground">
+                    <Paragraphs text={text} />
+                    {mode === 'car' && location.navigationUrl && (
+                      <Button asChild className="mt-2">
+                        <a href={location.navigationUrl} target="_blank" rel="noreferrer">
+                          <Navigation className="size-4" /> Route planen
+                        </a>
+                      </Button>
+                    )}
+                  </div>
+                )}
+                {hasMap && mode === 'car' && (
+                  <Suspense fallback={<Skeleton className="h-[420px] rounded-3xl md:h-[520px]" />}>
+                    <TravelMap travel={travel} venueName={location.name || 'Location'} mode="car" />
+                  </Suspense>
+                )}
+              </TabsContent>
+            ))}
+          </Tabs>
+        </Section>
+      )}
+
+      {hotels.length > 0 && travel && (
+        <Section id="unterkunft" eyebrow="Übernachten" title="Unterkünfte">
           <Suspense fallback={<Skeleton className="h-[380px] rounded-3xl" />}>
-            <StayMap accommodation={content.accommodation} travel={travel} city={city} mode={mode} onModeChange={setMode} />
+            <StayMap accommodation={content.accommodation} travel={travel} city={city} />
           </Suspense>
         </Section>
       )}
 
       {faq.length > 0 && (
-        <Section id="faq" eyebrow="Gut zu wissen" title="Fragen & Antworten">
+        <Section id="faq" eyebrow="Gut zu wissen" title="Fragen & Antworten" className="bg-card/50">
           <div className="mx-auto grid max-w-3xl gap-4">
             {faq.map((entry, i) => (
               <Card key={entry.id ?? i}>

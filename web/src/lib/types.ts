@@ -25,6 +25,7 @@ export interface Location {
   navigationUrl: string
   transport: string
   parking: string
+  image?: string
 }
 
 export interface ScheduleEntry {
