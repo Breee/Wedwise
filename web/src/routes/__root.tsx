@@ -1,5 +1,6 @@
 import type { QueryClient } from '@tanstack/react-query'
 import { Outlet, createRootRouteWithContext } from '@tanstack/react-router'
+import { MotionConfig } from 'motion/react'
 import { Toaster } from '@/components/ui/sonner'
 import { AppNav } from '@/components/layout/AppNav'
 import { AppFooter } from '@/components/layout/AppFooter'
@@ -11,14 +12,16 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 
 function RootLayout() {
   return (
-    <div className="flex min-h-svh flex-col">
-      <AppNav />
-      <main className="flex-1">
-        <Outlet />
-      </main>
-      <AppFooter />
-      <Toaster position="top-center" richColors />
-    </div>
+    <MotionConfig reducedMotion="user">
+      <div className="flex min-h-svh flex-col">
+        <AppNav />
+        <main className="flex-1">
+          <Outlet />
+        </main>
+        <AppFooter />
+        <Toaster position="top-center" richColors />
+      </div>
+    </MotionConfig>
   )
 }
 

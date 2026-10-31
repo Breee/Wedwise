@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion, AnimatePresence } from 'motion/react'
-import { CheckCircle2, Clock, Copy, Minus, Plus } from 'lucide-react'
+import { CheckCircle2, Clock, Copy, Minus, Plus, Share2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { api, errorMessage } from '@/lib/api'
 import { rsvpQuery } from '@/lib/queries'
@@ -57,7 +57,15 @@ export function RsvpForm({ initial, link, onDone }: FormProps) {
   const [contribution, setContribution] = useState<ContributionRequest>(initial?.contribution ?? emptyContribution)
   const [needs, setNeeds] = useState(() => parseNeeds(initial?.contribution?.needs ?? ''))
 
+  const [moreContact, setMoreContact] = useState(Boolean(initial?.contribution?.matrixId))
+
   const attending = status === 'yes'
+  const stepCount = attending ? 6 : 3
+  const Step = ({ n }: { n: number }) => (
+    <p className="text-xs font-medium tracking-[0.25em] text-primary uppercase">
+      Schritt {n} von {stepCount}
+    </p>
+  )
 
   const submit = useMutation({
     mutationFn: () => {
@@ -102,6 +110,7 @@ export function RsvpForm({ initial, link, onDone }: FormProps) {
       >
         <Card>
           <CardHeader>
+            <Step n={1} />
             <CardTitle>Wer antwortet?</CardTitle>
             <CardDescription>Eine Antwort pro Haushalt genügt.</CardDescription>
           </CardHeader>
@@ -115,6 +124,7 @@ export function RsvpForm({ initial, link, onDone }: FormProps) {
 
         <Card>
           <CardHeader>
+            <Step n={2} />
             <CardTitle>Kommt ihr?</CardTitle>
           </CardHeader>
           <CardContent>
@@ -141,6 +151,7 @@ export function RsvpForm({ initial, link, onDone }: FormProps) {
         {attending && (
           <Card>
             <CardHeader>
+              <Step n={3} />
               <CardTitle>Wer kommt?</CardTitle>
               <CardDescription>Bitte alle Personen eintragen, auch Kinder.</CardDescription>
             </CardHeader>
@@ -153,13 +164,17 @@ export function RsvpForm({ initial, link, onDone }: FormProps) {
                       <Label htmlFor={`name-${i}`}>Name</Label>
                       <Input id={`name-${i}`} value={a.name} onChange={(e) => updateAttendee(i, { name: e.target.value })} required />
                     </div>
+                    <Label className="flex h-9 items-center gap-2 text-sm font-normal">
+                      <Checkbox checked={a.isChild} onCheckedChange={(c) => updateAttendee(i, { isChild: c === true })} />
+                      Kind
+                    </Label>
                     {attendees.length > 1 && (
                       <Button type="button" variant="ghost" size="icon" title="Entfernen" onClick={() => setAttendees((l) => l.filter((_, k) => k !== i))}>
                         <Minus className="size-4" />
                       </Button>
                     )}
                   </div>
-                  <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label>Ernährung</Label>
                       <Select value={a.diet || 'none'} onValueChange={(v) => updateAttendee(i, { diet: v as Attendee['diet'] })}>
@@ -176,14 +191,10 @@ export function RsvpForm({ initial, link, onDone }: FormProps) {
                       </Select>
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor={`allergies-${i}`}>Allergien / Unverträglichkeiten</Label>
+                      <Label htmlFor={`allergies-${i}`}>Allergien</Label>
                       <Input id={`allergies-${i}`} value={a.allergies} onChange={(e) => updateAttendee(i, { allergies: e.target.value })} />
                     </div>
                   </div>
-                  <Label className="flex items-center gap-2 text-sm font-normal">
-                    <Checkbox checked={a.isChild} onCheckedChange={(c) => updateAttendee(i, { isChild: c === true })} />
-                    Kind
-                  </Label>
                 </div>
               ))}
               {attendees.length < MAX_ATTENDEES && (
@@ -198,6 +209,7 @@ export function RsvpForm({ initial, link, onDone }: FormProps) {
         {attending && (
           <Card>
             <CardHeader>
+              <Step n={4} />
               <CardTitle>Möchtet ihr einen Beitrag zum Programm leisten?</CardTitle>
               <CardDescription>Rede, Spiel, Musik, Überraschung – unsere Trauzeugen koordinieren alles und melden sich bei euch.</CardDescription>
             </CardHeader>
@@ -226,18 +238,23 @@ export function RsvpForm({ initial, link, onDone }: FormProps) {
                   </div>
                   <div className="space-y-3">
                     <Label>Was braucht ihr dafür?</Label>
-                    <div className="grid gap-2 sm:grid-cols-2">
-                      {NEEDS_OPTIONS.map((o) => (
-                        <Label key={o} className="flex items-center gap-2 text-sm font-normal">
-                          <Checkbox
-                            checked={needs.selected.includes(o)}
-                            onCheckedChange={(c) =>
-                              setNeeds((n) => ({ ...n, selected: c === true ? [...n.selected, o] : n.selected.filter((x) => x !== o) }))
-                            }
-                          />
-                          {o}
-                        </Label>
-                      ))}
+                    <div className="flex flex-wrap gap-2">
+                      {NEEDS_OPTIONS.map((o) => {
+                        const on = needs.selected.includes(o)
+                        return (
+                          <Button
+                            key={o}
+                            type="button"
+                            size="sm"
+                            variant={on ? 'default' : 'outline'}
+                            className="rounded-full"
+                            aria-pressed={on}
+                            onClick={() => setNeeds((n) => ({ ...n, selected: on ? n.selected.filter((x) => x !== o) : [...n.selected, o] }))}
+                          >
+                            {o}
+                          </Button>
+                        )
+                      })}
                     </div>
                     <Input placeholder="Sonstiges …" value={needs.other} onChange={(e) => setNeeds((n) => ({ ...n, other: e.target.value }))} />
                   </div>
@@ -262,10 +279,16 @@ export function RsvpForm({ initial, link, onDone }: FormProps) {
                     </div>
                     <p className="text-xs text-muted-foreground">Unter dieser Nummer erreichbar per …</p>
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="c-matrix">Matrix (optional)</Label>
-                    <Input id="c-matrix" value={contribution.matrixId} onChange={(e) => setContribution({ ...contribution, matrixId: e.target.value })} placeholder="@name:matrix.org" />
-                  </div>
+                  {moreContact ? (
+                    <div className="space-y-2">
+                      <Label htmlFor="c-matrix">Matrix (optional)</Label>
+                      <Input id="c-matrix" value={contribution.matrixId} onChange={(e) => setContribution({ ...contribution, matrixId: e.target.value })} placeholder="@name:matrix.org" />
+                    </div>
+                  ) : (
+                    <Button type="button" variant="link" size="sm" className="h-auto px-0" onClick={() => setMoreContact(true)}>
+                      Weitere Kontaktmöglichkeit (Matrix)
+                    </Button>
+                  )}
                 </div>
               )}
             </CardContent>
@@ -275,6 +298,7 @@ export function RsvpForm({ initial, link, onDone }: FormProps) {
         {attending && (
           <Card>
             <CardHeader>
+              <Step n={5} />
               <CardTitle>Musikwünsche</CardTitle>
               <CardDescription>Was bringt euch auf die Tanzfläche?</CardDescription>
             </CardHeader>
@@ -306,6 +330,7 @@ export function RsvpForm({ initial, link, onDone }: FormProps) {
 
         <Card>
           <CardHeader>
+            <Step n={attending ? 6 : 3} />
             <CardTitle className="flex items-center gap-2">
               Nachricht an uns <span className="text-sm font-normal text-muted-foreground">(optional)</span>
             </CardTitle>
@@ -315,9 +340,11 @@ export function RsvpForm({ initial, link, onDone }: FormProps) {
           </CardContent>
         </Card>
 
-        <Button type="submit" size="lg" className="w-full" disabled={submit.isPending}>
-          {submit.isPending ? 'Wird gesendet…' : initial ? 'Antwort aktualisieren' : 'Antwort absenden'}
-        </Button>
+        <div className="sticky bottom-0 -mx-4 bg-gradient-to-t from-background via-background/95 to-transparent px-4 pt-6 pb-4 sm:static sm:mx-0 sm:bg-none sm:p-0">
+          <Button type="submit" size="lg" className="w-full shadow-lg sm:shadow-none" disabled={submit.isPending}>
+            {submit.isPending ? 'Wird gesendet…' : initial ? 'Antwort aktualisieren' : 'Antwort absenden'}
+          </Button>
+        </div>
       </motion.form>
     </AnimatePresence>
   )
@@ -350,6 +377,17 @@ export function Done({ view, onEdit }: { view: GuestView; onEdit: () => void }) 
               >
                 <Copy className="size-4" />
               </Button>
+              {typeof navigator.share === 'function' && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  title="Link teilen"
+                  onClick={() => navigator.share({ title: 'Unsere Rückmeldung', url: editUrl }).catch(() => undefined)}
+                >
+                  <Share2 className="size-4" />
+                </Button>
+              )}
             </div>
           </div>
           <Button variant="outline" onClick={onEdit}>

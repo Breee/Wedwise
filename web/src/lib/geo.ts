@@ -115,20 +115,19 @@ export const walkingRouteQuery = (from: LngLat, to: LngLat) => routeQuery('foot'
 // Directions from the user's current position to a point.
 export type DirectionsMode = 'driving' | 'transit' | 'walking' | 'bicycling'
 
-export function googleDirectionsUrl(to: LngLat, mode: DirectionsMode): string {
-  const p = new URLSearchParams({ api: '1', destination: `${to[1]},${to[0]}`, travelmode: mode })
+const latLng = (p: LngLat) => `${p[1]},${p[0]}`
+
+export function googleDirectionsUrl(to: LngLat, mode: DirectionsMode, from?: LngLat): string {
+  const p = new URLSearchParams({ api: '1', destination: latLng(to), travelmode: mode })
+  if (from) p.set('origin', latLng(from))
   return `https://www.google.com/maps/dir/?${p}`
 }
 
-export function appleDirectionsUrl(to: LngLat, name: string, mode: DirectionsMode): string {
+export function appleDirectionsUrl(to: LngLat, name: string, mode: DirectionsMode, from?: LngLat): string {
   const flag = { driving: 'd', transit: 'r', walking: 'w', bicycling: 'c' }[mode]
-  const p = new URLSearchParams({ daddr: `${to[1]},${to[0]}`, q: name, dirflg: flag })
+  const p = new URLSearchParams({ daddr: latLng(to), q: name, dirflg: flag })
+  if (from) p.set('saddr', latLng(from))
   return `https://maps.apple.com/?${p}`
-}
-
-export function transitDirectionsUrl(from: LngLat, to: LngLat): string {
-  const p = new URLSearchParams({ api: '1', origin: `${from[1]},${from[0]}`, destination: `${to[1]},${to[0]}`, travelmode: 'transit' })
-  return `https://www.google.com/maps/dir/?${p}`
 }
 
 export function formatKm(meters: number): string {

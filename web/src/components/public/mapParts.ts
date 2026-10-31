@@ -54,9 +54,10 @@ export function drawRoutes(map: MapLibreMap, routes: RouteFeature[]): () => void
     return new maplibregl.Marker({ element: el, anchor: 'center' }).setLngLat(mid).addTo(map)
   })
 
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
   let step = 0
   let last = 0
-  let frame = requestAnimationFrame(function animate(t) {
+  let frame = reduceMotion ? 0 : requestAnimationFrame(function animate(t) {
     if (t - last > 70) {
       step = (step + 1) % DASH_SEQUENCE.length
       if (map.getLayer('routes-dash')) map.setPaintProperty('routes-dash', 'line-dasharray', DASH_SEQUENCE[step])

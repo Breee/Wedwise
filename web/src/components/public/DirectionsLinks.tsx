@@ -1,0 +1,28 @@
+import { appleDirectionsUrl, googleDirectionsUrl, type DirectionsMode, type LngLat } from '@/lib/geo'
+import { cn } from '@/lib/utils'
+
+export function DirectionsLinks({
+  to,
+  name,
+  mode,
+  from,
+  className,
+}: {
+  to: LngLat
+  name: string
+  mode: DirectionsMode
+  from?: LngLat
+  className?: string
+}) {
+  const chip = 'rounded-full border bg-background px-3 py-1.5 text-xs transition-colors hover:bg-muted'
+  return (
+    <span className={cn('flex flex-wrap gap-2', className)} onClick={(e) => e.stopPropagation()}>
+      <a href={googleDirectionsUrl(to, mode, from)} target="_blank" rel="noreferrer" className={chip}>
+        Google Maps ↗
+      </a>
+      <a href={appleDirectionsUrl(to, name, mode, from)} target="_blank" rel="noreferrer" className={chip}>
+        Apple Karten ↗
+      </a>
+    </span>
+  )
+}

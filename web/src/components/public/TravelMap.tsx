@@ -4,7 +4,8 @@ import * as maplibregl from 'maplibre-gl'
 import type { Map as MapLibreMap, ExpressionSpecification } from 'maplibre-gl'
 import { Footprints, ParkingCircle, TramFront, TrainFront, Bus } from 'lucide-react'
 import type { Stop, StopKind, Travel } from '@/lib/types'
-import { appleDirectionsUrl, distanceMeters, formatKm, googleDirectionsUrl, routeQuery, type LngLat, type Route } from '@/lib/geo'
+import { distanceMeters, formatKm, routeQuery, type LngLat, type Route } from '@/lib/geo'
+import { DirectionsLinks } from './DirectionsLinks'
 import { cn } from '@/lib/utils'
 import { BaseMap, markerElement } from './BaseMap'
 import { drawRoutes,
@@ -193,14 +194,7 @@ function StopCard({
             <Footprints className="size-3.5" /> {route.estimated ? 'ca. ' : ''}{route.minutes} Min · {formatKm(route.meters)}
           </span>
         ) : null}
-        <span className="mt-3 flex flex-wrap gap-2 text-xs">
-          <a href={googleDirectionsUrl(to, travelMode)} target="_blank" rel="noreferrer" className="rounded-full border px-3 py-1.5 hover:bg-muted">
-            Google Maps ↗
-          </a>
-          <a href={appleDirectionsUrl(to, stop.name, travelMode)} target="_blank" rel="noreferrer" className="rounded-full border px-3 py-1.5 hover:bg-muted">
-            Apple Karten ↗
-          </a>
-        </span>
+        <DirectionsLinks to={to} name={stop.name} mode={travelMode} className="mt-3" />
       </span>
     </div>
   )

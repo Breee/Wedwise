@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useQueries, useQuery } from '@tanstack/react-query'
 import * as maplibregl from 'maplibre-gl'
 import type { Map as MapLibreMap } from 'maplibre-gl'
-import { Bike, CalendarDays, Car, ExternalLink, Footprints, Home, MapPin, TramFront } from 'lucide-react'
+import { Bike, CalendarDays, Car, ChevronDown, ExternalLink, Footprints, Home, MapPin, TramFront } from 'lucide-react'
 import type { Accommodation, Hotel, Stop, Travel } from '@/lib/types'
 import {
   airbnbUrl,
@@ -13,7 +13,7 @@ import {
   METERS_PER_MINUTE,
   routeQuery,
   TRAM_WAIT_MINUTES,
-  transitDirectionsUrl,
+  googleDirectionsUrl,
   transitRoute,
   type TransitLine,
   WALK_MAX_MINUTES,
@@ -25,6 +25,9 @@ import { cn } from '@/lib/utils'
 import { BaseMap, markerElement } from './BaseMap'
 import { drawRoutes, drawTransitLines, fitPadding, venueMarker, type RouteFeature } from './mapParts'
 import { KIND } from './TravelMap'
+import { DirectionsLinks } from './DirectionsLinks'
+
+const INITIAL_VISIBLE = 3
 
 const TIER = { 1: { label: '€', hint: 'günstig' }, 2: { label: '€€', hint: 'mittel' }, 3: { label: '€€€', hint: 'gehoben' } } as const
 const FOOT_COLOR = '#5e7f63'
@@ -67,6 +70,8 @@ export function StayMap({ accommodation, travel, city }: { accommodation: Accomm
   const [map, setMap] = useState<MapLibreMap | null>(null)
   const [hover, setHover] = useState<number | null>(null)
   const [selected, setSelected] = useState<string | null>(null)
+  const [showAll, setShowAll] = useState(false)
+  const visible = showAll ? hotels : hotels.slice(0, INITIAL_VISIBLE)
   const selectedIndex = hotels.findIndex((h) => h.name === selected)
   const active = hover ?? (selectedIndex >= 0 ? selectedIndex : null)
 
@@ -85,7 +90,8 @@ export function StayMap({ accommodation, travel, city }: { accommodation: Accomm
       el.addEventListener('mouseleave', () => setHover(null))
       el.addEventListener('click', () => {
         setSelected(h.name)
-        document.getElementById(`hotel-${i}`)?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+        if (i >= INITIAL_VISIBLE) setShowAll(true)
+        requestAnimationFrame(() => document.getElementById(`hotel-${i}`)?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }))
       })
       markers.push(new maplibregl.Marker({ element: el, anchor: 'center' }).setLngLat([h.lng, h.lat]).addTo(map))
       bounds.extend([h.lng, h.lat])
@@ -123,6 +129,10 @@ export function StayMap({ accommodation, travel, city }: { accommodation: Accomm
       bounds.extend([hotel.lng, hotel.lat])
       features.forEach((f) => f.route.coordinates.forEach((c) => bounds.extend(c)))
       map.fitBounds(bounds, { padding: fitPadding(map), maxZoom: 15, duration: 800 })
+      if (window.innerWidth < 1024) {
+        const top = map.getContainer().getBoundingClientRect().top + window.scrollY - 80
+        window.scrollTo({ top, behavior: 'smooth' })
+      }
     }
     return cleanup
   }, [map, hotels, selectedIndex, stopWalk.data, venue])
@@ -149,7 +159,7 @@ export function StayMap({ accommodation, travel, city }: { accommodation: Accomm
           )}
         </BaseMap>
         <ol className="space-y-3 lg:col-span-2">
-          {hotels.map((h, i) => (
+          {visible.map((h, i) => (
             <HotelCard
               key={h.name}
               index={i}
@@ -165,6 +175,13 @@ export function StayMap({ accommodation, travel, city }: { accommodation: Accomm
               onLeave={() => setHover(null)}
             />
           ))}
+          {!showAll && hotels.length > INITIAL_VISIBLE && (
+            <li>
+              <Button variant="outline" className="w-full" onClick={() => setShowAll(true)}>
+                Alle {hotels.length} anzeigen <ChevronDown className="size-4" />
+              </Button>
+            </li>
+          )}
         </ol>
       </div>
       <div className="rounded-3xl border border-gold/40 bg-card/70 p-6 md:flex md:items-center md:justify-between md:gap-6">
@@ -287,27 +304,42 @@ function HotelCard({
 
 function TravelTimes({ hotel, venue }: { hotel: Ranked; venue: LngLat }) {
   const here: LngLat = [hotel.lng, hotel.lat]
-  const fmt = (r?: Route) => (r ? `${r.estimated ? 'ca. ' : ''}${r.minutes} Min` : '…')
-  const row = (highlight: boolean) => cn('flex items-center gap-1.5', highlight && 'font-medium text-foreground')
+  const times: { Icon: typeof Car; minutes?: number; highlight: boolean; title?: string }[] = [
+    {
+      Icon: TramFront,
+      minutes: hotel.transit?.totalMinutes,
+      highlight: !hotel.walk,
+      title: hotel.transit ? `${KIND[hotel.transit.stop.kind].label} bis ${hotel.transit.stop.name}` : undefined,
+    },
+    { Icon: Footprints, minutes: hotel.foot?.minutes, highlight: hotel.walk },
+    { Icon: Bike, minutes: hotel.bike?.minutes, highlight: false },
+    ...(hotel.car ? [{ Icon: Car, minutes: hotel.car.minutes, highlight: false }] : []),
+  ]
   return (
-    <ul className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm text-muted-foreground sm:flex sm:flex-wrap">
-      <li className={cn(row(!hotel.walk), 'col-span-2')}>
-        <TramFront className="size-3.5" />
-        <a href={transitDirectionsUrl(here, venue)} target="_blank" rel="noreferrer" className="underline-offset-4 hover:underline" onClick={(e) => e.stopPropagation()}>
-          {hotel.transit ? `ca. ${hotel.transit.totalMinutes} Min · ${KIND[hotel.transit.stop.kind].label} bis ${hotel.transit.stop.name}` : 'Verbindung anzeigen'}
+    <div className="mt-3 space-y-2 text-sm text-muted-foreground">
+      <p className="flex flex-wrap items-center gap-x-2 gap-y-1" aria-label="Minuten zur Location">
+        {times.map(({ Icon, minutes, highlight, title }, i) => (
+          <span key={i} className="flex items-center gap-1" title={title}>
+            {i > 0 && <span className="mr-1 text-border" aria-hidden>·</span>}
+            <Icon className="size-3.5" />
+            <span className={cn(highlight && 'font-medium text-foreground')}>{minutes ?? '…'}</span>
+          </span>
+        ))}
+        <span className="text-xs">Min</span>
+        <a
+          href={googleDirectionsUrl(venue, 'transit', here)}
+          target="_blank"
+          rel="noreferrer"
+          className="ml-1 text-xs underline-offset-4 hover:underline"
+          onClick={(e) => e.stopPropagation()}
+        >
+          Tram-Verbindung ↗
         </a>
-      </li>
-      <li className={row(hotel.walk)}>
-        <Footprints className="size-3.5" /> {fmt(hotel.foot)}
-      </li>
-      <li className={row(false)}>
-        <Bike className="size-3.5" /> {fmt(hotel.bike)}
-      </li>
-      {hotel.car && (
-        <li className={row(false)}>
-          <Car className="size-3.5" /> {fmt(hotel.car)}
-        </li>
-      )}
-    </ul>
+      </p>
+      <div className="flex flex-wrap items-center gap-2 text-xs">
+        <span>Zum Hotel:</span>
+        <DirectionsLinks to={here} name={hotel.name} mode="driving" />
+      </div>
+    </div>
   )
 }

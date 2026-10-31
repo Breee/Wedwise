@@ -1,9 +1,10 @@
 import { Link, useNavigate, useRouterState } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Heart, LogOut } from 'lucide-react'
+import { Heart, LogOut, Menu } from 'lucide-react'
 import { api } from '@/lib/api'
 import { meQuery } from '@/lib/queries'
 import { Button } from '@/components/ui/button'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
 
 const coupleLinks = [
@@ -50,23 +51,47 @@ export function AppNav() {
           <Heart className="size-5 fill-primary/20 text-primary" />
           Unsere Hochzeit
         </Link>
-        <nav className="flex min-w-0 items-center gap-1 overflow-x-auto text-sm">
-          {authed &&
-            links.map((l) => (
-              <Link
-                key={l.to}
-                to={l.to}
-                className="rounded-md px-3 py-2 text-muted-foreground transition-colors hover:text-foreground data-[status=active]:bg-accent data-[status=active]:text-accent-foreground"
-              >
-                {l.label}
-              </Link>
-            ))}
-          {authed ? (
-            <Button variant="ghost" size="sm" onClick={() => logout.mutate()} disabled={logout.isPending}>
-              <LogOut className="size-4" />
-              Abmelden
-            </Button>
-          ) : (
+        <nav className="flex min-w-0 items-center gap-1 text-sm">
+          {authed && (
+            <>
+              <div className="hidden items-center gap-1 md:flex">
+                {links.map((l) => (
+                  <Link
+                    key={l.to}
+                    to={l.to}
+                    className="rounded-md px-3 py-2 text-muted-foreground transition-colors hover:text-foreground data-[status=active]:bg-accent data-[status=active]:text-accent-foreground"
+                  >
+                    {l.label}
+                  </Link>
+                ))}
+                <Button variant="ghost" size="sm" onClick={() => logout.mutate()} disabled={logout.isPending}>
+                  <LogOut className="size-4" />
+                  Abmelden
+                </Button>
+              </div>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="md:hidden" aria-label="Menü">
+                    <Menu className="size-5" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  {links.map((l) => (
+                    <DropdownMenuItem key={l.to} asChild>
+                      <Link to={l.to} className="data-[status=active]:bg-accent">
+                        {l.label}
+                      </Link>
+                    </DropdownMenuItem>
+                  ))}
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onSelect={() => logout.mutate()} disabled={logout.isPending}>
+                    <LogOut className="size-4" /> Abmelden
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </>
+          )}
+          {!authed && (
             !isPublic && pathname !== '/login' && (
               <Link to="/login" className="px-3 py-2 text-muted-foreground hover:text-foreground">
                 Anmelden

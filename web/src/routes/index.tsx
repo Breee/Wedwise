@@ -1,15 +1,19 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { motion } from 'motion/react'
-import { Bike, Car, MapPin, Navigation, TramFront } from 'lucide-react'
+import { Bike, CalendarPlus, Car, ChevronDown, MapPin, Navigation, TramFront } from 'lucide-react'
 import { lazy, Suspense, useState } from 'react'
 import { publicContentQuery } from '@/lib/queries'
 import { formatDate } from '@/lib/format'
+import { icsUrl } from '@/lib/ics'
+import type { DirectionsMode } from '@/lib/geo'
+import { DirectionsLinks } from '@/components/public/DirectionsLinks'
 import { Section } from '@/components/public/Section'
 import { Linkify, Paragraphs } from '@/components/public/Linkify'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
+import { cn } from '@/lib/utils'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import type { TravelMode } from '@/components/public/TravelMap'
 
@@ -44,15 +48,17 @@ function HomePage() {
   const hotels = content.accommodation?.hotels ?? []
   const city = event.venue.city || 'Freiburg im Breisgau'
   const [mode, setMode] = useState<TravelMode>('transit')
-  const ARRIVAL: { mode: TravelMode; label: string; short: string; Icon: typeof Car; text: string }[] = [
-    { mode: 'transit', label: 'Mit der Tram', short: 'Tram', Icon: TramFront, text: location.transport },
-    { mode: 'bike', label: 'Mit dem Rad', short: 'Rad', Icon: Bike, text: location.bike ?? '' },
-    { mode: 'car', label: 'Mit dem Auto', short: 'Auto', Icon: Car, text: location.parking },
+  const ARRIVAL: { mode: TravelMode; label: string; short: string; Icon: typeof Car; text: string; directions: DirectionsMode }[] = [
+    { mode: 'transit', label: 'Mit der Tram', short: 'Tram', Icon: TramFront, text: location.transport, directions: 'transit' },
+    { mode: 'bike', label: 'Mit dem Rad', short: 'Rad', Icon: Bike, text: location.bike ?? '', directions: 'bicycling' },
+    { mode: 'car', label: 'Mit dem Auto', short: 'Auto', Icon: Car, text: location.parking, directions: 'driving' },
   ]
+  const address = [location.address, 'city' in location && location.city ? location.city : ''].filter(Boolean).join(', ')
+  const calendar = icsUrl({ title: event.title, date: event.date, location: [location.name, address].filter(Boolean).join(', '), url: window.location.origin })
 
   return (
     <>
-      <section className="relative overflow-hidden px-6 pt-24 pb-28 text-center md:pt-36">
+      <section className="relative overflow-hidden px-6 pt-20 pb-16 text-center md:pt-36 md:pb-28">
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
@@ -71,6 +77,18 @@ function HomePage() {
             <span className="h-px flex-1 bg-gold" />
           </div>
           {hero.note && <p className="mt-6 text-sm text-muted-foreground italic">{hero.note}</p>}
+          <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+            <Button asChild variant="outline" size="sm">
+              <a href={calendar} download="hochzeit.ics">
+                <CalendarPlus className="size-4" /> Zum Kalender hinzufügen
+              </a>
+            </Button>
+          </div>
+          {schedule.length > 0 && (
+            <a href="#ablauf" className="mt-10 inline-flex flex-col items-center gap-1 text-xs tracking-widest text-muted-foreground uppercase transition-colors hover:text-primary">
+              Zum Ablauf <ChevronDown className="size-4 animate-bounce" />
+            </a>
+          )}
         </motion.div>
       </section>
 
@@ -92,12 +110,14 @@ function HomePage() {
                 whileInView={{ opacity: 1, x: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: i * 0.05 }}
-                className="relative pb-10 last:pb-0"
+                className="relative pb-6 last:pb-0 md:pb-8"
               >
-                <span className="absolute top-1.5 -left-[calc(2rem_+_0.375rem_+_0.5px)] size-3 rounded-full border-2 border-gold bg-background" />
-                <p className="font-display text-2xl text-primary">{entry.time}</p>
-                <h3 className="mt-1 text-xl font-medium">{entry.title}</h3>
-                {entry.description && <p className="mt-1 text-muted-foreground">{entry.description}</p>}
+                <span className="absolute top-2 -left-[calc(2rem_+_0.375rem_+_0.5px)] size-3 rounded-full border-2 border-gold bg-background" />
+                <div className="flex flex-wrap items-baseline gap-x-3">
+                  <p className="font-display text-2xl text-primary">{entry.time}</p>
+                  <h3 className="text-xl font-medium">{entry.title}</h3>
+                </div>
+                {entry.description && <p className="mt-1 text-sm text-muted-foreground md:text-base">{entry.description}</p>}
               </motion.li>
             ))}
           </ol>
@@ -115,23 +135,19 @@ function HomePage() {
               className="relative overflow-hidden rounded-3xl border border-gold/40 shadow-xl shadow-primary/10"
             >
               <img src={location.image} alt={location.name || 'Location'} className="aspect-[21/9] w-full object-cover" loading="lazy" />
-              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent p-6 text-white md:p-8">
-                {location.address && (
+              {address && (
+                <div className="absolute inset-x-0 bottom-0 hidden bg-gradient-to-t from-black/60 to-transparent p-6 text-white sm:block md:p-8">
                   <p className="flex items-center gap-2 text-sm md:text-base">
-                    <MapPin className="size-4 shrink-0" />
-                    {location.address}
-                    {'city' in location && location.city ? `, ${location.city}` : ''}
+                    <MapPin className="size-4 shrink-0" /> {address}
                   </p>
-                )}
-              </div>
+                </div>
+              )}
             </motion.figure>
           )}
           <div className="mx-auto max-w-2xl space-y-4 text-center text-lg leading-relaxed text-foreground/85">
-            {!location.image && location.address && (
-              <p className="flex items-center justify-center gap-2">
-                <MapPin className="size-4 shrink-0 text-primary" />
-                {location.address}
-                {'city' in location && location.city ? `, ${location.city}` : ''}
+            {address && (
+              <p className={cn('flex items-center justify-center gap-2 text-base', location.image && 'sm:hidden')}>
+                <MapPin className="size-4 shrink-0 text-primary" /> {address}
               </p>
             )}
             {location.description && <Paragraphs text={location.description} />}
@@ -156,23 +172,20 @@ function HomePage() {
                 </TabsTrigger>
               ))}
             </TabsList>
-            {ARRIVAL.map(({ mode: m, label, Icon, text }) => (
+            {ARRIVAL.map(({ mode: m, label, Icon, text, directions }) => (
               <TabsContent key={m} value={m} className="space-y-6">
-                {(text || (m === 'car' && location.navigationUrl)) && (
-                  <Card className="mx-auto max-w-2xl">
-                    <CardContent className="space-y-3 pt-6">
-                      <h3 className="flex items-center gap-2 text-2xl"><Icon className="size-5 text-primary" /> {label}</h3>
-                      {text && <div className="space-y-2 text-muted-foreground"><Paragraphs text={text} /></div>}
-                      {m === 'car' && location.navigationUrl && (
-                        <Button asChild variant="outline" size="sm">
-                          <a href={location.navigationUrl} target="_blank" rel="noreferrer">
-                            <Navigation className="size-4" /> Route planen
-                          </a>
-                        </Button>
-                      )}
-                    </CardContent>
-                  </Card>
-                )}
+                <Card className="mx-auto max-w-2xl">
+                  <CardContent className="space-y-3 pt-6">
+                    <h3 className="flex items-center gap-2 text-2xl"><Icon className="size-5 text-primary" /> {label}</h3>
+                    {text && <div className="space-y-2 text-muted-foreground"><Paragraphs text={text} /></div>}
+                    {hasMap && (
+                      <div className="flex flex-wrap items-center gap-2 pt-1 text-sm text-muted-foreground">
+                        <span>Route zur Location:</span>
+                        <DirectionsLinks to={[travel.lng, travel.lat]} name={location.name || 'Location'} mode={directions} />
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
                 {hasMap && (
                   <Suspense fallback={<Skeleton className="h-[60svh] max-h-[520px] min-h-[320px] rounded-3xl" />}>
                     <TravelMap travel={travel} venueName={location.name || 'Location'} mode={m} />
