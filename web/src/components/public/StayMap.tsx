@@ -38,7 +38,9 @@ type Ranked = Hotel & { foot?: Route; bike?: Route; car?: Route; transit: Transi
 export function StayMap({ accommodation, travel, city }: { accommodation: Accommodation; travel: Travel; city: string }) {
   const venue = useMemo<LngLat>(() => [travel.lng, travel.lat], [travel.lat, travel.lng])
   const hasVenue = travel.lat !== 0 || travel.lng !== 0
-  const { checkIn, checkOut } = accommodation
+  const { checkIn: firstCheckIn, checkOut } = accommodation
+  const arrivalDays = useMemo(() => datesBetween(firstCheckIn, checkOut), [firstCheckIn, checkOut])
+  const [checkIn, setCheckIn] = useState(firstCheckIn)
   const stop = useMemo(() => travel.stops.find((s) => s.kind !== 'parking'), [travel.stops])
   const line = travel.lines.find((l) => l.kind === 'tram')
 
@@ -142,9 +144,28 @@ export function StayMap({ accommodation, travel, city }: { accommodation: Accomm
     <div className="space-y-8">
       <div className="space-y-2 text-center text-sm text-muted-foreground">
         <p>Sortiert nach Weg zur Location – zu Fuß oder mit der Tram.</p>
+        {arrivalDays.length > 1 && (
+          <div className="flex flex-wrap items-center justify-center gap-2" role="radiogroup" aria-label="Anreisetag">
+            <span className="flex items-center gap-1.5"><CalendarDays className="size-4 text-primary" /> Anreise am</span>
+            {arrivalDays.map((d) => (
+              <button
+                key={d}
+                type="button"
+                role="radio"
+                aria-checked={d === checkIn}
+                onClick={() => setCheckIn(d)}
+                className={cn(
+                  'rounded-full border px-3 py-1 text-sm transition-colors',
+                  d === checkIn ? 'border-primary bg-primary text-primary-foreground' : 'bg-background hover:border-primary/60',
+                )}
+              >
+                {formatDay(d)}
+              </button>
+            ))}
+          </div>
+        )}
         {stay && (
           <p>
-            <CalendarDays className="mr-1.5 inline size-4 align-text-bottom text-primary" />
             Alle Links sind für <strong className="whitespace-nowrap text-foreground">{stay}</strong> vorausgefüllt.
           </p>
         )}
@@ -338,4 +359,19 @@ function TravelTimes({ hotel, venue }: { hotel: Ranked; venue: LngLat }) {
       )}
     </div>
   )
+}
+
+function datesBetween(from: string, to: string): string[] {
+  const start = new Date(from)
+  const end = new Date(to)
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return [from]
+  const days: string[] = []
+  for (const d = new Date(start); d < end && days.length < 7; d.setUTCDate(d.getUTCDate() + 1)) {
+    days.push(d.toISOString().slice(0, 10))
+  }
+  return days.length ? days : [from]
+}
+
+function formatDay(iso: string): string {
+  return new Date(iso).toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit' })
 }
