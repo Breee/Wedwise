@@ -179,25 +179,3 @@
   100% { transform: scale(1.8); opacity: 0; }
 }
 
-.wed-leaf {
-  position: absolute;
-  top: -40px;
-  color: var(--sage);
-  will-change: transform;
-  animation: wed-leaf-fall var(--leaf-duration) linear var(--leaf-delay) infinite;
-}
-.wed-leaf svg {
-  width: 100%;
-  height: 100%;
-  animation: wed-leaf-sway calc(var(--leaf-duration) / 3) ease-in-out infinite alternate;
-}
-@keyframes wed-leaf-fall {
-  to { transform: translate3d(var(--leaf-drift), calc(100vh + 80px), 0) rotate(300deg); }
-}
-@keyframes wed-leaf-sway {
-  from { transform: translateX(-12px) rotate(-20deg); }
-  to { transform: translateX(12px) rotate(25deg); }
-}
-@media (prefers-reduced-motion: reduce) {
-  .wed-leaves { display: none; }
-}

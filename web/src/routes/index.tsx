@@ -10,7 +10,6 @@ import type { DirectionsMode } from '@/lib/geo'
 import { DirectionsLinks } from '@/components/public/DirectionsLinks'
 import { Section } from '@/components/public/Section'
 import { BotanicalFrame } from '@/components/public/BotanicalFrame'
-import { FallingLeaves } from '@/components/public/FallingLeaves'
 import { Linkify, Paragraphs } from '@/components/public/Linkify'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -68,12 +67,7 @@ function HomePage() {
   return (
     <>
       <section className="relative overflow-hidden px-6 pt-20 pb-16 text-center md:pt-36 md:pb-28">
-        {botanical && (
-          <>
-            <FallingLeaves />
-            <BotanicalFrame />
-          </>
-        )}
+        {botanical && <BotanicalFrame />}
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}

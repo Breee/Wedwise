@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Done, RsvpForm, RsvpHeader } from '@/components/rsvp/RsvpForm'
+import { InviteIntro } from '@/components/rsvp/InviteIntro'
 
 export const Route = createFileRoute('/rsvp/$link')({
   loader: ({ context, params }) => context.queryClient.ensureQueryData(inviteLinkQuery(params.link)),
@@ -39,6 +40,7 @@ function InviteLinkPage() {
 
   return (
     <section className="mx-auto max-w-2xl px-6 py-16">
+      <InviteIntro />
       <RsvpHeader />
       {status.pinRequired && !status.unlocked ? (
         <PinGate link={link} />
