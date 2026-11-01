@@ -232,9 +232,9 @@ export function StayMap({ accommodation, travel, city }: { accommodation: Accomm
         <div className="flex items-start gap-3">
           <Home className="mt-1 size-5 shrink-0 text-sage" />
           <div>
-            <h3 className="text-xl">Lieber eine Ferienwohnung?</h3>
+            <h3 className="text-xl">Lieber eine Ferienwohnung oder ein anderes Hotel?</h3>
             <p className="mt-1 text-sm text-muted-foreground">
-              Rund um die Location und in der Wiehre gibt es viele Wohnungen. Die Suchen sind mit den Daten vorausgefüllt.
+              Rund um die Location und in der Wiehre gibt es viele Wohnungen und weitere Hotels. Die Suchen sind mit den Daten vorausgefüllt.
             </p>
           </div>
         </div>
@@ -245,7 +245,7 @@ export function StayMap({ accommodation, travel, city }: { accommodation: Accomm
             </a>
           </Button>
           <Button asChild variant="outline">
-            <a href={bookingUrl(city, checkIn, checkOut, 'ht_id=201')} target="_blank" rel="noreferrer">
+            <a href={bookingUrl(city, checkIn, checkOut)} target="_blank" rel="noreferrer">
               Booking.com <ExternalLink className="size-3.5" />
             </a>
           </Button>
