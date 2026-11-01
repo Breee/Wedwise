@@ -16,8 +16,9 @@ export interface TransitLine {
   name: string
   color: string
   coords: LngLat[]
-  stops: { name: string; lat: number; lng: number }[]
+  stops: LineStop[]
 }
+export type LineStop = { name: string; lat: number; lng: number }
 
 const ROUTER: Record<Exclude<Profile, 'transit'>, string> = {
   foot: 'https://routing.openstreetmap.de/routed-foot/route/v1/foot',
@@ -64,19 +65,27 @@ export function nearestLineStop(line: TransitLine, p: LngLat) {
 }
 
 // Walk to the nearest stop, ride along the track to the stop nearest `to`.
-export function transitRoute(line: TransitLine, from: LngLat, to: LngLat): Route {
+export type TransitRide = Route & { board: LineStop; alight: LineStop }
+
+/** Tram ride only (board → alight along the track); walking legs are routed separately. */
+export function transitRide(line: TransitLine, from: LngLat, to: LngLat): TransitRide | null {
   const board = nearestLineStop(line, from)
   const alight = nearestLineStop(line, to)
-  if (!board || !alight) return estimate('transit', from, to)
+  if (!board || !alight) return null
   const i = nearestIndex(line.coords, [board.lng, board.lat])
   const j = nearestIndex(line.coords, [alight.lng, alight.lat])
   const slice = line.coords.slice(Math.min(i, j), Math.max(i, j) + 1)
   if (i > j) slice.reverse()
   let ride = 0
   for (let k = 1; k < slice.length; k++) ride += distanceMeters(slice[k - 1], slice[k])
-  const walk = distanceMeters(from, [board.lng, board.lat]) * 1.3
-  const minutes = Math.round(walk / METERS_PER_MINUTE.foot) + TRAM_WAIT_MINUTES + Math.round(ride / METERS_PER_MINUTE.transit)
-  return { coordinates: [from, ...slice], minutes, meters: walk + ride, estimated: false }
+  return { coordinates: slice, minutes: TRAM_WAIT_MINUTES + Math.round(ride / METERS_PER_MINUTE.transit), meters: ride, estimated: false, board, alight }
+}
+
+export function transitRoute(line: TransitLine, from: LngLat, to: LngLat): Route {
+  const ride = transitRide(line, from, to)
+  if (!ride) return estimate('transit', from, to)
+  const walk = distanceMeters(from, [ride.board.lng, ride.board.lat]) * 1.3
+  return { coordinates: [from, ...ride.coordinates], minutes: Math.round(walk / METERS_PER_MINUTE.foot) + ride.minutes, meters: walk + ride.meters, estimated: false }
 }
 
 export async function route(profile: Profile, from: LngLat, to: LngLat, line?: TransitLine): Promise<Route> {

@@ -19,7 +19,7 @@ export function venueMarker(map: MapLibreMap, venue: LngLat): maplibregl.Marker 
     .addTo(map)
 }
 
-export type RouteFeature = { route: Route; color: string; id: number }
+export type RouteFeature = { route: Route; color: string; id: number; icon?: string }
 
 const DASH_SEQUENCE = [
   [0, 4, 3], [0.5, 4, 2.5], [1, 4, 2], [1.5, 4, 1.5], [2, 4, 1], [2.5, 4, 0.5], [3, 4, 0],
@@ -46,10 +46,10 @@ export function drawRoutes(map: MapLibreMap, routes: RouteFeature[]): () => void
     map.addLayer({ id: 'routes-dash', type: 'line', source: 'routes', layout, paint: { 'line-color': ['get', 'color'], 'line-width': 3.5, 'line-dasharray': [0, 4, 3] } })
   }
 
-  const labels = routes.map(({ route, color }) => {
+  const labels = routes.map(({ route, color, icon }) => {
     const c = route.coordinates
     const mid: LngLat = c.length === 2 ? [(c[0][0] + c[1][0]) / 2, (c[0][1] + c[1][1]) / 2] : c[Math.floor(c.length / 2)]
-    const el = markerElement(`<span>${route.minutes} Min</span>`, 'wed-route-label')
+    const el = markerElement(`${icon ?? ''}<span>${route.minutes} Min</span>`, 'wed-route-label')
     el.style.setProperty('--stop-color', color)
     return new maplibregl.Marker({ element: el, anchor: 'center' }).setLngLat(mid).addTo(map)
   })

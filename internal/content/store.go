@@ -341,15 +341,8 @@ func normalizeTravel(t *Travel) error {
 		if !validCoordinate(stop.Lat, stop.Lng) {
 			return fmt.Errorf("%w: stop coordinates out of range", ErrValidation)
 		}
-		if w := stop.Walk; w != nil {
-			if w.Minutes < 0 || w.Minutes > 600 || w.Meters < 0 || w.Meters > 50000 || len(w.Coords) < 2 || len(w.Coords) > maxLinePoints {
-				return fmt.Errorf("%w: invalid walking route for stop %q", ErrValidation, stop.Name)
-			}
-			for _, c := range w.Coords {
-				if !validCoordinate(c[1], c[0]) {
-					return fmt.Errorf("%w: walking route coordinates out of range", ErrValidation)
-				}
-			}
+		if err := validateWalk(stop.Walk, stop.Name); err != nil {
+			return err
 		}
 	}
 	if t.Lines == nil {
@@ -423,6 +416,13 @@ func normalizeAccommodation(a *Accommodation) error {
 		if h.Name == "" || len(h.Name) > 200 || len(h.Area) > 200 || len(h.Note) > 1000 || len(h.URL) > 2000 || len(h.BookingURL) > 2000 {
 			return fmt.Errorf("%w: hotels need a name (max 200 chars)", ErrValidation)
 		}
+		if r := h.Routes; r != nil {
+			for _, w := range []*Walk{r.Foot, r.Bike, r.Car} {
+				if err := validateWalk(w, h.Name); err != nil {
+					return err
+				}
+			}
+		}
 		if h.PriceTier < 1 || h.PriceTier > 3 {
 			return fmt.Errorf("%w: priceTier must be 1..3", ErrValidation)
 		}
@@ -431,6 +431,21 @@ func normalizeAccommodation(a *Accommodation) error {
 		}
 		if !validCoordinate(h.Lat, h.Lng) {
 			return fmt.Errorf("%w: hotel coordinates out of range", ErrValidation)
+		}
+	}
+	return nil
+}
+
+func validateWalk(w *Walk, owner string) error {
+	if w == nil {
+		return nil
+	}
+	if w.Minutes < 0 || w.Minutes > 600 || w.Meters < 0 || w.Meters > 50000 || len(w.Coords) < 2 || len(w.Coords) > maxLinePoints {
+		return fmt.Errorf("%w: invalid route for %q", ErrValidation, owner)
+	}
+	for _, c := range w.Coords {
+		if !validCoordinate(c[1], c[0]) {
+			return fmt.Errorf("%w: route coordinates out of range", ErrValidation)
 		}
 	}
 	return nil

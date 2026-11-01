@@ -98,6 +98,15 @@ type Hotel struct {
 	Note       string  `json:"note"`
 	URL        string  `json:"url"`
 	BookingURL string  `json:"bookingUrl"` // property page on a booking portal; dates are appended
+	Routes     *Routes `json:"routes,omitempty"` // precomputed routes to the venue
+}
+
+// Routes holds precomputed routes from a hotel to the venue so the public
+// page does not depend on an external router.
+type Routes struct {
+	Foot *Walk `json:"foot,omitempty"`
+	Bike *Walk `json:"bike,omitempty"`
+	Car  *Walk `json:"car,omitempty"`
 }
 
 // Accommodation is the stay section: dates for booking links plus hotels.

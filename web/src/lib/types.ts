@@ -52,7 +52,13 @@ export interface Stop {
   line: string
   lat: number
   lng: number
-  walk?: { minutes: number; meters: number; coords: [number, number][] }
+  walk?: Walk
+}
+
+export interface Walk {
+  minutes: number
+  meters: number
+  coords: [number, number][]
 }
 
 export interface LineStop {
@@ -87,6 +93,7 @@ export interface Hotel {
   note: string
   url: string
   bookingUrl: string
+  routes?: { foot?: Walk; bike?: Walk; car?: Walk }
 }
 
 export interface Accommodation {

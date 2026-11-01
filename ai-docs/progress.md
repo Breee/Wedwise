@@ -20,6 +20,13 @@ Update this file after every finished step. Newest entries first in the log.
 
 Status values: `todo`, `in progress`, `blocked (reason)`, `done (commit)`.
 
+## Backlog
+
+| ID | Item | Status |
+|---|---|---|
+| B-01 | Staff UI for editing/deleting responses (couple dashboard, witness tab) and contribution content | todo |
+| B-02 | Routing via a mapping API with a (free-tier) API key instead of the public OSRM demo server (e.g. OpenRouteService, Stadia/Stadia Maps, Geoapify); key via env, keep stored routes + fallback | todo |
+
 ## Log
 
 - 2026-10-31 — F-11: admin role gains `contribution.read/manage` (couple still excluded, test `TestCoupleNeverSeesContributions` now couple-only). Contributions got `slot_time`/`duration_minutes` + `PUT /api/contributions/{id}/schedule`. Witness page rebuilt: tabs Board (Kanban via @dnd-kit, drag card between status columns), Liste (table with tel: links), Ablaufplan (timeline sorted by start, end time, total minutes, overlap warning, "Ohne Uhrzeit" list). Detail dialog has schedule form (>15 min hint). Admin nav shows couple + witness links.
