@@ -27,7 +27,7 @@ export function Section({
       <div className="mx-auto max-w-5xl">
       <div className="mb-10 text-center">
         {eyebrow && <p className="text-xs font-medium tracking-[0.3em] text-primary uppercase">{eyebrow}</p>}
-        <h2 className="mt-2 text-4xl md:text-5xl">{title}</h2>
+        <h2 className="mt-2 text-4xl md:text-5xl [[data-decoration=botanical]_&]:font-script [[data-decoration=botanical]_&]:text-primary">{title}</h2>
         <div className="mx-auto mt-4 h-px w-16 bg-gold" />
       </div>
       {children}

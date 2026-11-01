@@ -8,7 +8,6 @@ services:
       LISTEN_ADDRESS: ":8080"
       DATABASE_PATH: "/data/wedding.db"
       CONFIG_PATH: "/config/config.yaml"
-      THEME_PATH: "/config/theme.yaml"
       BASE_URL: "http://localhost:8080"
       ENVIRONMENT: "development"
       SESSION_SECRET: "${SESSION_SECRET:-local-dev-secret-change-me-32-bytes!!}"

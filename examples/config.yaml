@@ -5,7 +5,9 @@ listenAddress: ":8080"
 databasePath: "/data/wedding.db"
 baseUrl: "https://wedding.example.com"
 configPath: "/config/config.yaml"
-themePath: "/config/theme.yaml"
+# Optional: a custom theme YAML (same schema as themes/*.yaml) that is added to
+# the bundled themes and selectable in the content editor. Env: THEME_PATH
+# themePath: "/config/theme.yaml"
 # Set to true only when a reverse proxy in front of Wedwise sets X-Forwarded-For;
 # used for rate limiting by client IP. Env: TRUST_PROXY_HEADERS=true
 trustProxyHeaders: false

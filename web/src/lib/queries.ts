@@ -11,6 +11,7 @@ import type {
   PublicContent,
   ResponseWithAttendees,
   Summary,
+  Theme,
 } from './types'
 
 export const meQuery = queryOptions({
@@ -22,6 +23,12 @@ export const meQuery = queryOptions({
 export const publicContentQuery = queryOptions({
   queryKey: ['content', 'public'],
   queryFn: () => api.get<PublicContent>('/content/public'),
+})
+
+export const themesQuery = queryOptions({
+  queryKey: ['themes'],
+  queryFn: () => api.get<{ themes: Theme[] }>('/themes').then((r) => r.themes),
+  staleTime: Infinity,
 })
 
 export const contentQuery = queryOptions({

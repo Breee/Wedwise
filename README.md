@@ -19,8 +19,8 @@ tools.
   ratings, availability and links via the browser. Stops and hotels are edited in the
   content UI. Routes come from the public OSM foot router (straight-line
   estimate as fallback); the guest's browser talks to these services directly.
-- 🎨 **Theming** — swap colors, typography, and spacing via YAML theme files
-  (see `themes/`), no rebuild required.
+- 🎨 **Theming** — pick a theme in the editor; themes are YAML files (see
+  `themes/`) with colors, fonts and decoration, custom ones via `THEME_PATH`.
 - 💌 **Invite links** — no personalized invitations: create one or more
   links in the couple area (optionally PIN-protected), share them, and guests
   respond per household at `/rsvp/<token>`. Every response gets a private
@@ -48,7 +48,6 @@ docker run -d \
   -p 8080:8080 \
   -v wedwise-data:/data \
   -v "$(pwd)/examples/config.yaml:/config/config.yaml:ro" \
-  -v "$(pwd)/examples/theme.yaml:/config/theme.yaml:ro" \
   -e SESSION_SECRET=change-me-to-a-random-32-byte-secret \
   wedwise:latest
 ```
@@ -100,12 +99,12 @@ for a fully-documented example covering:
 - `event` — wedding details: couple names, date, venue, and hero/landing
   page copy.
 
-Visual appearance is controlled separately via a theme file (see
-`themePath`), with ready-to-use examples in [`examples/theme.yaml`](examples/theme.yaml),
-[`themes/default/theme.yaml`](themes/default/theme.yaml), and
-[`themes/example-botanical/theme.yaml`](themes/example-botanical/theme.yaml).
-Themes define colors, fonts, spacing, and border radius — copy one, tweak
-the values, and point `themePath` at it.
+Visual appearance is chosen in the content editor (tab "Design"). Themes are
+bundled from [`themes/`](themes/) (`sage-leaf` is the default, `terracotta`
+the warm alternative) and define colors, display/script/body fonts and an
+optional botanical decoration. To add your own, copy one of the YAML files,
+tweak it, and point `themePath` (env `THEME_PATH`) at it — it then appears in
+the picker alongside the bundled ones. Served via `GET /api/themes`.
 
 Secrets (such as `SESSION_SECRET`) should be provided via environment
 variables, not committed to the config file.

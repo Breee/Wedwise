@@ -1,0 +1,26 @@
+# Terracotta – warm cream, terracotta and sage (the original Wedwise look).
+name: terracotta
+label: Terracotta
+decoration: none
+colors:
+  background: "#FBF8F3"
+  foreground: "#4A3F38"
+  card: "#FFFFFF"
+  primary: "#B5634E"
+  primaryForeground: "#FDFBF7"
+  secondary: "#E9EFE2"
+  secondaryForeground: "#4F6342"
+  muted: "#F2EEE6"
+  mutedForeground: "#7D7069"
+  accent: "#F4E6DA"
+  accentForeground: "#6B4A3A"
+  border: "#E6DFD3"
+  ring: "#D08A77"
+  gold: "#CBA86A"
+  sage: "#8DA486"
+  blush: "#F1D9D3"
+fonts:
+  display: "'Cormorant Garamond', Georgia, serif"
+  script: "'Cormorant Garamond', Georgia, serif"
+  body: "'Inter', ui-sans-serif, system-ui, sans-serif"
+  googleFonts: "https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Inter:wght@300;400;500;600&display=swap"

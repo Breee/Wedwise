@@ -19,6 +19,7 @@ import (
 	"github.com/Breee/Wedwise/internal/invites"
 	"github.com/Breee/Wedwise/internal/middleware"
 	"github.com/Breee/Wedwise/internal/rsvp"
+	"github.com/Breee/Wedwise/internal/theme"
 	"github.com/Breee/Wedwise/internal/users"
 	"github.com/Breee/Wedwise/web"
 )
@@ -53,7 +54,11 @@ func New(cfg configuration.Config, db *sql.DB) (*Server, error) {
 	rsvpHandler := rsvp.NewHandler(rsvpStore, contributionStore, inviteStore, inviteGate)
 	inviteHandler := invites.NewHandler(inviteStore, authService)
 	contributionHandler := contributions.NewHandler(contributionStore, authService)
-	contentHandler := content.NewHandler(contentStore, authService, cfg.Event)
+	themes, err := theme.Load(cfg.ThemePath)
+	if err != nil {
+		return nil, err
+	}
+	contentHandler := content.NewHandler(contentStore, authService, cfg.Event, themes)
 
 	loginLimit := middleware.RateLimit(middleware.NewLimiter(loginRateLimit, time.Minute), cfg.TrustProxyHeaders)
 	rsvpLimit := middleware.RateLimit(middleware.NewLimiter(rsvpRateLimit, time.Minute), cfg.TrustProxyHeaders)
@@ -79,6 +84,7 @@ func New(cfg configuration.Config, db *sql.DB) (*Server, error) {
 		api.Mount("/auth", authService.Routes(loginLimit))
 		api.Mount("/rsvp", rsvpHandler.PublicRoutes(rsvpLimit))
 		api.Get("/content/public", contentHandler.PublicHandler)
+		api.Get("/themes", contentHandler.ThemesHandler)
 
 		api.Group(func(protected chi.Router) {
 			protected.Use(authService.RequireAuth)

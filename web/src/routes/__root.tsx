@@ -4,6 +4,7 @@ import { MotionConfig } from 'motion/react'
 import { Toaster } from '@/components/ui/sonner'
 import { AppNav } from '@/components/layout/AppNav'
 import { AppFooter } from '@/components/layout/AppFooter'
+import { ThemeApplier } from '@/components/layout/ThemeApplier'
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
   component: RootLayout,
@@ -13,6 +14,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 function RootLayout() {
   return (
     <MotionConfig reducedMotion="user">
+      <ThemeApplier />
       <div className="flex min-h-svh flex-col">
         <AppNav />
         <main className="flex-1">

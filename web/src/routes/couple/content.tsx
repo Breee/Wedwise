@@ -4,7 +4,7 @@ import { useMutation, useQueryClient, useSuspenseQuery } from '@tanstack/react-q
 import { ArrowDown, ArrowUp, Plus, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { api, errorMessage } from '@/lib/api'
-import { contentQuery } from '@/lib/queries'
+import { contentQuery, themesQuery } from '@/lib/queries'
 import type { Content, FAQEntry, Hotel, ScheduleEntry, Stop } from '@/lib/types'
 import { PageHeader } from '@/components/admin/PageHeader'
 import { Button } from '@/components/ui/button'
@@ -16,12 +16,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
 export const Route = createFileRoute('/couple/content')({
-  loader: ({ context }) => context.queryClient.ensureQueryData(contentQuery),
+  loader: ({ context }) =>
+    Promise.all([context.queryClient.ensureQueryData(contentQuery), context.queryClient.ensureQueryData(themesQuery)]),
   component: ContentPage,
 })
 
 function ContentPage() {
   const { data } = useSuspenseQuery(contentQuery)
+  const { data: themes } = useSuspenseQuery(themesQuery)
   const [draft, setDraft] = useState<Content>(() => structuredClone(data))
   const queryClient = useQueryClient()
 
@@ -38,6 +40,7 @@ function ContentPage() {
 
   const set = <K extends keyof Content>(key: K, value: Content[K]) => setDraft((d) => ({ ...d, [key]: value }))
   const travel = draft.travel ?? { lat: 0, lng: 0, stops: [], lines: [] }
+  const current = themes.find((t) => t.name === draft.theme) ?? themes[0]
   const stay = draft.accommodation ?? { checkIn: '', checkOut: '', hotels: [] }
 
   return (
@@ -59,7 +62,34 @@ function ContentPage() {
           <TabsTrigger value="stay">Unterkünfte</TabsTrigger>
           <TabsTrigger value="schedule">Ablauf</TabsTrigger>
           <TabsTrigger value="faq">FAQ</TabsTrigger>
+          <TabsTrigger value="theme">Design</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="theme" className="mt-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Design</CardTitle>
+            </CardHeader>
+            <CardContent className="grid gap-4 sm:grid-cols-2">
+              <div className="grid gap-2">
+                <Label>Thema</Label>
+                <Select value={draft.theme || themes[0]?.name} onValueChange={(v) => set('theme', v)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {themes.map((t) => (
+                      <SelectItem key={t.name} value={t.name}>{t.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <ul className="flex flex-wrap items-end gap-2">
+                {Object.entries(current?.colors ?? {}).map(([k, c]) => (
+                  <li key={k} title={k} className="size-7 rounded-full border" style={{ background: c }} />
+                ))}
+              </ul>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
         <TabsContent value="hero" className="mt-4 space-y-4">
           <Card>

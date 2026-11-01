@@ -102,7 +102,35 @@ export interface Accommodation {
   hotels: Hotel[]
 }
 
+export interface ThemeColors {
+  background: string
+  foreground: string
+  card: string
+  primary: string
+  primaryForeground: string
+  secondary: string
+  secondaryForeground: string
+  muted: string
+  mutedForeground: string
+  accent: string
+  accentForeground: string
+  border: string
+  ring: string
+  gold: string
+  sage: string
+  blush: string
+}
+
+export interface Theme {
+  name: string
+  label: string
+  decoration: 'none' | 'botanical'
+  colors: ThemeColors
+  fonts: { display: string; script: string; body: string; googleFonts: string }
+}
+
 export interface Content {
+  theme: string
   hero: Hero
   introduction: { text: string }
   location: Location
@@ -133,6 +161,7 @@ export interface EventInfo {
 export interface PublicContent {
   event: EventInfo
   content: Content
+  theme: Theme
 }
 
 export type RsvpStatus = 'yes' | 'no'
