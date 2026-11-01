@@ -1,7 +1,7 @@
 # Sage & Leaf – cream paper, forest green, eucalyptus. Fits the Waldsee.
 name: sage-leaf
 label: Sage & Leaf
-decoration: botanical
+decoration: none
 colors:
   background: "#F8F6F0"
   foreground: "#2C3424"

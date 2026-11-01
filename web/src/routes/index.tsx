@@ -9,7 +9,6 @@ import { icsUrl } from '@/lib/ics'
 import type { DirectionsMode } from '@/lib/geo'
 import { DirectionsLinks } from '@/components/public/DirectionsLinks'
 import { Section } from '@/components/public/Section'
-import { BotanicalFrame } from '@/components/public/BotanicalFrame'
 import { Linkify, Paragraphs } from '@/components/public/Linkify'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -54,7 +53,6 @@ function HomePage() {
     { mode: 'bike', label: 'Mit dem Rad', short: 'Rad', Icon: Bike, text: location.bike ?? '', directions: 'bicycling' },
     { mode: 'car', label: 'Mit dem Auto', short: 'Auto', Icon: Car, text: location.parking, directions: 'driving' },
   ]
-  const botanical = data.theme?.decoration === 'botanical'
   const address = [location.address, 'city' in location && location.city ? location.city : ''].filter(Boolean).join(', ')
   const calendar = icsUrl({
     title: coupleNames.length ? `Hochzeit ${coupleNames.join(' & ')}` : event.title,
@@ -67,7 +65,6 @@ function HomePage() {
   return (
     <>
       <section className="relative overflow-hidden px-6 pt-20 pb-16 text-center md:pt-36 md:pb-28">
-        {botanical && <BotanicalFrame />}
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
@@ -77,7 +74,7 @@ function HomePage() {
           {hero.eyebrow && (
             <p className="text-xs font-medium tracking-[0.35em] text-primary uppercase">{hero.eyebrow}</p>
           )}
-          <h1 className={botanical ? 'mt-6 font-script text-6xl leading-tight font-normal text-primary md:text-8xl' : 'mt-6 text-6xl leading-none font-medium tracking-tight md:text-8xl'}>{headline}</h1>
+          <h1 className="mt-6 text-6xl leading-none font-medium tracking-tight text-primary md:text-8xl">{headline}</h1>
           {tagline && <p className="mt-5 font-display text-3xl text-primary italic md:text-4xl">{tagline}</p>}
           {hero.subtitle && <p className="mt-6 text-lg text-muted-foreground md:text-xl">{hero.subtitle}</p>}
           <div className="mx-auto mt-10 flex max-w-md items-center justify-center gap-4 text-sm tracking-widest uppercase">
