@@ -1084,3 +1084,86 @@ func TestRSVPRateLimit(t *testing.T) {
 func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
+
+func TestStaffEditsResponse(t *testing.T) {
+	app, _ := newTestAppWithUsers(t)
+	created := submitResponse(t, app, withContribution(validResponse()))
+	path := fmt.Sprintf("/api/responses/%d", created.ID)
+
+	for _, user := range []string{"couple_user", "witness_user", "admin_user"} {
+		cookie, _ := app.login(user, "TestPass123!")
+		body := validResponse()
+		body["contactName"] = "Geändert von " + user
+		body["contribution"] = map[string]any{"title": "Eingeschleust", "phone": "1"}
+		resp := app.do("PUT", path, body, cookie)
+		raw, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			t.Fatalf("%s PUT %s: got %d, body %s", user, path, resp.StatusCode, raw)
+		}
+		if !strings.Contains(string(raw), body["contactName"].(string)) {
+			t.Fatalf("%s: updated name missing in %s", user, raw)
+		}
+		for _, leak := range []string{"contribution", "Kleine Rede", "Eingeschleust"} {
+			if strings.Contains(string(raw), leak) {
+				t.Fatalf("%s: staff view leaks %q", user, leak)
+			}
+		}
+	}
+
+	// The guest's contribution survived every staff edit untouched.
+	guest := app.do("GET", "/api/rsvp/"+created.EditToken, nil, nil)
+	defer guest.Body.Close()
+	var view responseView
+	if err := json.NewDecoder(guest.Body).Decode(&view); err != nil {
+		t.Fatalf("decode guest view: %v", err)
+	}
+	if view.Contribution == nil || view.Contribution.Title != "Kleine Rede" {
+		t.Fatalf("contribution changed by staff edit: %+v", view.Contribution)
+	}
+
+	// Witness edits the contribution content; status and notes are unaffected.
+	witness, _ := app.login("witness_user", "TestPass123!")
+	cid := contributionID(t, app)
+	edit := app.do("PUT", fmt.Sprintf("/api/contributions/%d", cid), map[string]any{
+		"title": "Lied", "phone": "+49 170 7654321", "messengers": []string{"telegram"},
+	}, witness)
+	raw, _ := io.ReadAll(edit.Body)
+	edit.Body.Close()
+	if edit.StatusCode != http.StatusOK || !strings.Contains(string(raw), `"title":"Lied"`) || !strings.Contains(string(raw), `"status":"new"`) {
+		t.Fatalf("witness edit contribution: got %d, body %s", edit.StatusCode, raw)
+	}
+	couple, _ := app.login("couple_user", "TestPass123!")
+	if resp := app.do("PUT", fmt.Sprintf("/api/contributions/%d", cid), map[string]any{"title": "x", "phone": "1"}, couple); resp.StatusCode != http.StatusForbidden {
+		t.Fatalf("couple edit contribution: got %d", resp.StatusCode)
+	}
+
+	// Declining on behalf of the guest drops the contribution.
+	decline := validResponse()
+	decline["status"] = "no"
+	decline["attendees"] = []map[string]any{}
+	if resp := app.do("PUT", path, decline, couple); resp.StatusCode != http.StatusOK {
+		t.Fatalf("decline: got %d", resp.StatusCode)
+	}
+	if resp := app.do("GET", "/api/contributions", nil, witness); !bodyContains(t, resp, `"contributions":[]`) {
+		t.Fatal("contribution should be gone after decline")
+	}
+
+	// Delete removes the response for guests too.
+	if resp := app.do("DELETE", path, nil, couple); resp.StatusCode != http.StatusNoContent {
+		t.Fatalf("delete: got %d", resp.StatusCode)
+	}
+	if resp := app.do("GET", "/api/rsvp/"+created.EditToken, nil, nil); resp.StatusCode != http.StatusNotFound {
+		t.Fatalf("deleted response still readable: %d", resp.StatusCode)
+	}
+	if resp := app.do("DELETE", path, nil, couple); resp.StatusCode != http.StatusNotFound {
+		t.Fatalf("second delete: got %d", resp.StatusCode)
+	}
+}
+
+func bodyContains(t *testing.T, resp *http.Response, needle string) bool {
+	t.Helper()
+	defer resp.Body.Close()
+	raw, _ := io.ReadAll(resp.Body)
+	return strings.Contains(string(raw), needle)
+}

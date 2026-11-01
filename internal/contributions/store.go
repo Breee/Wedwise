@@ -104,6 +104,15 @@ func (s *Store) Upsert(ctx context.Context, exec Execer, responseID int64, input
 	return nil
 }
 
+// UpdateContent replaces what a guest offered; status, schedule and notes stay.
+func (s *Store) UpdateContent(ctx context.Context, id int64, input Input) (Contribution, error) {
+	if err := input.normalize(); err != nil {
+		return Contribution{}, err
+	}
+	return s.update(ctx, id, "title = ?, description = ?, needs = ?, phone = ?, messengers = ?, matrix_id = ?",
+		input.Title, input.Description, input.Needs, input.Phone, strings.Join(input.Messengers, ","), input.MatrixID)
+}
+
 // DeleteByResponse removes the contribution of a response, if any.
 func (s *Store) DeleteByResponse(ctx context.Context, exec Execer, responseID int64) error {
 	if _, err := exec.ExecContext(ctx, "DELETE FROM contributions WHERE response_id = ?", responseID); err != nil {

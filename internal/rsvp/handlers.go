@@ -3,10 +3,12 @@ package rsvp
 import (
 	"errors"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/Breee/Wedwise/internal/auth"
 	"github.com/Breee/Wedwise/internal/contributions"
 	"github.com/Breee/Wedwise/internal/httpx"
 	"github.com/Breee/Wedwise/internal/invites"
@@ -109,6 +111,74 @@ func (h *Handler) SummaryHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httpx.WriteJSON(w, http.StatusOK, summary)
+}
+
+// StaffRoutes lets the couple and witnesses read, edit and delete responses.
+// Contributions are never exposed or changed through these routes.
+func (h *Handler) StaffRoutes(authService *auth.Service) http.Handler {
+	r := chi.NewRouter()
+	r.With(authService.RequirePermission(auth.PermRSVPRead)).Get("/", h.ListHandler)
+	r.With(authService.RequirePermission(auth.PermRSVPRead)).Get("/{id}", h.staffGet)
+	r.With(authService.RequirePermission(auth.PermRSVPManage)).Put("/{id}", h.staffUpdate)
+	r.With(authService.RequirePermission(auth.PermRSVPManage)).Delete("/{id}", h.staffDelete)
+	return r
+}
+
+func (h *Handler) staffGet(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	if err != nil {
+		httpx.NotFound(w, "Response not found.")
+		return
+	}
+	response, err := h.store.GetByID(r.Context(), id)
+	if err != nil {
+		h.writeError(w, err)
+		return
+	}
+	h.writeCoupleView(w, r, response)
+}
+
+func (h *Handler) staffUpdate(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	if err != nil {
+		httpx.NotFound(w, "Response not found.")
+		return
+	}
+	var req submitRequest
+	if !httpx.DecodeJSON(w, r, &req) {
+		return
+	}
+	response, err := h.store.UpdateByID(r.Context(), id, req.toParams())
+	if err != nil {
+		h.writeError(w, err)
+		return
+	}
+	h.writeCoupleView(w, r, response)
+}
+
+func (h *Handler) staffDelete(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	if err != nil {
+		httpx.NotFound(w, "Response not found.")
+		return
+	}
+	if err := h.store.Delete(r.Context(), id); err != nil {
+		h.writeError(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *Handler) writeCoupleView(w http.ResponseWriter, r *http.Request, response Response) {
+	attendees, err := h.store.Attendees(r.Context(), response.ID)
+	if err != nil {
+		httpx.Internal(w, err)
+		return
+	}
+	if attendees == nil {
+		attendees = []Attendee{}
+	}
+	httpx.WriteJSON(w, http.StatusOK, coupleView{Response: response, Attendees: attendees})
 }
 
 // ListHandler returns every response with attendees but without contributions.

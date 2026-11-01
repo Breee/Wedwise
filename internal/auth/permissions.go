@@ -7,7 +7,8 @@ const (
 	PermContentRead  = "content.read"
 	PermContentWrite = "content.write"
 
-	PermRSVPRead = "rsvp.read"
+	PermRSVPRead   = "rsvp.read"
+	PermRSVPManage = "rsvp.manage"
 
 	PermInviteManage = "invite.manage"
 
@@ -34,12 +35,14 @@ var rolePermissions = map[string]map[string]bool{
 		PermContentRead:  true,
 		PermContentWrite: true,
 		PermRSVPRead:     true,
+		PermRSVPManage:   true,
 		PermInviteManage: true,
 	},
 	RoleWitness: {
 		PermContributionRead:   true,
 		PermContributionManage: true,
 		PermRSVPRead:           true,
+		PermRSVPManage:         true,
 	},
 	RoleAdmin: {
 		PermUserRead:     true,
@@ -47,6 +50,7 @@ var rolePermissions = map[string]map[string]bool{
 		PermContentRead:  true,
 		PermContentWrite: true,
 		PermRSVPRead:     true,
+		PermRSVPManage:   true,
 		PermInviteManage: true,
 
 		PermContributionRead:   true,

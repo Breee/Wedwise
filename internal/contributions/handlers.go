@@ -70,6 +70,7 @@ func (h *Handler) Routes() http.Handler {
 	r := chi.NewRouter()
 	r.With(h.auth.RequirePermission(auth.PermContributionRead)).Get("/", h.list)
 	r.With(h.auth.RequirePermission(auth.PermContributionRead)).Get("/{id}", h.get)
+	r.With(h.auth.RequirePermission(auth.PermContributionManage)).Put("/{id}", h.updateContent)
 	r.With(h.auth.RequirePermission(auth.PermContributionManage)).Put("/{id}/status", h.updateStatus)
 	r.With(h.auth.RequirePermission(auth.PermContributionManage)).Put("/{id}/schedule", h.updateSchedule)
 	r.With(h.auth.RequirePermission(auth.PermContributionManage)).Put("/schedule", h.updateScheduleAll)
@@ -103,6 +104,24 @@ func (h *Handler) get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httpx.WriteJSON(w, http.StatusOK, contributionDetail{Contribution: contribution, Notes: notes})
+}
+
+func (h *Handler) updateContent(w http.ResponseWriter, r *http.Request) {
+	id, err := httpx.ParseID(chi.URLParam(r, "id"))
+	if err != nil {
+		httpx.BadRequest(w, "Invalid contribution id.")
+		return
+	}
+	var req Request
+	if !httpx.DecodeJSON(w, r, &req) {
+		return
+	}
+	contribution, err := h.store.UpdateContent(r.Context(), id, req.ToInput())
+	if err != nil {
+		WriteStoreError(w, err)
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, contribution)
 }
 
 func (h *Handler) updateStatus(w http.ResponseWriter, r *http.Request) {

@@ -142,7 +142,7 @@ func (s *Store) Create(ctx context.Context, inviteLinkID int64, params SubmitPar
 	if err != nil {
 		return Response{}, "", fmt.Errorf("response id: %w", err)
 	}
-	if err := s.writeDetails(ctx, tx, id, params); err != nil {
+	if err := s.writeDetails(ctx, tx, id, params, true); err != nil {
 		return Response{}, "", err
 	}
 	if err := tx.Commit(); err != nil {
@@ -155,14 +155,40 @@ func (s *Store) Create(ctx context.Context, inviteLinkID int64, params SubmitPar
 
 // Update replaces the response identified by its edit token.
 func (s *Store) Update(ctx context.Context, token string, params SubmitParams) (Response, error) {
-	if err := params.normalize(); err != nil {
-		return Response{}, err
-	}
 	existing, err := s.GetByToken(ctx, token)
 	if err != nil {
 		return Response{}, err
 	}
+	return s.update(ctx, existing.ID, params, true)
+}
 
+// UpdateByID replaces a response on behalf of the couple or witnesses. The
+// contribution is left untouched so the couple can never alter or learn it;
+// only a decline removes it, as it would for the guest.
+func (s *Store) UpdateByID(ctx context.Context, id int64, params SubmitParams) (Response, error) {
+	if _, err := s.GetByID(ctx, id); err != nil {
+		return Response{}, err
+	}
+	params.Contribution = nil
+	return s.update(ctx, id, params, params.Status == StatusNo)
+}
+
+// Delete removes a response together with its attendees and contribution.
+func (s *Store) Delete(ctx context.Context, id int64) error {
+	res, err := s.db.ExecContext(ctx, "DELETE FROM responses WHERE id = ?", id)
+	if err != nil {
+		return fmt.Errorf("delete response: %w", err)
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+func (s *Store) update(ctx context.Context, id int64, params SubmitParams, touchContribution bool) (Response, error) {
+	if err := params.normalize(); err != nil {
+		return Response{}, err
+	}
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return Response{}, fmt.Errorf("begin response transaction: %w", err)
@@ -172,28 +198,31 @@ func (s *Store) Update(ctx context.Context, token string, params SubmitParams) (
 	if _, err := tx.ExecContext(ctx,
 		`UPDATE responses SET contact_name = ?, email = ?, phone = ?, status = ?, message = ?, music_genres = ?, music_song = ?, updated_at = ?
 		 WHERE id = ?`,
-		params.ContactName, params.Email, params.Phone, params.Status, params.Message, params.MusicGenres, params.MusicSong, time.Now().UTC(), existing.ID); err != nil {
+		params.ContactName, params.Email, params.Phone, params.Status, params.Message, params.MusicGenres, params.MusicSong, time.Now().UTC(), id); err != nil {
 		return Response{}, fmt.Errorf("update response: %w", err)
 	}
-	if _, err := tx.ExecContext(ctx, "DELETE FROM response_attendees WHERE response_id = ?", existing.ID); err != nil {
+	if _, err := tx.ExecContext(ctx, "DELETE FROM response_attendees WHERE response_id = ?", id); err != nil {
 		return Response{}, fmt.Errorf("clear attendees: %w", err)
 	}
-	if err := s.writeDetails(ctx, tx, existing.ID, params); err != nil {
+	if err := s.writeDetails(ctx, tx, id, params, touchContribution); err != nil {
 		return Response{}, err
 	}
 	if err := tx.Commit(); err != nil {
 		return Response{}, fmt.Errorf("commit response: %w", err)
 	}
-	return s.GetByID(ctx, existing.ID)
+	return s.GetByID(ctx, id)
 }
 
-func (s *Store) writeDetails(ctx context.Context, tx *sql.Tx, responseID int64, params SubmitParams) error {
+func (s *Store) writeDetails(ctx context.Context, tx *sql.Tx, responseID int64, params SubmitParams, touchContribution bool) error {
 	for _, attendee := range params.Attendees {
 		if _, err := tx.ExecContext(ctx,
 			`INSERT INTO response_attendees (response_id, name, is_child, diet, allergies) VALUES (?, ?, ?, ?, ?)`,
 			responseID, attendee.Name, attendee.IsChild, attendee.Diet, attendee.Allergies); err != nil {
 			return fmt.Errorf("insert attendee: %w", err)
 		}
+	}
+	if !touchContribution {
+		return nil
 	}
 	if params.Contribution == nil {
 		return s.contributions.DeleteByResponse(ctx, tx, responseID)

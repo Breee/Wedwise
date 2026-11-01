@@ -88,8 +88,7 @@ func New(cfg configuration.Config, db *sql.DB) (*Server, error) {
 			protected.Mount("/invite-links", inviteHandler.Routes())
 			protected.With(authService.RequirePermission(auth.PermRSVPRead)).
 				Get("/rsvp-summary", rsvpHandler.SummaryHandler)
-			protected.With(authService.RequirePermission(auth.PermRSVPRead)).
-				Get("/responses", rsvpHandler.ListHandler)
+			protected.Mount("/responses", rsvpHandler.StaffRoutes(authService))
 		})
 
 		api.NotFound(func(w http.ResponseWriter, r *http.Request) {
