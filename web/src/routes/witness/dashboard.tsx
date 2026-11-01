@@ -95,7 +95,7 @@ function ContributionTable({ items, onOpen }: { items: Contribution[]; onOpen: (
               <TableCell className="font-medium">{c.title || 'Ohne Titel'}</TableCell>
               <TableCell>
                 {c.contactName}
-                <ContactLinks phone={c.phone} messengers={c.messengers} matrixId={c.matrixId} className="mt-1" />
+                <ContactLinks phone={c.phone} messengers={c.messengers} className="mt-1" />
               </TableCell>
               <TableCell className="max-w-56 truncate text-muted-foreground">{c.needs || '–'}</TableCell>
               <TableCell className="tabular-nums">

@@ -14,6 +14,7 @@ Keep `local/content.json` → `accommodation.hotels` current: only well-rated, a
 - Prefer real hotels/guesthouses over single private apartments (Booking filter `ht_id=204`).
 - Target 10 entries, sorted by the frontend automatically; keep price tiers mixed (1 = budget, 2 = mid, 3 = upscale).
 - Each hotel needs: `name`, `area`, `lat`, `lng`, `priceTier`, `note` (German, one sentence, include "Bewertung X,X/10"), `url` (own website, must return 200), `bookingUrl` (Booking property page `https://www.booking.com/hotel/de/<slug>.de.html`, no query string — the frontend appends dates/guests).
+- Each hotel also needs precomputed `routes` (`foot`, `bike`, `car` to the venue and `toStop` to the nearest tram-line stop), each `{minutes, meters, coords:[[lng,lat]…]}` from `https://routing.openstreetmap.de/routed-{foot,bike,car}/route/v1/{foot,bike,driving}/{lng},{lat};{venueLng},{venueLat}?overview=full&geometries=geojson`. The page must never wait on the router to decide walk vs. tram.
 - Never fabricate slugs, ratings, or prices. Omit a field rather than guess.
 - Stay dates come from `accommodation.checkIn` / `checkOut`.
 

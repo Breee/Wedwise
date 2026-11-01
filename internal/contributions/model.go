@@ -31,10 +31,9 @@ type Contribution struct {
 	Description string `json:"description"`
 	Needs       string `json:"needs"`
 	Phone       string `json:"phone"`
-	// Messengers lists the messengers reachable under Phone (see ValidMessengers).
-	Messengers string `json:"messengers"`
-	MatrixID   string `json:"matrixId"`
-	Status     string `json:"status"`
+	// Messengers lists the messengers the guest can be reached on.
+	Messengers []Messenger `json:"messengers"`
+	Status     string      `json:"status"`
 	// SlotTime is the planned start ("HH:MM") set by witnesses, empty if unscheduled.
 	SlotTime        string    `json:"slotTime"`
 	DurationMinutes int       `json:"durationMinutes"`
@@ -51,7 +50,14 @@ type ContributionNote struct {
 	CreatedAt      time.Time `json:"createdAt"`
 }
 
-// ValidMessengers lists the messengers a guest may mark as reachable.
+// Messenger is a chat app the guest can be reached on. Handle is a phone
+// number or username; when empty the contribution's Phone applies.
+type Messenger struct {
+	Kind   string `json:"kind"`
+	Handle string `json:"handle"`
+}
+
+// ValidMessengers lists the messenger kinds a guest may choose.
 func ValidMessengers() []string {
 	return []string{"whatsapp", "signal", "telegram"}
 }

@@ -18,7 +18,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
 import { GENRES, NEEDS_OPTIONS, SongSearch, formatNeeds, joinList, parseNeeds, splitList } from '@/components/rsvp/music'
-import { MESSENGERS } from '@/lib/contact'
+import { MESSENGERS, MessengerIcon } from '@/lib/contact'
 
 const MAX_ATTENDEES = 10
 
@@ -41,7 +41,7 @@ export type FormProps = {
 }
 
 const newAttendee = (name = ''): Attendee => ({ name, isChild: false, diet: 'none', allergies: '' })
-const emptyContribution: ContributionRequest = { title: '', description: '', needs: '', phone: '', messengers: [], matrixId: '' }
+const emptyContribution: ContributionRequest = { title: '', description: '', needs: '', phone: '', messengers: [] }
 
 export function RsvpForm({ initial, link, onDone }: FormProps) {
   const navigate = useNavigate()
@@ -56,8 +56,6 @@ export function RsvpForm({ initial, link, onDone }: FormProps) {
   const [wantsContribution, setWantsContribution] = useState(Boolean(initial?.contribution))
   const [contribution, setContribution] = useState<ContributionRequest>(initial?.contribution ?? emptyContribution)
   const [needs, setNeeds] = useState(() => parseNeeds(initial?.contribution?.needs ?? ''))
-
-  const [moreContact, setMoreContact] = useState(Boolean(initial?.contribution?.matrixId))
 
   const attending = status === 'yes'
   const stepCount = attending ? 6 : 3
@@ -261,34 +259,55 @@ export function RsvpForm({ initial, link, onDone }: FormProps) {
                   <div className="space-y-2">
                     <Label htmlFor="c-phone">Telefonnummer für die Trauzeugen</Label>
                     <Input id="c-phone" type="tel" value={contribution.phone} onChange={(e) => setContribution({ ...contribution, phone: e.target.value })} required autoComplete="tel" />
-                    <div className="flex flex-wrap gap-x-4 gap-y-2 pt-1">
-                      {MESSENGERS.map((m) => (
-                        <Label key={m.id} className="flex items-center gap-2 font-normal">
-                          <Checkbox
-                            checked={contribution.messengers.includes(m.id)}
-                            onCheckedChange={(v) =>
+                  </div>
+                  <div className="space-y-3">
+                    <Label>Erreichbar per</Label>
+                    <div className="flex flex-wrap gap-2">
+                      {MESSENGERS.map((m) => {
+                        const on = contribution.messengers.some((x) => x.kind === m.id)
+                        return (
+                          <Button
+                            key={m.id}
+                            type="button"
+                            size="sm"
+                            variant={on ? 'default' : 'outline'}
+                            className="rounded-full"
+                            aria-pressed={on}
+                            onClick={() =>
                               setContribution({
                                 ...contribution,
-                                messengers: v ? [...contribution.messengers, m.id] : contribution.messengers.filter((x) => x !== m.id),
+                                messengers: on
+                                  ? contribution.messengers.filter((x) => x.kind !== m.id)
+                                  : [...contribution.messengers, { kind: m.id, handle: '' }],
+                              })
+                            }
+                          >
+                            <MessengerIcon kind={m.id} className={on ? 'size-4 [&>path]:fill-current' : 'size-4'} />
+                            {m.label}
+                          </Button>
+                        )
+                      })}
+                    </div>
+                    {contribution.messengers.map((m) => {
+                      const meta = MESSENGERS.find((x) => x.id === m.kind)!
+                      return (
+                        <div key={m.kind} className="flex items-center gap-2">
+                          <MessengerIcon kind={m.kind} className="size-5 shrink-0" />
+                          <Input
+                            aria-label={`${meta.label}: ${meta.handleHint}`}
+                            placeholder={`${meta.handleHint} – leer lassen, wenn wie oben`}
+                            value={m.handle}
+                            onChange={(e) =>
+                              setContribution({
+                                ...contribution,
+                                messengers: contribution.messengers.map((x) => (x.kind === m.kind ? { ...x, handle: e.target.value } : x)),
                               })
                             }
                           />
-                          {m.label}
-                        </Label>
-                      ))}
-                    </div>
-                    <p className="text-xs text-muted-foreground">Unter dieser Nummer erreichbar per …</p>
+                        </div>
+                      )
+                    })}
                   </div>
-                  {moreContact ? (
-                    <div className="space-y-2">
-                      <Label htmlFor="c-matrix">Matrix (optional)</Label>
-                      <Input id="c-matrix" value={contribution.matrixId} onChange={(e) => setContribution({ ...contribution, matrixId: e.target.value })} placeholder="@name:matrix.org" />
-                    </div>
-                  ) : (
-                    <Button type="button" variant="link" size="sm" className="h-auto px-0" onClick={() => setMoreContact(true)}>
-                      Weitere Kontaktmöglichkeit (Matrix)
-                    </Button>
-                  )}
                 </div>
               )}
             </CardContent>

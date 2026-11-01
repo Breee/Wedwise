@@ -417,7 +417,7 @@ func normalizeAccommodation(a *Accommodation) error {
 			return fmt.Errorf("%w: hotels need a name (max 200 chars)", ErrValidation)
 		}
 		if r := h.Routes; r != nil {
-			for _, w := range []*Walk{r.Foot, r.Bike, r.Car} {
+			for _, w := range []*Walk{r.Foot, r.Bike, r.Car, r.ToStop} {
 				if err := validateWalk(w, h.Name); err != nil {
 					return err
 				}

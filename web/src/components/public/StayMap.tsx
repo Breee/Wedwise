@@ -9,6 +9,7 @@ import {
   bookingUrl,
   hotelBookingUrl,
   distanceMeters,
+  estimateRoute,
   formatStayDates,
   METERS_PER_MINUTE,
   routeQuery,
@@ -59,7 +60,7 @@ export function StayMap({ accommodation, travel, city }: { accommodation: Accomm
   const toStopRoutes = useQueries({
     queries: accommodation.hotels.map((h, i) => {
       const b = boardings[i]
-      return { ...routeQuery('foot', [h.lng, h.lat], b ? [b.lng, b.lat] : venue), enabled: hasVenue && !!b }
+      return { ...routeQuery('foot', [h.lng, h.lat], b ? [b.lng, b.lat] : venue), enabled: hasVenue && !!b && !h.routes?.toStop }
     }),
   })
   const stopWalkQuery = useQuery({
@@ -71,13 +72,13 @@ export function StayMap({ accommodation, travel, city }: { accommodation: Accomm
   const hotels = useMemo<Ranked[]>(() => {
     const ranked = accommodation.hotels.map((h, i): Ranked => {
       const here: LngLat = [h.lng, h.lat]
-      const foot = stored(h.routes?.foot) ?? footRoutes[i].data
+      // Fall back to a straight-line estimate so the walk-vs-tram decision never waits on the router.
+      const foot = stored(h.routes?.foot) ?? footRoutes[i].data ?? (hasVenue ? estimateRoute('foot', here, venue) : undefined)
       const bike = stored(h.routes?.bike) ?? bikeRoutes[i].data
       const car = stored(h.routes?.car) ?? carRoutes[i].data
-      const transit = viaStop(here, stop, venue, line, stopWalk, toStopRoutes[i].data)
-      const fallbackWalk = hasVenue ? (distanceMeters(here, venue) * 1.3) / METERS_PER_MINUTE.foot : 0
+      const transit = viaStop(here, stop, venue, line, stopWalk, stored(h.routes?.toStop) ?? toStopRoutes[i].data)
       const walk = !!foot && (foot.minutes <= WALK_ONLY_MINUTES || (foot.minutes <= WALK_MAX_MINUTES && (!transit || foot.minutes <= transit.totalMinutes)))
-      const minutes = walk ? foot!.minutes : (transit?.totalMinutes ?? foot?.minutes ?? fallbackWalk)
+      const minutes = walk ? foot!.minutes : (transit?.totalMinutes ?? foot?.minutes ?? 0)
       return { ...h, foot, bike, car, transit, walk, minutes }
     })
     return ranked.sort((a, b) => a.minutes - b.minutes)

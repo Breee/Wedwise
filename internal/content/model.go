@@ -97,7 +97,7 @@ type Hotel struct {
 	PriceTier  int     `json:"priceTier"` // 1..3
 	Note       string  `json:"note"`
 	URL        string  `json:"url"`
-	BookingURL string  `json:"bookingUrl"` // property page on a booking portal; dates are appended
+	BookingURL string  `json:"bookingUrl"`       // property page on a booking portal; dates are appended
 	Routes     *Routes `json:"routes,omitempty"` // precomputed routes to the venue
 }
 
@@ -107,6 +107,8 @@ type Routes struct {
 	Foot *Walk `json:"foot,omitempty"`
 	Bike *Walk `json:"bike,omitempty"`
 	Car  *Walk `json:"car,omitempty"`
+	// ToStop is the walk from the hotel to its nearest tram stop.
+	ToStop *Walk `json:"toStop,omitempty"`
 }
 
 // Accommodation is the stay section: dates for booking links plus hotels.

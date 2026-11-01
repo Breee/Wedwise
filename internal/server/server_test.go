@@ -474,8 +474,7 @@ func withContribution(body map[string]any) map[string]any {
 		"description": "Ein paar Worte über das Paar",
 		"needs":       "Mikrofon",
 		"phone":       "+49 170 1234567",
-		"messengers":  []string{"whatsapp", "signal"},
-		"matrixId":    "@max:matrix.org",
+		"messengers":  []map[string]string{{"kind": "whatsapp", "handle": ""}, {"kind": "telegram", "handle": "@max"}},
 	}
 	return body
 }
@@ -764,10 +763,12 @@ func TestWitnessManagesContributions(t *testing.T) {
 		Title       string `json:"title"`
 		Needs       string `json:"needs"`
 		Phone       string `json:"phone"`
-		Messengers  string `json:"messengers"`
-		MatrixID    string `json:"matrixId"`
-		Status      string `json:"status"`
-		Notes       []any  `json:"notes"`
+		Messengers  []struct {
+			Kind   string `json:"kind"`
+			Handle string `json:"handle"`
+		} `json:"messengers"`
+		Status string `json:"status"`
+		Notes  []any  `json:"notes"`
 	}
 	if err := json.NewDecoder(get.Body).Decode(&detail); err != nil {
 		t.Fatalf("decode detail: %v", err)
@@ -775,7 +776,7 @@ func TestWitnessManagesContributions(t *testing.T) {
 	if detail.ContactName != "Familie Muster" || detail.Phone != "+49 170 1234567" || detail.Needs != "Mikrofon" || detail.Status != "new" {
 		t.Fatalf("unexpected detail: %+v", detail)
 	}
-	if detail.Messengers != "whatsapp,signal" || detail.MatrixID != "@max:matrix.org" {
+	if len(detail.Messengers) != 2 || detail.Messengers[0].Kind != "whatsapp" || detail.Messengers[1].Handle != "@max" {
 		t.Fatalf("unexpected contact channels: %+v", detail)
 	}
 
@@ -1126,7 +1127,7 @@ func TestStaffEditsResponse(t *testing.T) {
 	witness, _ := app.login("witness_user", "TestPass123!")
 	cid := contributionID(t, app)
 	edit := app.do("PUT", fmt.Sprintf("/api/contributions/%d", cid), map[string]any{
-		"title": "Lied", "phone": "+49 170 7654321", "messengers": []string{"telegram"},
+		"title": "Lied", "phone": "+49 170 7654321", "messengers": []map[string]string{{"kind": "telegram"}},
 	}, witness)
 	raw, _ := io.ReadAll(edit.Body)
 	edit.Body.Close()

@@ -3,6 +3,7 @@ package contributions
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"slices"
@@ -37,7 +38,7 @@ const (
 	maxShortLen = 200
 )
 
-const columns = `c.id, c.response_id, r.contact_name, c.title, c.description, c.needs, c.phone, c.messengers, c.matrix_id, c.status,
+const columns = `c.id, c.response_id, r.contact_name, c.title, c.description, c.needs, c.phone, c.messengers, c.status,
 	c.slot_time, c.duration_minutes, c.created_at, c.updated_at`
 
 const fromClause = " FROM contributions c JOIN responses r ON r.id = c.response_id "
@@ -48,8 +49,7 @@ type Input struct {
 	Description string
 	Needs       string
 	Phone       string
-	Messengers  []string
-	MatrixID    string
+	Messengers  []Messenger
 }
 
 func (in *Input) normalize() error {
@@ -57,12 +57,19 @@ func (in *Input) normalize() error {
 	in.Description = strings.TrimSpace(in.Description)
 	in.Needs = strings.TrimSpace(in.Needs)
 	in.Phone = strings.TrimSpace(in.Phone)
-	in.MatrixID = strings.TrimSpace(in.MatrixID)
+	if in.Messengers == nil {
+		in.Messengers = []Messenger{}
+	}
 	for i, m := range in.Messengers {
-		in.Messengers[i] = strings.ToLower(strings.TrimSpace(m))
-		if !slices.Contains(ValidMessengers(), in.Messengers[i]) {
-			return fmt.Errorf("%w: unknown messenger %q", ErrValidation, m)
+		m.Kind = strings.ToLower(strings.TrimSpace(m.Kind))
+		m.Handle = strings.TrimSpace(m.Handle)
+		if !slices.Contains(ValidMessengers(), m.Kind) {
+			return fmt.Errorf("%w: unknown messenger %q", ErrValidation, m.Kind)
 		}
+		if len(m.Handle) > maxShortLen {
+			return fmt.Errorf("%w: messenger handle is too long", ErrValidation)
+		}
+		in.Messengers[i] = m
 	}
 
 	if in.Title == "" {
@@ -71,11 +78,8 @@ func (in *Input) normalize() error {
 	if in.Phone == "" {
 		return fmt.Errorf("%w: phone must not be empty", ErrValidation)
 	}
-	if len(in.Title) > maxShortLen || len(in.Phone) > maxShortLen || len(in.MatrixID) > maxShortLen {
-		return fmt.Errorf("%w: title, phone or matrixId is too long", ErrValidation)
-	}
-	if in.MatrixID != "" && !strings.HasPrefix(in.MatrixID, "@") {
-		return fmt.Errorf("%w: matrixId must look like @user:server", ErrValidation)
+	if len(in.Title) > maxShortLen || len(in.Phone) > maxShortLen {
+		return fmt.Errorf("%w: title or phone is too long", ErrValidation)
 	}
 	if len(in.Description) > maxTextLen || len(in.Needs) > maxTextLen {
 		return fmt.Errorf("%w: description or needs is too long", ErrValidation)
@@ -91,13 +95,13 @@ func (s *Store) Upsert(ctx context.Context, exec Execer, responseID int64, input
 	}
 	now := time.Now().UTC()
 	_, err := exec.ExecContext(ctx,
-		`INSERT INTO contributions (response_id, title, description, needs, phone, messengers, matrix_id, status, created_at, updated_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		`INSERT INTO contributions (response_id, title, description, needs, phone, messengers, status, created_at, updated_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 		 ON CONFLICT(response_id) DO UPDATE SET title = excluded.title, description = excluded.description,
 			needs = excluded.needs, phone = excluded.phone, messengers = excluded.messengers,
-			matrix_id = excluded.matrix_id, updated_at = excluded.updated_at`,
+			updated_at = excluded.updated_at`,
 		responseID, input.Title, input.Description, input.Needs, input.Phone,
-		strings.Join(input.Messengers, ","), input.MatrixID, StatusNew, now, now)
+		encodeMessengers(input.Messengers), StatusNew, now, now)
 	if err != nil {
 		return fmt.Errorf("upsert contribution: %w", err)
 	}
@@ -109,8 +113,8 @@ func (s *Store) UpdateContent(ctx context.Context, id int64, input Input) (Contr
 	if err := input.normalize(); err != nil {
 		return Contribution{}, err
 	}
-	return s.update(ctx, id, "title = ?, description = ?, needs = ?, phone = ?, messengers = ?, matrix_id = ?",
-		input.Title, input.Description, input.Needs, input.Phone, strings.Join(input.Messengers, ","), input.MatrixID)
+	return s.update(ctx, id, "title = ?, description = ?, needs = ?, phone = ?, messengers = ?",
+		input.Title, input.Description, input.Needs, input.Phone, encodeMessengers(input.Messengers))
 }
 
 // DeleteByResponse removes the contribution of a response, if any.
@@ -318,7 +322,31 @@ type scanner interface {
 
 func scan(row scanner) (Contribution, error) {
 	var c Contribution
+	var messengers string
 	err := row.Scan(&c.ID, &c.ResponseID, &c.ContactName, &c.Title, &c.Description, &c.Needs, &c.Phone,
-		&c.Messengers, &c.MatrixID, &c.Status, &c.SlotTime, &c.DurationMinutes, &c.CreatedAt, &c.UpdatedAt)
+		&messengers, &c.Status, &c.SlotTime, &c.DurationMinutes, &c.CreatedAt, &c.UpdatedAt)
+	if err != nil {
+		return c, err
+	}
+	c.Messengers, err = decodeMessengers(messengers)
 	return c, err
+}
+
+func encodeMessengers(list []Messenger) string {
+	if len(list) == 0 {
+		return ""
+	}
+	b, _ := json.Marshal(list)
+	return string(b)
+}
+
+func decodeMessengers(raw string) ([]Messenger, error) {
+	list := []Messenger{}
+	if raw == "" {
+		return list, nil
+	}
+	if err := json.Unmarshal([]byte(raw), &list); err != nil {
+		return nil, fmt.Errorf("decode messengers: %w", err)
+	}
+	return list, nil
 }

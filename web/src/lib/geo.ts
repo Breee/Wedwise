@@ -41,6 +41,10 @@ export function distanceMeters(a: LngLat, b: LngLat): number {
   return 6371000 * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h))
 }
 
+export function estimateRoute(profile: Profile, from: LngLat, to: LngLat): Route {
+  return estimate(profile, from, to)
+}
+
 function estimate(profile: Profile, from: LngLat, to: LngLat): Route {
   if (profile === 'transit') {
     const meters = distanceMeters(from, to)

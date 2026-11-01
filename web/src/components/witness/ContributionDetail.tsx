@@ -24,7 +24,7 @@ export function ContributionDetail({ id, onClose }: { id: number; onClose: () =>
       <DialogHeader>
         <DialogTitle className="text-3xl">{data.title || 'Ohne Titel'}</DialogTitle>
         <p className="text-sm text-muted-foreground">{data.contactName}</p>
-        <ContactLinks phone={data.phone} messengers={data.messengers} matrixId={data.matrixId} />
+        <ContactLinks phone={data.phone} messengers={data.messengers} />
       </DialogHeader>
       <div className="space-y-5">
         <div className="flex items-center gap-3">

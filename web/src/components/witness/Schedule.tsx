@@ -193,7 +193,7 @@ function PlanItem({ c, onOpen, onRemove }: { c: Contribution; onOpen: (c: Contri
             {c.contactName} · {duration(c)} Min.
             {c.needs && ` · ${c.needs}`}
           </p>
-          <ContactLinks phone={c.phone} messengers={c.messengers} matrixId={c.matrixId} className="mt-1" />
+          <ContactLinks phone={c.phone} messengers={c.messengers} className="mt-1" />
         </div>
         <span className={cn('shrink-0 rounded-full px-2 py-0.5 text-xs', STATUS_TONE[c.status])}>
           {CONTRIBUTION_STATUS_LABEL[c.status]}

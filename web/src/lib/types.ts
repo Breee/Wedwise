@@ -93,7 +93,7 @@ export interface Hotel {
   note: string
   url: string
   bookingUrl: string
-  routes?: { foot?: Walk; bike?: Walk; car?: Walk }
+  routes?: { foot?: Walk; bike?: Walk; car?: Walk; toStop?: Walk }
 }
 
 export interface Accommodation {
@@ -153,10 +153,15 @@ export interface ContributionRequest {
   needs: string
   phone: string
   messengers: Messenger[]
-  matrixId: string
 }
 
-export type Messenger = 'whatsapp' | 'signal' | 'telegram'
+export type MessengerKind = 'whatsapp' | 'signal' | 'telegram'
+
+export interface Messenger {
+  kind: MessengerKind
+  /** Phone number or username; empty means the contribution phone applies. */
+  handle: string
+}
 
 export interface RsvpSubmit {
   contactName: string
@@ -227,8 +232,7 @@ export interface Contribution {
   description: string
   needs: string
   phone: string
-  messengers: string
-  matrixId: string
+  messengers: Messenger[]
   status: ContributionStatus
   slotTime: string
   durationMinutes: number

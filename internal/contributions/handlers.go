@@ -26,18 +26,17 @@ func NewHandler(store *Store, authService *auth.Service) *Handler {
 
 // Request is the payload accepted by guests when offering a contribution.
 type Request struct {
-	Title       string   `json:"title"`
-	Description string   `json:"description"`
-	Needs       string   `json:"needs"`
-	Phone       string   `json:"phone"`
-	Messengers  []string `json:"messengers"`
-	MatrixID    string   `json:"matrixId"`
+	Title       string      `json:"title"`
+	Description string      `json:"description"`
+	Needs       string      `json:"needs"`
+	Phone       string      `json:"phone"`
+	Messengers  []Messenger `json:"messengers"`
 }
 
 // ToInput converts the request into store input.
 func (req Request) ToInput() Input {
 	return Input{Title: req.Title, Description: req.Description, Needs: req.Needs, Phone: req.Phone,
-		Messengers: req.Messengers, MatrixID: req.MatrixID}
+		Messengers: req.Messengers}
 }
 
 type bulkScheduleRequest struct {
