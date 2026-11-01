@@ -54,7 +54,13 @@ function HomePage() {
     { mode: 'car', label: 'Mit dem Auto', short: 'Auto', Icon: Car, text: location.parking, directions: 'driving' },
   ]
   const address = [location.address, 'city' in location && location.city ? location.city : ''].filter(Boolean).join(', ')
-  const calendar = icsUrl({ title: event.title, date: event.date, location: [location.name, address].filter(Boolean).join(', '), url: window.location.origin })
+  const calendar = icsUrl({
+    title: coupleNames.length ? `Hochzeit ${coupleNames.join(' & ')}` : event.title,
+    date: event.date,
+    location: [location.name, address].filter(Boolean).join(', '),
+    url: window.location.origin,
+    schedule,
+  })
 
   return (
     <>
