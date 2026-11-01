@@ -21,6 +21,6 @@ colors:
   blush: "#EADCD2"
 fonts:
   display: "'Cormorant Garamond', Georgia, serif"
-  script: "'Great Vibes', 'Cormorant Garamond', cursive"
+  script: "'Cormorant Garamond', Georgia, serif"
   body: "'Inter', ui-sans-serif, system-ui, sans-serif"
-  googleFonts: "https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Great+Vibes&family=Inter:wght@300;400;500;600&display=swap"
+  googleFonts: "https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Inter:wght@300;400;500;600&display=swap"
