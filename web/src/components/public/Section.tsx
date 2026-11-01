@@ -1,6 +1,7 @@
 import { motion } from 'motion/react'
 import type { ReactNode } from 'react'
 import { cn } from '@/lib/utils'
+import { BotanicalDivider } from '@/components/public/Botanical'
 
 export function Section({
   id,
@@ -28,7 +29,8 @@ export function Section({
       <div className="mb-10 text-center">
         {eyebrow && <p className="text-xs font-medium tracking-[0.3em] text-primary uppercase">{eyebrow}</p>}
         <h2 className="mt-2 text-4xl md:text-5xl">{title}</h2>
-        <div className="mx-auto mt-4 h-px w-16 bg-gold" />
+        <div className="mx-auto mt-4 h-px w-16 bg-gold [[data-decoration=botanical]_&]:hidden" />
+        <BotanicalDivider className="mt-3" />
       </div>
       {children}
       </div>
