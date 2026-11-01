@@ -12,12 +12,6 @@ export function InviteIntro() {
   const [open, setOpen] = useState(() => !reduced && sessionStorage.getItem(KEY) !== '1')
 
   useEffect(() => {
-    if (!open) return
-    const t = window.setTimeout(() => setOpen(false), 5200)
-    return () => window.clearTimeout(t)
-  }, [open])
-
-  useEffect(() => {
     if (!open) sessionStorage.setItem(KEY, '1')
   }, [open])
 
@@ -30,9 +24,9 @@ export function InviteIntro() {
       {open && data && (
         <motion.button
           type="button"
-          aria-label="Intro überspringen"
+          aria-label="Weiter zur Einladung"
           onClick={() => setOpen(false)}
-          className="fixed inset-0 z-50 flex cursor-default flex-col items-center justify-center bg-background px-6 text-center"
+          className="fixed inset-0 z-50 flex cursor-pointer flex-col items-center justify-center bg-background px-6 text-center"
           initial={{ opacity: 1 }}
           exit={{ opacity: 0, transition: { duration: 0.9, ease: 'easeInOut' } }}
         >
@@ -82,7 +76,7 @@ export function InviteIntro() {
             animate={{ opacity: 1 }}
             transition={{ delay: 3.2, duration: 0.8 }}
           >
-            Tippen zum Fortfahren
+            Tippen, um fortzufahren
           </motion.span>
         </motion.button>
       )}
