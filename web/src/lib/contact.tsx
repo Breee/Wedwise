@@ -8,7 +8,7 @@ const ICONS: Record<MessengerKind, { path: string; hex: string }> = {
 }
 
 export const MESSENGERS: { id: MessengerKind; label: string; handleHint: string }[] = [
-  { id: 'whatsapp', label: 'WhatsApp', handleHint: 'Telefonnummer' },
+  { id: 'whatsapp', label: 'WhatsApp', handleHint: 'Telefonnummer oder Benutzername' },
   { id: 'signal', label: 'Signal', handleHint: 'Telefonnummer oder Benutzername' },
   { id: 'telegram', label: 'Telegram', handleHint: 'Telefonnummer oder @benutzername' },
 ]
@@ -36,7 +36,7 @@ export function messengerUrl(m: Messenger, phone: string) {
   const p = digits(handle)
   switch (m.kind) {
     case 'whatsapp':
-      return `https://wa.me/${p.replace('+', '')}`
+      return isPhone(handle) ? `https://wa.me/${p.replace('+', '')}` : `https://wa.me/${handle.replace(/^@/, '')}`
     case 'signal':
       return isPhone(handle) ? `https://signal.me/#p/${p}` : `https://signal.me/#eu/${handle.replace(/^@/, '')}`
     case 'telegram':
