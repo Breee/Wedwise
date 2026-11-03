@@ -21,7 +21,7 @@ const DefaultName = "sage-leaf"
 type Theme struct {
 	Name       string `yaml:"name" json:"name"`
 	Label      string `yaml:"label" json:"label"`
-	Decoration string `yaml:"decoration" json:"decoration"` // none, botanical or dusk
+	Decoration string `yaml:"decoration" json:"decoration"` // none, botanical, dusk, forest or night
 	Colors     Colors `yaml:"colors" json:"colors"`
 	Fonts      Fonts  `yaml:"fonts" json:"fonts"`
 }
@@ -142,9 +142,9 @@ func (t *Theme) validate() error {
 	switch t.Decoration {
 	case "":
 		t.Decoration = "none"
-	case "none", "botanical", "dusk":
+	case "none", "botanical", "dusk", "forest", "night":
 	default:
-		return fmt.Errorf("decoration must be none, botanical or dusk")
+		return fmt.Errorf("decoration must be none, botanical, dusk, forest or night")
 	}
 	c := t.Colors
 	for name, v := range map[string]string{

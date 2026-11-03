@@ -124,7 +124,7 @@ export interface ThemeColors {
 export interface Theme {
   name: string
   label: string
-  decoration: 'none' | 'botanical' | 'dusk'
+  decoration: 'none' | 'botanical' | 'dusk' | 'forest' | 'night'
   colors: ThemeColors
   fonts: { display: string; script: string; body: string; googleFonts: string }
 }

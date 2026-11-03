@@ -40,7 +40,9 @@ export function InviteIntro() {
   const title = names.length ? names.join(" & ") : (data?.event.title ?? "");
   const date = data ? formatDate(data.event.date) : "";
   const fancy = data?.theme?.decoration === "botanical";
-  const dusk = data?.theme?.decoration === "dusk";
+  const deco = data?.theme?.decoration;
+  const dusk = deco === "dusk" || deco === "forest" || deco === "night";
+  const animated = deco === "forest";
 
   return (
     <AnimatePresence>
@@ -58,8 +60,8 @@ export function InviteIntro() {
         >
           {dusk ? (
             <>
-              <DuskScene />
-              <DuskTitle title={title} date={date} />
+              <DuskScene variant={deco as 'dusk' | 'forest' | 'night'} />
+              <DuskTitle title={title} date={date} delay={animated ? 3.3 : 0} />
               <span className="absolute top-[max(1rem,env(safe-area-inset-top))] right-4 rounded-full bg-black/25 px-4 py-2.5 text-xs tracking-[0.2em] text-[#d9c9a3]/80 uppercase backdrop-blur-sm">
                 Überspringen
               </span>
@@ -68,7 +70,7 @@ export function InviteIntro() {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: [0, 1, 0.5, 1] }}
                 transition={{
-                  delay: 5.5,
+                  delay: animated ? 5.5 : 3.4,
                   duration: 3,
                   repeat: Infinity,
                   repeatDelay: 0.5,
