@@ -1,0 +1,26 @@
+# Waldsee Dusk – Sage & Leaf palette with a forest-and-lake-at-dusk invite intro (fireflies).
+name: waldsee-dusk
+label: "Waldsee Dusk"
+decoration: dusk
+colors:
+  background: "#F8F6F0"
+  foreground: "#2C3424"
+  card: "#FDFCF8"
+  primary: "#3F5133"
+  primaryForeground: "#F8F6F0"
+  secondary: "#E3E8DA"
+  secondaryForeground: "#3F5133"
+  muted: "#EFECE3"
+  mutedForeground: "#6B7261"
+  accent: "#EDE6D3"
+  accentForeground: "#5C4A23"
+  border: "#DDD9CB"
+  ring: "#8A9A7B"
+  gold: "#B8975A"
+  sage: "#8A9A7B"
+  blush: "#EADCD2"
+fonts:
+  display: "'Cormorant Garamond', Georgia, serif"
+  script: "'Cormorant Garamond', Georgia, serif"
+  body: "'Inter', ui-sans-serif, system-ui, sans-serif"
+  googleFonts: "https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Inter:wght@300;400;500;600&display=swap"
