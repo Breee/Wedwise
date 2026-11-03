@@ -60,12 +60,15 @@ export function InviteIntro() {
             <>
               <DuskScene />
               <DuskTitle title={title} date={date} />
+              <span className="absolute top-[max(1rem,env(safe-area-inset-top))] right-4 rounded-full bg-black/25 px-4 py-2.5 text-xs tracking-[0.2em] text-[#d9c9a3]/80 uppercase backdrop-blur-sm">
+                Überspringen
+              </span>
               <motion.span
-                className="absolute bottom-8 rounded-full bg-black/20 px-4 py-1 text-xs tracking-[0.3em] text-[#d9c9a3]/80 uppercase backdrop-blur-sm"
+                className="absolute bottom-8 rounded-full bg-black/25 px-4 py-1 text-xs tracking-[0.3em] text-[#d9c9a3]/90 uppercase backdrop-blur-sm"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: [0, 1, 0.5, 1] }}
                 transition={{
-                  delay: 3.4,
+                  delay: 5.5,
                   duration: 3,
                   repeat: Infinity,
                   repeatDelay: 0.5,
