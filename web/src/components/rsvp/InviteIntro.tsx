@@ -62,9 +62,6 @@ export function InviteIntro() {
             <>
               <DuskScene variant={deco as 'dusk' | 'forest' | 'night'} />
               <DuskTitle title={title} date={date} delay={animated ? 3.3 : 0} />
-              <span className="absolute top-[max(1rem,env(safe-area-inset-top))] right-4 rounded-full bg-black/25 px-4 py-2.5 text-xs tracking-[0.2em] text-[#d9c9a3]/80 uppercase backdrop-blur-sm">
-                Überspringen
-              </span>
               <motion.span
                 className="absolute bottom-8 rounded-full bg-black/25 px-4 py-1 text-xs tracking-[0.3em] text-[#d9c9a3]/90 uppercase backdrop-blur-sm"
                 initial={{ opacity: 0 }}
