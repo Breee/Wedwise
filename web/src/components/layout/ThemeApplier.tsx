@@ -24,16 +24,26 @@ const COLOR_VARS: Record<keyof Theme['colors'], string[]> = {
 
 const FONT_LINK_ID = 'theme-fonts'
 
+const CACHE_KEY = 'wedwise:theme-vars'
+
 export function applyTheme(theme: Theme) {
   const root = document.documentElement
-  for (const [key, vars] of Object.entries(COLOR_VARS) as [keyof Theme['colors'], string[]][]) {
-    for (const v of vars) root.style.setProperty(v, theme.colors[key])
+  const vars: Record<string, string> = {}
+  for (const [key, list] of Object.entries(COLOR_VARS) as [keyof Theme['colors'], string[]][]) {
+    for (const v of list) vars[v] = theme.colors[key]
   }
-  root.style.setProperty('--font-display-family', theme.fonts.display)
-  root.style.setProperty('--font-script-family', theme.fonts.script)
-  root.style.setProperty('--font-body-family', theme.fonts.body)
+  vars['--font-display-family'] = theme.fonts.display
+  vars['--font-script-family'] = theme.fonts.script
+  vars['--font-body-family'] = theme.fonts.body
+  for (const [v, value] of Object.entries(vars)) root.style.setProperty(v, value)
   root.dataset.decoration = theme.decoration
   root.dataset.theme = theme.name
+  // Read by the inline bootstrap script in index.html to avoid a flash of the default palette.
+  try {
+    localStorage.setItem(CACHE_KEY, JSON.stringify({ vars, decoration: theme.decoration, theme: theme.name }))
+  } catch {
+    /* storage unavailable */
+  }
 
   let link = document.getElementById(FONT_LINK_ID) as HTMLLinkElement | null
   if (!link) {

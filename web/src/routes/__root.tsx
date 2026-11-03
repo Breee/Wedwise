@@ -5,8 +5,10 @@ import { Toaster } from '@/components/ui/sonner'
 import { AppNav } from '@/components/layout/AppNav'
 import { AppFooter } from '@/components/layout/AppFooter'
 import { ThemeApplier } from '@/components/layout/ThemeApplier'
+import { publicContentQuery } from '@/lib/queries'
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
+  loader: ({ context }) => context.queryClient.ensureQueryData(publicContentQuery),
   component: RootLayout,
   notFoundComponent: NotFound,
 })
