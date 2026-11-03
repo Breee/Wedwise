@@ -1,11 +1,10 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { publicContentQuery } from '@/lib/queries'
 import { formatDate } from '@/lib/format'
 import { BotanicalCorners } from '@/components/public/Botanical'
 
-const KEY = 'wedwise:intro-seen'
 const EASE = [0.22, 1, 0.36, 1] as const
 
 type Speck = { x: number; y: number; size: number; delay: number; duration: number; drift: number }
@@ -26,12 +25,8 @@ function makeSpecks(n: number): Speck[] {
 export function InviteIntro() {
   const reduced = useReducedMotion()
   const { data } = useQuery(publicContentQuery)
-  const [open, setOpen] = useState(() => !reduced && sessionStorage.getItem(KEY) !== '1')
+  const [open, setOpen] = useState(() => !reduced)
   const specks = useMemo(() => makeSpecks(12), [])
-
-  useEffect(() => {
-    if (!open) sessionStorage.setItem(KEY, '1')
-  }, [open])
 
   const names = data?.event.couple.map((c) => c.name).filter(Boolean) ?? []
   const title = names.length ? names.join(' & ') : (data?.event.title ?? '')
