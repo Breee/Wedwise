@@ -256,12 +256,8 @@ export function RsvpForm({ initial, link, onDone }: FormProps) {
                     </div>
                     <Input placeholder="Sonstiges …" value={needs.other} onChange={(e) => setNeeds((n) => ({ ...n, other: e.target.value }))} />
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="c-phone">Telefonnummer für die Trauzeugen</Label>
-                    <Input id="c-phone" type="tel" value={contribution.phone} onChange={(e) => setContribution({ ...contribution, phone: e.target.value })} required autoComplete="tel" />
-                  </div>
                   <div className="space-y-3">
-                    <Label>Erreichbar per</Label>
+                    <Label>Wie erreichen euch die Trauzeugen?</Label>
                     <div className="flex flex-wrap gap-2">
                       {MESSENGERS.map((m) => {
                         const on = contribution.messengers.some((x) => x.kind === m.id)
@@ -295,8 +291,9 @@ export function RsvpForm({ initial, link, onDone }: FormProps) {
                           <MessengerIcon kind={m.kind} className="size-5 shrink-0" />
                           <Input
                             aria-label={`${meta.label}: ${meta.handleHint}`}
-                            placeholder={`${meta.handleHint} – leer lassen, wenn wie oben`}
+                            placeholder={meta.handleHint}
                             value={m.handle}
+                            required
                             onChange={(e) =>
                               setContribution({
                                 ...contribution,
@@ -307,6 +304,9 @@ export function RsvpForm({ initial, link, onDone }: FormProps) {
                         </div>
                       )
                     })}
+                    {contribution.messengers.length === 0 && (
+                      <p className="text-sm text-muted-foreground">Bitte mindestens einen Messenger auswählen.</p>
+                    )}
                   </div>
                 </div>
               )}

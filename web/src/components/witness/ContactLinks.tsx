@@ -8,10 +8,12 @@ export function ContactLinks({ phone, messengers, className }: { phone: string; 
   const chip = 'inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs hover:bg-muted'
   return (
     <span className={cn('flex flex-wrap items-center gap-1.5', className)}>
-      <a href={`tel:${phone}`} onClick={stop} className={chip}>
-        <Phone className="size-3" />
-        {phone}
-      </a>
+      {phone && (
+        <a href={`tel:${phone}`} onClick={stop} className={chip}>
+          <Phone className="size-3" />
+          {phone}
+        </a>
+      )}
       {messengers.map((m) => {
         const label = MESSENGERS.find((x) => x.id === m.kind)?.label ?? m.kind
         return (

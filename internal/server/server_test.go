@@ -473,8 +473,7 @@ func withContribution(body map[string]any) map[string]any {
 		"title":       "Kleine Rede",
 		"description": "Ein paar Worte über das Paar",
 		"needs":       "Mikrofon",
-		"phone":       "+49 170 1234567",
-		"messengers":  []map[string]string{{"kind": "whatsapp", "handle": ""}, {"kind": "telegram", "handle": "@max"}},
+		"messengers":  []map[string]string{{"kind": "whatsapp", "handle": "+49 170 1234567"}, {"kind": "telegram", "handle": "@max"}},
 	}
 	return body
 }
@@ -625,11 +624,14 @@ func TestRSVP_Validation(t *testing.T) {
 			}
 			b["attendees"] = list
 		}},
-		{"contribution without phone", func(b map[string]any) {
-			b["contribution"] = map[string]any{"title": "Rede", "phone": ""}
+		{"contribution without messenger", func(b map[string]any) {
+			b["contribution"] = map[string]any{"title": "Rede"}
+		}},
+		{"contribution with messenger but no handle", func(b map[string]any) {
+			b["contribution"] = map[string]any{"title": "Rede", "messengers": []map[string]string{{"kind": "signal", "handle": ""}}}
 		}},
 		{"contribution without title", func(b map[string]any) {
-			b["contribution"] = map[string]any{"title": "", "phone": "0170"}
+			b["contribution"] = map[string]any{"title": "", "messengers": []map[string]string{{"kind": "signal", "handle": "0170"}}}
 		}},
 	}
 	for _, tc := range cases {
@@ -773,7 +775,7 @@ func TestWitnessManagesContributions(t *testing.T) {
 	if err := json.NewDecoder(get.Body).Decode(&detail); err != nil {
 		t.Fatalf("decode detail: %v", err)
 	}
-	if detail.ContactName != "Familie Muster" || detail.Phone != "+49 170 1234567" || detail.Needs != "Mikrofon" || detail.Status != "new" {
+	if detail.ContactName != "Familie Muster" || detail.Needs != "Mikrofon" || detail.Status != "new" {
 		t.Fatalf("unexpected detail: %+v", detail)
 	}
 	if len(detail.Messengers) != 2 || detail.Messengers[0].Kind != "whatsapp" || detail.Messengers[1].Handle != "@max" {
@@ -1095,7 +1097,7 @@ func TestStaffEditsResponse(t *testing.T) {
 		cookie, _ := app.login(user, "TestPass123!")
 		body := validResponse()
 		body["contactName"] = "Geändert von " + user
-		body["contribution"] = map[string]any{"title": "Eingeschleust", "phone": "1"}
+		body["contribution"] = map[string]any{"title": "Eingeschleust", "messengers": []map[string]string{{"kind": "signal", "handle": "1"}}}
 		resp := app.do("PUT", path, body, cookie)
 		raw, _ := io.ReadAll(resp.Body)
 		resp.Body.Close()
@@ -1127,7 +1129,7 @@ func TestStaffEditsResponse(t *testing.T) {
 	witness, _ := app.login("witness_user", "TestPass123!")
 	cid := contributionID(t, app)
 	edit := app.do("PUT", fmt.Sprintf("/api/contributions/%d", cid), map[string]any{
-		"title": "Lied", "phone": "+49 170 7654321", "messengers": []map[string]string{{"kind": "telegram"}},
+		"title": "Lied", "messengers": []map[string]string{{"kind": "telegram", "handle": "+49 170 7654321"}},
 	}, witness)
 	raw, _ := io.ReadAll(edit.Body)
 	edit.Body.Close()
@@ -1135,7 +1137,7 @@ func TestStaffEditsResponse(t *testing.T) {
 		t.Fatalf("witness edit contribution: got %d, body %s", edit.StatusCode, raw)
 	}
 	couple, _ := app.login("couple_user", "TestPass123!")
-	if resp := app.do("PUT", fmt.Sprintf("/api/contributions/%d", cid), map[string]any{"title": "x", "phone": "1"}, couple); resp.StatusCode != http.StatusForbidden {
+	if resp := app.do("PUT", fmt.Sprintf("/api/contributions/%d", cid), map[string]any{"title": "x", "messengers": []map[string]string{{"kind": "signal", "handle": "1"}}}, couple); resp.StatusCode != http.StatusForbidden {
 		t.Fatalf("couple edit contribution: got %d", resp.StatusCode)
 	}
 

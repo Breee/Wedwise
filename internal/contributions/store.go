@@ -75,8 +75,15 @@ func (in *Input) normalize() error {
 	if in.Title == "" {
 		return fmt.Errorf("%w: title must not be empty", ErrValidation)
 	}
-	if in.Phone == "" {
-		return fmt.Errorf("%w: phone must not be empty", ErrValidation)
+	reachable := false
+	for _, m := range in.Messengers {
+		if m.Handle != "" {
+			reachable = true
+			break
+		}
+	}
+	if !reachable {
+		return fmt.Errorf("%w: at least one messenger with a number or username is required", ErrValidation)
 	}
 	if len(in.Title) > maxShortLen || len(in.Phone) > maxShortLen {
 		return fmt.Errorf("%w: title or phone is too long", ErrValidation)
