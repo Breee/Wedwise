@@ -253,8 +253,8 @@ func normalize(input Content) (Content, error) {
 	if input.Location.NavigationURL != "" && !isHTTPURL(input.Location.NavigationURL) {
 		return Content{}, fmt.Errorf("%w: navigationUrl must be an http(s) URL", ErrValidation)
 	}
-	if input.Location.Image != "" && !isHTTPURL(input.Location.Image) {
-		return Content{}, fmt.Errorf("%w: location image must be an http(s) URL", ErrValidation)
+	if img := input.Location.Image; img != "" && !isHTTPURL(img) && !(strings.HasPrefix(img, "/") && !strings.HasPrefix(img, "//")) {
+		return Content{}, fmt.Errorf("%w: location image must be an http(s) URL or a site-relative path", ErrValidation)
 	}
 
 	if err := normalizeTravel(&input.Travel); err != nil {
