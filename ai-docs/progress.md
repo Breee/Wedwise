@@ -38,7 +38,7 @@ Status values: `todo`, `in progress`, `blocked (reason)`, `done (commit)`.
 - 2026-10-30 — F-07 done: integration tests for RSVP read-back + validation (400/404), public content shape, `PUT /content` couple 200 / witness 403 / anon 401, content validation 400. Sprint 1 complete.
 - 2026-10-30 — F-01 done: `web/dist/.gitkeep` committed, Vite `keep-dist` plugin restores it after build; `go test ./...` passes on clean checkout.
 
-- 2026-10-30 — F-08 React rewrite done and verified with Playwright (home, RSVP incl. contribution step, login, couple pages, witness board). Couple set to Viktoria & Julian.
+- 2026-10-30 — F-08 React rewrite done and verified with Playwright (home, RSVP incl. contribution step, login, couple pages, witness board).
 - 2026-10-30 — Decided full React rewrite (F-08); F-02–F-05 folded into it.
 - 2026-10-30 — Review done, `ai-docs/` created, sprint 1 defined.
 - 2026-10-30 — Fixed public page not showing event/location (`2e976e7`).

@@ -61,6 +61,10 @@ make docker-run
 
 Once running, visit `http://localhost:8080`.
 
+`make up` runs the compose stack with dev users (`admin`/`couple`/`witness`, password `<role>12345`).
+It bootstraps `local/` (gitignored, mounted as `/config`) from `examples/` on first run —
+edit `local/config.yaml` and `local/content.json` for your own wedding.
+
 ## Local Development
 
 Prerequisites: Go 1.22+, Node 20+, and `npm`.

@@ -37,6 +37,7 @@ docker-run:
 		wedwise:latest
 
 up:
+	@test -d local || { mkdir -p local && cp examples/config.yaml local/config.yaml && cp examples/content.json local/content.json && echo "Created local/ from examples/ – edit it for your wedding"; }
 	docker compose up -d --build --wait
 	@for r in admin couple witness; do \
 		docker compose exec -T wedwise /app/wedding user create --username $$r --role $$r --email $$r@example.com --password $${r}12345 >/dev/null 2>&1 || true; \

@@ -23,3 +23,6 @@ config/production*.yaml
 *.swp
 .playwright-mcp/
 web/src/routeTree.gen.ts
+
+# Personal event data (mounted into docker compose)
+local/
