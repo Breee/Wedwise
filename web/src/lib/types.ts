@@ -84,9 +84,12 @@ export interface Travel {
   lines: TransitLine[]
 }
 
+export type StayKind = 'hotel' | 'apartment'
+
 export interface Hotel {
   name: string
   area: string
+  kind?: StayKind
   lat: number
   lng: number
   priceTier: 1 | 2 | 3

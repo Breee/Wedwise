@@ -189,6 +189,16 @@ function ContentPage() {
                 <Field label="Name" value={item.name} onChange={(v) => update({ ...item, name: v })} className="sm:col-span-2" />
                 <Field label="Stadtteil" value={item.area} onChange={(v) => update({ ...item, area: v })} />
                 <div className="space-y-2">
+                  <Label>Art</Label>
+                  <Select value={item.kind ?? 'hotel'} onValueChange={(v) => update({ ...item, kind: v as Hotel['kind'] })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="hotel">Hotel</SelectItem>
+                      <SelectItem value="apartment">Ferienwohnung</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
                   <Label>Preisklasse</Label>
                   <Select value={String(item.priceTier)} onValueChange={(v) => update({ ...item, priceTier: Number(v) as Hotel['priceTier'] })}>
                     <SelectTrigger><SelectValue /></SelectTrigger>

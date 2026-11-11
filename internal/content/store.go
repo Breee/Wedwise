@@ -427,6 +427,12 @@ func normalizeAccommodation(a *Accommodation) error {
 				}
 			}
 		}
+		if h.Kind == "" {
+			h.Kind = "hotel"
+		}
+		if h.Kind != "hotel" && h.Kind != "apartment" {
+			return fmt.Errorf("%w: hotel kind must be hotel or apartment", ErrValidation)
+		}
 		if h.PriceTier < 1 || h.PriceTier > 3 {
 			return fmt.Errorf("%w: priceTier must be 1..3", ErrValidation)
 		}

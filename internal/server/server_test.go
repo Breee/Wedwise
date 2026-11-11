@@ -407,6 +407,9 @@ func TestContentUpdate_Validation(t *testing.T) {
 		{"hotel price tier out of range", func(c map[string]any) {
 			c["accommodation"] = map[string]any{"hotels": []map[string]any{{"name": "H", "lat": 1, "lng": 1, "priceTier": 4}}}
 		}},
+		{"hotel unknown kind", func(c map[string]any) {
+			c["accommodation"] = map[string]any{"hotels": []map[string]any{{"name": "H", "lat": 1, "lng": 1, "priceTier": 1, "kind": "tent"}}}
+		}},
 		{"hotel non-http url", func(c map[string]any) {
 			c["accommodation"] = map[string]any{"hotels": []map[string]any{{"name": "H", "lat": 1, "lng": 1, "priceTier": 1, "url": "javascript:1"}}}
 		}},

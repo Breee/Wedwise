@@ -92,6 +92,7 @@ type Travel struct {
 type Hotel struct {
 	Name       string  `json:"name"`
 	Area       string  `json:"area"`
+	Kind       string  `json:"kind"` // hotel (default) or apartment
 	Lat        float64 `json:"lat"`
 	Lng        float64 `json:"lng"`
 	PriceTier  int     `json:"priceTier"` // 1..3
