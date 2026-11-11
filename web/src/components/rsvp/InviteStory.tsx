@@ -33,7 +33,7 @@ export function InviteStory({ target }: { target: string }) {
     <div className="relative bg-[#121c17] text-[#f4efe2]">
       <div className="sticky top-0 h-svh overflow-hidden">
         <DuskScene variant={variant} />
-        <div className="absolute inset-0 bg-gradient-to-b from-black/55 via-black/35 to-black/75" />
+        <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/55 to-black/80" />
       </div>
       <div className="relative -mt-[100svh]">
         <Page id="invite-title" next="invite-schedule">
@@ -70,7 +70,7 @@ function Page({ id, next, label, children }: { id: string; next: string; label?:
 function Eyebrow({ children }: { children: string }) {
   return (
     <motion.p
-      className="text-center text-xs text-[#d9c9a3] uppercase"
+      className="text-center text-sm font-medium text-[#ecdcb0] uppercase"
       initial={{ opacity: 0, letterSpacing: '0.1em' }}
       whileInView={{ opacity: 1, letterSpacing: '0.45em' }}
       viewport={{ once: true }}
@@ -98,21 +98,22 @@ function Title() {
   const location = data?.content.location
   const names = data?.event.couple?.map((c) => c.name).join(' & ') || data?.event.title
   return (
-    <div className="text-center [text-shadow:0_1px_18px_rgba(0,0,0,0.6)]">
+    <div className="text-center [text-shadow:0_1px_3px_rgba(0,0,0,0.9),0_2px_22px_rgba(0,0,0,0.75)]">
       <Eyebrow>Ihr seid eingeladen</Eyebrow>
       <motion.h1 className="mt-6 font-display text-5xl leading-tight text-balance md:text-7xl" {...rise(0.4)}>
         {names}
       </motion.h1>
       <GoldLine delay={0.9} />
       {data?.event.date && (
-        <motion.p className="font-display text-2xl text-[#d9c9a3]" {...rise(1.2)}>
+        <motion.p className="font-display text-3xl text-[#ecdcb0]" {...rise(1.2)}>
           {formatDate(data.event.date)}
         </motion.p>
       )}
-      <motion.div className="mt-8 space-y-1" {...rise(1.5)}>
-        {location?.name && <p className="text-sm tracking-[0.25em] uppercase">{location.name}</p>}
-        {location?.address && <p className="text-sm text-[#f4efe2]/70">{location.address}</p>}
-      </motion.div>
+      {location?.name && (
+        <motion.p className="mt-6 text-base font-medium tracking-[0.25em] uppercase" {...rise(1.5)}>
+          {location.name}
+        </motion.p>
+      )}
     </div>
   )
 }
@@ -121,7 +122,7 @@ function Schedule() {
   const { data } = useQuery(publicContentQuery)
   const schedule = [...(data?.content.schedule ?? [])].sort((a, b) => a.order - b.order)
   return (
-    <div className="[text-shadow:0_1px_18px_rgba(0,0,0,0.6)]">
+    <div className="[text-shadow:0_1px_3px_rgba(0,0,0,0.9),0_2px_22px_rgba(0,0,0,0.75)]">
       <Eyebrow>Unser Tag</Eyebrow>
       <motion.h2 className="mt-5 text-center font-display text-4xl leading-tight sm:text-5xl md:text-6xl" {...rise(0.3)}>
         So feiern wir
@@ -140,10 +141,10 @@ function Schedule() {
           <motion.li key={entry.id} className="relative" {...rise(0.1 + i * 0.1)}>
             <span className="absolute top-2 -left-8 size-[11px] rounded-full bg-[#f7e9a8] shadow-[0_0_14px_4px_rgba(247,233,168,0.55)]" />
             <p className="flex flex-wrap items-baseline gap-x-3">
-              <span className="font-display text-xl text-[#d9c9a3]">{entry.time}</span>
-              <span className="font-medium">{entry.title}</span>
+              <span className="font-display text-2xl font-semibold text-[#ecdcb0]">{entry.time}</span>
+              <span className="text-lg font-medium">{entry.title}</span>
             </p>
-            {entry.description && <p className="text-sm text-[#f4efe2]/75">{entry.description}</p>}
+            {entry.description && <p className="text-[15px] text-[#f4efe2]/90">{entry.description}</p>}
           </motion.li>
         ))}
       </ol>
