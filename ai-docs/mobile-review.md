@@ -16,7 +16,7 @@ Screenshots: `.playwright-mcp/rev-*.png`. Public page and RSVP form checked as g
 
 - [x] **Stay list** is ~7 screens long (10 hotels). Show 3 by default + "Alle 10 anzeigen"; collapse travel-time grid to a single line (`Tram 18 · Fuß 9 · Rad 5 Min`).
 - [x] **Stay map** sits above the list and is not sticky on mobile; selecting a hotel draws the route off-screen. Scroll map into view on select, or show a mini route badge in the card.
-- [ ] **Hotel markers** 7–10 cluster at Münsterplatz; add tiny collision offset or combine into a "4" cluster bubble when zoomed out.
+- [x] **Hotel markers** 7–10 cluster at Münsterplatz; add tiny collision offset or combine into a "4" cluster bubble when zoomed out.
 - [x] **RSVP contribution block**: 7 need-checkboxes + Sonstiges + phone + 3 messenger boxes + Matrix field = very long. Group needs as chip buttons (like genres), hide Matrix behind "Weitere Kontaktmöglichkeit".
 - [x] **RSVP attendee cards**: diet Select + allergies + Kind checkbox per person; put diet/Kind side by side (`grid-cols-2`).
 - [x] **Submit button** not sticky; on long forms users scroll a lot. Make the submit bar sticky at bottom once the form is dirty.
@@ -30,3 +30,14 @@ Screenshots: `.playwright-mcp/rev-*.png`. Public page and RSVP form checked as g
 - [x] Footer "Login" link is noise for guests; move to `/login` only, or make it tiny.
 - [x] Map attribution covers (already `compact`) the bottom-left route label on small maps; use `compact` attribution control.
 - [x] Respect `prefers-reduced-motion` for the animated route dash and whileInView fades.
+
+## Round 2 (2026-11-11, 390×844)
+
+Checked: home, `/rsvp/<link>` (intro + form), couple dashboard, invite links, content editor, witness dashboard.
+Public pages and witness dashboard: no sideways scroll, no console errors.
+
+- [ ] Content editor tabs make the page scroll sideways (#15)
+- [ ] Invite links table hides its actions (#16)
+- [ ] Responses table hides the edit button (#17)
+- [ ] Tap targets below 40px: tabs, chips, tram link, Kanban grip, icon buttons (#18)
+- [ ] Sticky section mini-nav (#10)
