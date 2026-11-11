@@ -36,8 +36,8 @@ Screenshots: `.playwright-mcp/rev-*.png`. Public page and RSVP form checked as g
 Checked: home, `/rsvp/<link>` (intro + form), couple dashboard, invite links, content editor, witness dashboard.
 Public pages and witness dashboard: no sideways scroll, no console errors.
 
-- [ ] Content editor tabs make the page scroll sideways (#15)
-- [ ] Invite links table hides its actions (#16)
-- [ ] Responses table hides the edit button (#17)
-- [ ] Tap targets below 40px: tabs, chips, tram link, Kanban grip, icon buttons (#18)
-- [ ] Sticky section mini-nav (#10)
+- [x] Content editor tabs make the page scroll sideways (#15)
+- [x] Invite links table hides its actions (#16)
+- [x] Responses table hides the edit button (#17)
+- [x] Tap targets below 40px: tabs, chips, tram link, Kanban grip, icon buttons (#18)
+- [x] Sticky section mini-nav (#10)

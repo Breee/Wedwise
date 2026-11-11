@@ -23,7 +23,7 @@ export function Section({
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: '-80px' }}
       transition={{ duration: 0.6, ease: 'easeOut' }}
-      className={cn('px-6 py-20', className)}
+      className={cn('scroll-mt-28 px-6 py-20', className)}
     >
       <div className="mx-auto max-w-5xl">
       <div className="mb-10 text-center">

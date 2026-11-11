@@ -9,6 +9,7 @@ import { icsUrl } from '@/lib/ics'
 import type { DirectionsMode } from '@/lib/geo'
 import { DirectionsLinks } from '@/components/public/DirectionsLinks'
 import { Section } from '@/components/public/Section'
+import { SectionNav } from '@/components/public/SectionNav'
 import { BotanicalCorners } from '@/components/public/Botanical'
 import { Linkify, Paragraphs } from '@/components/public/Linkify'
 import { Button } from '@/components/ui/button'
@@ -99,6 +100,8 @@ function HomePage() {
           )}
         </motion.div>
       </section>
+
+      <SectionNav />
 
       {content.introduction?.text && (
         <Section eyebrow="Willkommen" title="Schön, dass ihr da seid">
