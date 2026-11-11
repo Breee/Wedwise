@@ -12,7 +12,8 @@ Keep `local/content.json` → `accommodation.hotels` current: only well-rated, a
 - Rating ≥ 7.5/10 on Booking.com (guest rating, not star class).
 - Reachable in ≤ ~30 min from the venue via tram 1 (board at the nearest stop in `travel.stops`) + walk, or ≤ 25 min on foot.
 - Prefer real hotels/guesthouses over single private apartments (Booking filter `ht_id=204`).
-- Target 10 entries, sorted by the frontend automatically; keep price tiers mixed (1 = budget, 2 = mid, 3 = upscale).
+- Additionally keep 3–5 Ferienwohnungen with `"kind": "apartment"` (Booking filter `ht_id=201`, same rating and distance rules); they feed the Hotel/Ferienwohnung filter. Coordinates are on the property page in `[data-atlas-latlng]`.
+- Target 10 hotel entries, sorted by the frontend automatically; keep price tiers mixed (1 = budget, 2 = mid, 3 = upscale).
 - Each hotel needs: `name`, `area`, `lat`, `lng`, `priceTier`, `note` (German, one sentence, include "Bewertung X,X/10"), `url` (own website, must return 200), `bookingUrl` (Booking property page `https://www.booking.com/hotel/de/<slug>.de.html`, no query string — the frontend appends dates/guests).
 - Each hotel also needs precomputed `routes` (`foot`, `bike`, `car` to the venue and `toStop` to the nearest tram-line stop), each `{minutes, meters, coords:[[lng,lat]…]}` from `https://routing.openstreetmap.de/routed-{foot,bike,car}/route/v1/{foot,bike,driving}/{lng},{lat};{venueLng},{venueLat}?overview=full&geometries=geojson`. The page must never wait on the router to decide walk vs. tram.
 - Never fabricate slugs, ratings, or prices. Omit a field rather than guess.
