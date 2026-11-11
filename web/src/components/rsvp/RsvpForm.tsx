@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate } from '@tanstack/react-router'
+import { Link, useNavigate } from '@tanstack/react-router'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion, AnimatePresence } from 'motion/react'
 import { CheckCircle2, Clock, Copy, Minus, Plus, Share2 } from 'lucide-react'
@@ -437,9 +437,15 @@ export function Done({ view, onEdit }: { view: GuestView; onEdit: () => void }) 
               )}
             </div>
           </div>
-          <Button variant="outline" onClick={onEdit}>
-            Antwort bearbeiten
-          </Button>
+          <div className="flex flex-col items-center gap-3 pt-2">
+            <Button asChild size="lg">
+              <Link to="/">Alle Infos zur Hochzeit ansehen</Link>
+            </Button>
+            <p className="text-sm text-muted-foreground">Ablauf, Anreise und Unterkünfte findet ihr dort jederzeit wieder.</p>
+            <Button variant="outline" onClick={onEdit}>
+              Antwort bearbeiten
+            </Button>
+          </div>
         </CardContent>
       </Card>
     </motion.div>
