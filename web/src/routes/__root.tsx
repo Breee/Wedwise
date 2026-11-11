@@ -1,5 +1,5 @@
 import type { QueryClient } from '@tanstack/react-query'
-import { Outlet, createRootRouteWithContext } from '@tanstack/react-router'
+import { Outlet, createRootRouteWithContext, useMatchRoute } from '@tanstack/react-router'
 import { MotionConfig } from 'motion/react'
 import { Toaster } from '@/components/ui/sonner'
 import { AppNav } from '@/components/layout/AppNav'
@@ -14,11 +14,12 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 })
 
 function RootLayout() {
+  const invite = useMatchRoute()({ to: '/rsvp/$link' })
   return (
     <MotionConfig reducedMotion="user">
       <ThemeApplier />
       <div className="flex min-h-svh flex-col">
-        <AppNav />
+        {!invite && <AppNav />}
         <main className="flex-1">
           <Outlet />
         </main>

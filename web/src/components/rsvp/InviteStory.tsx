@@ -1,3 +1,4 @@
+import { useEffect, type ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { motion } from 'motion/react'
 import { ChevronDown } from 'lucide-react'
@@ -20,6 +21,14 @@ export function InviteStory({ target }: { target: string }) {
   const deco = data?.theme?.decoration as SceneVariant | undefined
   const variant = deco && SCENES.includes(deco) ? deco : 'night'
 
+  useEffect(() => {
+    const root = document.documentElement
+    root.style.scrollSnapType = 'y mandatory'
+    return () => {
+      root.style.scrollSnapType = ''
+    }
+  }, [])
+
   return (
     <div className="relative bg-[#121c17] text-[#f4efe2]">
       <div className="sticky top-0 h-svh overflow-hidden">
@@ -27,29 +36,37 @@ export function InviteStory({ target }: { target: string }) {
         <div className="absolute inset-0 bg-gradient-to-b from-black/55 via-black/35 to-black/75" />
       </div>
       <div className="relative -mt-[100svh]">
-        <section className="mx-auto flex min-h-[calc(100svh-4rem)] max-w-xl flex-col justify-center px-6 py-12">
+        <Page id="invite-title" next="invite-welcome">
           <Title />
-          <motion.div className="mt-14 flex flex-col items-center gap-2 text-[#d9c9a3]" {...rise(1.8)}>
-            <span className="text-[0.65rem] tracking-[0.3em] uppercase">Nach unten wischen</span>
-            <ChevronDown className="size-6 animate-bounce" aria-hidden />
-          </motion.div>
-        </section>
-        <section className="mx-auto flex min-h-svh max-w-xl flex-col justify-center px-6 py-12">
+        </Page>
+        <Page id="invite-welcome" next="invite-schedule">
           <Welcome />
-        </section>
-        <section className="mx-auto flex min-h-svh max-w-xl flex-col justify-center px-6 py-12">
+        </Page>
+        <Page id="invite-schedule" next={target} label="Zur Rückmeldung">
           <Schedule />
-          <motion.a
-            href={`#${target}`}
-            className="group mt-12 flex h-12 items-center justify-center gap-3 rounded-full bg-[#d9c9a3] text-sm font-medium tracking-[0.2em] text-[#1b241d] uppercase shadow-[0_0_40px_rgba(217,201,163,0.35)] transition hover:bg-[#e8dcbd]"
-            {...rise(0.2)}
-          >
-            Zur Rückmeldung
-            <ChevronDown className="size-4 transition group-hover:translate-y-1" />
-          </motion.a>
-        </section>
+        </Page>
       </div>
     </div>
+  )
+}
+
+function Page({ id, next, label, children }: { id: string; next: string; label?: string; children: ReactNode }) {
+  return (
+    <section
+      id={id}
+      className="mx-auto flex min-h-svh max-w-xl snap-start snap-always flex-col justify-center px-6 pt-8 pb-4"
+    >
+      <div className="flex flex-1 flex-col justify-center">{children}</div>
+      <button
+        type="button"
+        aria-label={label ?? 'Weiter'}
+        onClick={() => document.getElementById(next)?.scrollIntoView({ behavior: 'smooth' })}
+        className="mx-auto mt-6 flex min-h-12 flex-col items-center justify-center gap-1 px-6 text-[#d9c9a3]"
+      >
+        {label && <span className="text-xs tracking-[0.3em] uppercase">{label}</span>}
+        <ChevronDown className="size-7 animate-bounce" aria-hidden />
+      </button>
+    </section>
   )
 }
 

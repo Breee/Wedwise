@@ -43,7 +43,7 @@ function InviteLinkPage() {
   return (
     <>
       {!locked && !done && <InviteStory target="antwort" />}
-      <section id="antwort" className="mx-auto max-w-2xl scroll-mt-16 px-6 py-16">
+      <section id="antwort" className="mx-auto max-w-2xl snap-start px-6 py-16">
         <RsvpHeader />
         {locked ? (
           <PinGate link={link} />
