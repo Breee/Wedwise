@@ -72,8 +72,8 @@ function InvitesPage() {
           </Button>
         }
       />
-      <Table>
-        <TableHeader>
+      <Table className="block sm:table">
+        <TableHeader className="hidden sm:table-header-group">
           <TableRow>
             <TableHead>Link</TableHead>
             <TableHead>PIN</TableHead>
@@ -83,7 +83,7 @@ function InvitesPage() {
             <TableHead className="text-right">Aktionen</TableHead>
           </TableRow>
         </TableHeader>
-        <TableBody>
+        <TableBody className="block sm:table-row-group">
           {links.length === 0 && (
             <TableRow>
               <TableCell colSpan={6} className="py-10 text-center text-muted-foreground">
@@ -92,32 +92,33 @@ function InvitesPage() {
             </TableRow>
           )}
           {links.map((l) => (
-            <TableRow key={l.id} className={l.active ? '' : 'opacity-60'}>
-              <TableCell>
+            <TableRow key={l.id} className={`flex flex-wrap items-center gap-x-4 gap-y-1 p-3 sm:table-row sm:p-0 ${l.active ? '' : 'opacity-60'}`}>
+              <TableCell className="w-full min-w-0 p-0 sm:w-auto sm:p-2">
                 <div className="flex items-center gap-1 font-mono text-xs">
                   <span className="truncate">{revealed === l.id ? linkUrl(l.token) : `${window.location.origin}/rsvp/••••••••••••`}</span>
-                  <Button type="button" variant="ghost" size="icon" className="size-7" title={revealed === l.id ? 'Verbergen' : 'Anzeigen'} onClick={() => setRevealed(revealed === l.id ? null : l.id)}>
+                  <Button type="button" variant="ghost" size="icon" className="size-10 shrink-0 sm:size-7" title={revealed === l.id ? 'Verbergen' : 'Anzeigen'} onClick={() => setRevealed(revealed === l.id ? null : l.id)}>
                     {revealed === l.id ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
                   </Button>
-                  <Button type="button" variant="ghost" size="icon" className="size-7" title="Link kopieren" onClick={() => copy(l.token)}>
+                  <Button type="button" variant="ghost" size="icon" className="size-10 shrink-0 sm:size-7" title="Link kopieren" onClick={() => copy(l.token)}>
                     <Copy className="size-3.5" />
                   </Button>
                 </div>
               </TableCell>
-              <TableCell>{l.hasPin ? <Badge>PIN</Badge> : <span className="text-muted-foreground">–</span>}</TableCell>
-              <TableCell>{l.responses}</TableCell>
-              <TableCell className="text-muted-foreground">{formatDateTime(l.createdAt)}</TableCell>
-              <TableCell>
+              <TableCell className="p-0 sm:p-2">{l.hasPin ? <Badge>PIN</Badge> : <span className="text-muted-foreground">–</span>}</TableCell>
+              <TableCell className="p-0 sm:p-2">{l.responses}<span className="text-muted-foreground sm:hidden"> Antworten</span></TableCell>
+              <TableCell className="hidden text-muted-foreground sm:table-cell">{formatDateTime(l.createdAt)}</TableCell>
+              <TableCell className="p-0 sm:p-2">
                 <Switch checked={l.active} onCheckedChange={(active) => setActive.mutate({ id: l.id, active })} aria-label="Aktiv" />
               </TableCell>
-              <TableCell className="text-right">
+              <TableCell className="ml-auto p-0 text-right sm:p-2">
                 <div className="flex justify-end gap-1">
-                  <Button variant="ghost" size="icon" title={l.hasPin ? 'PIN ändern' : 'PIN setzen'} onClick={() => setPinTarget(l)}>
+                  <Button variant="ghost" size="icon" className="size-10 sm:size-9" title={l.hasPin ? 'PIN ändern' : 'PIN setzen'} onClick={() => setPinTarget(l)}>
                     <KeyRound className="size-4" />
                   </Button>
                   <Button
                     variant="ghost"
                     size="icon"
+                    className="size-10 sm:size-9"
                     title="Neuen Link erzeugen"
                     onClick={() => confirm('Der bisherige Link funktioniert danach nicht mehr. Fortfahren?') && regenerate.mutate(l.id)}
                   >
@@ -126,6 +127,7 @@ function InvitesPage() {
                   <Button
                     variant="ghost"
                     size="icon"
+                    className="size-10 sm:size-9"
                     title="Löschen"
                     onClick={() => confirm('Link löschen? Bereits abgegebene Antworten bleiben erhalten.') && remove.mutate(l.id)}
                   >
