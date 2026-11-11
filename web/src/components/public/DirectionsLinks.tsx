@@ -14,7 +14,7 @@ export function DirectionsLinks({
   from?: LngLat
   className?: string
 }) {
-  const chip = 'rounded-full border bg-background px-3 py-1.5 text-xs transition-colors hover:bg-muted'
+  const chip = 'inline-flex min-h-10 items-center rounded-full border bg-background px-3 py-1.5 text-xs sm:min-h-0 transition-colors hover:bg-muted'
   return (
     <span className={cn('flex flex-wrap gap-2', className)} onClick={(e) => e.stopPropagation()}>
       <a href={googleDirectionsUrl(to, mode, from)} target="_blank" rel="noreferrer" className={chip}>

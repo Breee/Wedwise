@@ -219,7 +219,7 @@ export function StayMap({ accommodation, travel, city }: { accommodation: Accomm
                 aria-checked={d === checkIn}
                 onClick={() => setCheckIn(d)}
                 className={cn(
-                  'rounded-full border px-3 py-1 text-sm transition-colors',
+                  'inline-flex min-h-10 items-center rounded-full border px-3 py-1 text-sm transition-colors sm:min-h-0',
                   d === checkIn ? 'border-primary bg-primary text-primary-foreground' : 'bg-background hover:border-primary/60',
                 )}
               >
@@ -427,7 +427,7 @@ function TravelTimes({ hotel, venue }: { hotel: Ranked; venue: LngLat }) {
         <p className="flex items-center gap-2 font-medium text-foreground">
           <primary.Icon className="size-4 text-primary" />
           {primary.href ? (
-            <a href={primary.href} target="_blank" rel="noreferrer" className="underline-offset-4 hover:underline" onClick={(e) => e.stopPropagation()}>
+            <a href={primary.href} target="_blank" rel="noreferrer" className="inline-flex min-h-10 items-center underline-offset-4 hover:underline sm:min-h-0" onClick={(e) => e.stopPropagation()}>
               {primary.text} ↗
             </a>
           ) : (
@@ -470,7 +470,7 @@ function FilterChip({ pressed, onClick, children }: { pressed: boolean; onClick:
       aria-pressed={pressed}
       onClick={onClick}
       className={cn(
-        'rounded-full border px-3 py-1.5 text-sm transition-colors',
+        'inline-flex min-h-10 items-center rounded-full border px-3 py-1.5 text-sm transition-colors sm:min-h-0',
         pressed ? 'border-primary bg-primary text-primary-foreground' : 'bg-background hover:border-primary/60',
       )}
     >

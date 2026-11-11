@@ -113,7 +113,7 @@ function CardBody({
       <div className="flex items-start gap-1">
         <button
           type="button"
-          className="-ml-1 mt-0.5 cursor-grab touch-none rounded p-0.5 text-muted-foreground hover:bg-muted active:cursor-grabbing"
+          className="-ml-2 -mt-1.5 cursor-grab touch-none rounded p-3 sm:-ml-1 sm:mt-0.5 sm:p-0.5 text-muted-foreground hover:bg-muted active:cursor-grabbing"
           aria-label={`${c.title || 'Beitrag'} verschieben`}
           {...handle}
         >

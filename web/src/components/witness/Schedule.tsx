@@ -178,7 +178,7 @@ function PlanItem({ c, onOpen, onRemove }: { c: Contribution; onOpen: (c: Contri
         {...attributes}
         {...listeners}
         aria-label={`${c.title || 'Beitrag'} verschieben`}
-        className="mt-2.5 cursor-grab touch-none rounded p-1 text-muted-foreground hover:bg-muted active:cursor-grabbing"
+        className="cursor-grab touch-none rounded p-3 sm:mt-2.5 sm:p-1 text-muted-foreground hover:bg-muted active:cursor-grabbing"
       >
         <GripVertical className="size-4" />
       </button>
@@ -218,7 +218,7 @@ function UnplannedItem({ c, onOpen }: { c: Contribution; onOpen: (c: Contributio
         {...attributes}
         {...listeners}
         aria-label={`${c.title || 'Beitrag'} verschieben`}
-        className="cursor-grab touch-none rounded p-1 text-muted-foreground hover:bg-muted active:cursor-grabbing"
+        className="cursor-grab touch-none rounded p-3 sm:p-1 text-muted-foreground hover:bg-muted active:cursor-grabbing"
       >
         <GripVertical className="size-4" />
       </button>
