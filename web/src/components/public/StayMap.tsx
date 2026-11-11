@@ -29,6 +29,7 @@ import { drawRoutes, drawTransitLines, fitPadding, venueMarker, type RouteFeatur
 import { ICON_SVG, KIND } from './TravelMap'
 
 const INITIAL_VISIBLE = 3
+const MARKER_SIZE = 24
 
 const TIER = { 1: { label: '€', hint: 'günstig' }, 2: { label: '€€', hint: 'mittel' }, 3: { label: '€€€', hint: 'gehoben' } } as const
 // Up to this walking time we only suggest walking.
@@ -109,6 +110,34 @@ export function StayMap({ accommodation, travel, city }: { accommodation: Accomm
       markers.push(venueMarker(map, venue))
       bounds.extend(venue)
     }
+    const hotelMarkers: maplibregl.Marker[] = []
+    // Overlapping markers are pushed apart in screen space so every number stays tappable.
+    const spread = () => {
+      const origin = hotels.map((h) => map.project([h.lng, h.lat]))
+      const pos = origin.map((p) => ({ x: p.x, y: p.y }))
+      for (let step = 0; step < 40; step++) {
+        for (let a = 0; a < pos.length; a++) {
+          for (let b = a + 1; b < pos.length; b++) {
+            let dx = pos[b].x - pos[a].x
+            let dy = pos[b].y - pos[a].y
+            let dist = Math.hypot(dx, dy)
+            if (dist >= MARKER_SIZE) continue
+            if (dist < 0.01) {
+              const angle = (a * 7 + b * 13) % 6
+              dx = Math.cos(angle)
+              dy = Math.sin(angle)
+              dist = 1
+            }
+            const push = (MARKER_SIZE - dist) / 2
+            pos[a].x -= (dx / dist) * push
+            pos[a].y -= (dy / dist) * push
+            pos[b].x += (dx / dist) * push
+            pos[b].y += (dy / dist) * push
+          }
+        }
+      }
+      pos.forEach((p, i) => hotelMarkers[i].setOffset([p.x - origin[i].x, p.y - origin[i].y]))
+    }
     hotels.forEach((h, i) => {
       const el = markerElement(`<span>${i + 1}</span>`, 'wed-marker wed-marker-hotel')
       el.title = h.name
@@ -119,11 +148,18 @@ export function StayMap({ accommodation, travel, city }: { accommodation: Accomm
         if (i >= INITIAL_VISIBLE) setShowAll(true)
         requestAnimationFrame(() => document.getElementById(`hotel-${i}`)?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }))
       })
-      markers.push(new maplibregl.Marker({ element: el, anchor: 'center' }).setLngLat([h.lng, h.lat]).addTo(map))
+      const marker = new maplibregl.Marker({ element: el, anchor: 'center' }).setLngLat([h.lng, h.lat]).addTo(map)
+      markers.push(marker)
+      hotelMarkers.push(marker)
       bounds.extend([h.lng, h.lat])
     })
     if (!bounds.isEmpty() && selectedIndex < 0) map.fitBounds(bounds, { padding: fitPadding(map), maxZoom: 14, duration: 0 })
-    return () => markers.forEach((m) => m.remove())
+    spread()
+    map.on('zoomend', spread)
+    return () => {
+      map.off('zoomend', spread)
+      markers.forEach((m) => m.remove())
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [map, hotels, hasVenue, venue])
 
