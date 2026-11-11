@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQueryClient, useSuspenseQuery } from '@tanstack/react-query'
-import { AnimatePresence, motion } from 'motion/react'
+import { motion } from 'motion/react'
 import { Lock } from 'lucide-react'
 import { toast } from 'sonner'
 import { api, errorMessage } from '@/lib/api'
@@ -34,37 +34,30 @@ function InviteLinkPage() {
   const { data: status } = useSuspenseQuery(inviteLinkQuery(link))
   const [done, setDone] = useState<GuestView | null>(null)
   const [saved, setSaved] = useState<GuestView | null>(null)
-  const [step, setStep] = useState<Step>('welcome')
-  const go = (next: Step) => {
-    setStep(next)
-    window.scrollTo({ top: 0 })
-  }
   const finish = (v: GuestView) => {
     setSaved(v)
     setDone(v)
+    window.scrollTo({ top: 0 })
   }
 
+  const locked = status.pinRequired && !status.unlocked
   return (
-    <section className="mx-auto max-w-2xl px-6 py-16">
+    <>
       <InviteIntro />
-      <RsvpHeader />
-      {status.pinRequired && !status.unlocked ? (
-        <PinGate link={link} />
-      ) : done ? (
-        <Done view={done} onEdit={() => setDone(null)} />
-      ) : (
-        <>
-          <AnimatePresence>
-            {step !== 'form' && <InviteStory step={step} onStep={go} onDone={() => go('form')} />}
-          </AnimatePresence>
-          {step === 'form' && <RsvpForm link={link} initial={saved ?? undefined} onDone={finish} />}
-        </>
-      )}
-    </section>
+      {!locked && !done && <InviteStory target="antwort" />}
+      <section id="antwort" className="mx-auto max-w-2xl scroll-mt-16 px-6 py-16">
+        <RsvpHeader />
+        {locked ? (
+          <PinGate link={link} />
+        ) : done ? (
+          <Done view={done} onEdit={() => setDone(null)} />
+        ) : (
+          <RsvpForm link={link} initial={saved ?? undefined} onDone={finish} />
+        )}
+      </section>
+    </>
   )
 }
-
-type Step = 'welcome' | 'schedule' | 'form'
 
 function PinGate({ link }: { link: string }) {
   const queryClient = useQueryClient()
