@@ -117,6 +117,9 @@ variables, not committed to the config file.
 
 - Sessions are HttpOnly, SameSite=Lax cookies (Secure when `ENVIRONMENT=production`);
   state-changing requests are checked against the `Origin`/`Referer` header.
+  Set `BASE_URL` to the address people actually open (for example
+  `BASE_URL=http://192.168.1.20:8080 docker compose up -d`), otherwise logins
+  from other hosts are rejected.
 - `POST /api/auth/login` is limited to 10 requests per client IP and minute,
   the public RSVP endpoints (unlock, submit, read/update by edit token) to 30.
   Exceeding the limit returns `429` with a `Retry-After` header.
