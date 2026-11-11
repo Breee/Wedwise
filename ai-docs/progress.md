@@ -22,10 +22,7 @@ Status values: `todo`, `in progress`, `blocked (reason)`, `done (commit)`.
 
 ## Backlog
 
-| ID | Item | Status |
-|---|---|---|
-| B-01 | Staff UI for editing/deleting responses (couple dashboard, witness tab) and contribution content | todo |
-| B-02 | Routing via a mapping API with a (free-tier) API key instead of the public OSRM demo server (e.g. OpenRouteService, Stadia/Stadia Maps, Geoapify); key via env, keep stored routes + fallback | todo |
+Open work is tracked in GitHub issues and milestones (M1 Staff tools, M2 Accommodation, M3 Mobile polish, M4 Go-live): https://github.com/Breee/Wedwise/issues
 
 ## Log
 
@@ -49,3 +46,5 @@ Status values: `todo`, `in progress`, `blocked (reason)`, `done (commit)`.
 - 2026-10-31 — Mobile polish: Google/Apple directions in all arrival tabs + stay cards, hamburger nav, compact hero/Ablauf, address below photo, stay list top 3 + expand with one-line times, map scrolls into view on select, RSVP steps/chips/sticky submit/Web Share, ICS button, reduced motion.
 - 2026-11-01 — Themes: bundled `themes/*.yaml` (sage-leaf default, terracotta), `internal/theme` registry, `GET /api/themes`, `content.theme` picked in editor tab "Design"; frontend applies colors/fonts as CSS vars, botanical sprig frame + script font when decoration is botanical. Old `local/theme.yaml`/`examples/theme.yaml` removed.
 - 2026-11-01: Cinematic typographic intro on invite links (once per session, tap to skip, reduced-motion aware); falling leaves dropped; FAQ expanded to 10 questions incl. evening-jacket hint.
+- 2026-11-03: Scene themes waldsee-dusk/forest/night (night in use) with invite intro scene and fireflies; contribution contact is messenger-only (WhatsApp/Signal/Telegram handle, no phone field); intro plays on every visit.
+- 2026-11-11: Work moved to GitHub issues #3–#18: staff editing of responses and contribution content, accommodation kind + price/type filters + Ferienwohnungen, marker spreading, mobile round 2 (card tables, scrolling tabs, tap targets, section mini-nav), `BASE_URL` via env in compose, optional OpenRouteService proxy `GET /api/route` (`ROUTING_API_KEY`).

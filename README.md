@@ -17,17 +17,21 @@ tools.
   Booking.com property links pre-filled with the wedding dates. The
   `/update-hotels` command (skill `accommodation-research`) re-checks
   ratings, availability and links via the browser. Stops and hotels are edited in the
-  content UI. Routes come from the public OSM foot router (straight-line
-  estimate as fallback); the guest's browser talks to these services directly.
+  content UI. Accommodations are hotels or Ferienwohnungen and can be
+  filtered by price tier and type. Routes are stored with the content; missing
+  ones come from OpenRouteService (optional `ROUTING_API_KEY`), the public OSM
+  router, or a straight-line estimate.
 - 🎨 **Theming** — pick a theme in the editor; themes are YAML files (see
   `themes/`) with colors, fonts and decoration, custom ones via `THEME_PATH`.
 - 💌 **Invite links** — no personalized invitations: create one or more
   links in the couple area (optionally PIN-protected), share them, and guests
-  respond per household at `/rsvp/<token>`. Every response gets a private
-  edit link.
+  respond per household at `/rsvp/<token>`, greeted by a short intro scene.
+  Every response gets a private edit link; couple, witnesses and admins can
+  edit or delete responses in their dashboards.
 - 🎁 **Contributions** — guests can offer a program contribution (what, what
-  they need, phone number, ~15 min limit) in the same form. Only witnesses see
-  these; the couple only ever sees attendance and food.
+  they need, a WhatsApp/Signal/Telegram contact, ~15 min limit) in the same
+  form. Only witnesses and admins see these (Kanban board, schedule planning,
+  editing); the couple only ever sees attendance and food.
 - 🔐 **Authentication** — session-based auth with an admin CLI for user
   management, no external identity provider required.
 - 🗄️ **SQLite storage** — zero-dependency embedded database; back up by
@@ -104,9 +108,10 @@ for a fully-documented example covering:
   page copy.
 
 Visual appearance is chosen in the content editor (tab "Design"). Themes are
-bundled from [`themes/`](themes/) (`sage-leaf` is the default, `terracotta`
-the warm alternative) and define colors, display/script/body fonts and an
-optional botanical decoration. To add your own, copy one of the YAML files,
+bundled from [`themes/`](themes/) (`sage-leaf` is the default; also
+`terracotta`, `sage-botanical` and the scene themes `waldsee-dusk`,
+`waldsee-forest`, `waldsee-night`) and define colors, fonts and a decoration
+(`none`, `botanical`, or an invite intro scene `dusk`/`forest`/`night`). To add your own, copy one of the YAML files,
 tweak it, and point `themePath` (env `THEME_PATH`) at it — it then appears in
 the picker alongside the bundled ones. Served via `GET /api/themes`.
 
