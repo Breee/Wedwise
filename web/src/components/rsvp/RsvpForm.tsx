@@ -163,7 +163,7 @@ export function RsvpForm({ initial, link, onDone }: FormProps) {
                       <Input id={`name-${i}`} value={a.name} onChange={(e) => updateAttendee(i, { name: e.target.value })} required />
                     </div>
                     <Label className="flex h-9 items-center gap-2 text-sm font-normal">
-                      <Checkbox checked={a.isChild} onCheckedChange={(c) => updateAttendee(i, { isChild: c === true })} />
+                      <Checkbox checked={a.isChild} onCheckedChange={(c) => updateAttendee(i, { isChild: c === true, photoOk: c !== true })} />
                       Kind
                     </Label>
                     {attendees.length > 1 && (
@@ -194,7 +194,7 @@ export function RsvpForm({ initial, link, onDone }: FormProps) {
                           Unsere Fotografin oder unser Fotograf darf {a.name || 'euer Kind'} mit aufs Bild nehmen.
                           <span className="mt-1 block text-muted-foreground">
                             Die Fotos bleiben eine private Erinnerung für uns und werden nicht veröffentlicht. Wenn ihr das lieber nicht
-                            möchtet, ist das völlig in Ordnung – nehmt einfach das Häkchen raus.
+                            möchtet, ist das völlig in Ordnung – lasst das Häkchen einfach weg.
                           </span>
                         </span>
                       </Label>

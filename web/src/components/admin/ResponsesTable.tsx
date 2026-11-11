@@ -108,7 +108,7 @@ function EditForm({ initial, onClose }: { initial: ResponseWithAttendees; onClos
               <div className="flex items-center gap-2">
                 <Input aria-label={`Name Person ${i + 1}`} required placeholder="Name" value={a.name} onChange={(e) => setAttendee(i, { name: e.target.value })} />
                 <label className="flex shrink-0 items-center gap-2 text-sm">
-                  <Checkbox checked={a.isChild} onCheckedChange={(v) => setAttendee(i, { isChild: v === true })} />
+                  <Checkbox checked={a.isChild} onCheckedChange={(v) => setAttendee(i, { isChild: v === true, photoOk: v !== true })} />
                   Kind
                 </label>
                 <Button

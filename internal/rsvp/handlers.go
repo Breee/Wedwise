@@ -66,7 +66,7 @@ func (req submitRequest) toParams() SubmitParams {
 			Name:      attendee.Name,
 			IsChild:   attendee.IsChild,
 			Age:       attendee.Age,
-			PhotoOK:   attendee.PhotoOK == nil || *attendee.PhotoOK,
+			PhotoOK:   attendee.PhotoOK != nil && *attendee.PhotoOK,
 			Diet:      attendee.Diet,
 			Allergies: attendee.Allergies,
 		})
