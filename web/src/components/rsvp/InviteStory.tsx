@@ -36,11 +36,8 @@ export function InviteStory({ target }: { target: string }) {
         <div className="absolute inset-0 bg-gradient-to-b from-black/55 via-black/35 to-black/75" />
       </div>
       <div className="relative -mt-[100svh]">
-        <Page id="invite-title" next="invite-welcome">
+        <Page id="invite-title" next="invite-schedule">
           <Title />
-        </Page>
-        <Page id="invite-welcome" next="invite-schedule">
-          <Welcome />
         </Page>
         <Page id="invite-schedule" next={target} label="Zur Rückmeldung">
           <Schedule />
@@ -98,6 +95,7 @@ function GoldLine({ delay }: { delay: number }) {
 
 function Title() {
   const { data } = useQuery(publicContentQuery)
+  const location = data?.content.location
   const names = data?.event.couple?.map((c) => c.name).join(' & ') || data?.event.title
   return (
     <div className="text-center [text-shadow:0_1px_18px_rgba(0,0,0,0.6)]">
@@ -111,31 +109,7 @@ function Title() {
           {formatDate(data.event.date)}
         </motion.p>
       )}
-    </div>
-  )
-}
-
-function Welcome() {
-  const { data } = useQuery(publicContentQuery)
-  const location = data?.content.location
-  const paragraphs = (data?.content.introduction?.text ?? '').split(/\n{2,}/).filter(Boolean)
-  return (
-    <div className="text-center [text-shadow:0_1px_18px_rgba(0,0,0,0.6)]">
-      <Eyebrow>Willkommen</Eyebrow>
-      <motion.h2 className="mt-5 font-display text-4xl leading-tight sm:text-5xl md:text-6xl" {...rise(0.3)}>
-        Schön, dass ihr da seid
-      </motion.h2>
-      <GoldLine delay={0.7} />
-      {paragraphs.map((t, i) => (
-        <motion.p
-          key={i}
-          className="mt-4 font-display text-xl leading-relaxed whitespace-pre-line text-[#f4efe2]/90 italic"
-          {...rise(0.9 + i * 0.35)}
-        >
-          {t}
-        </motion.p>
-      ))}
-      <motion.div className="mt-10 space-y-1" {...rise(1.1 + paragraphs.length * 0.35)}>
+      <motion.div className="mt-8 space-y-1" {...rise(1.5)}>
         {location?.name && <p className="text-sm tracking-[0.25em] uppercase">{location.name}</p>}
         {location?.address && <p className="text-sm text-[#f4efe2]/70">{location.address}</p>}
       </motion.div>
