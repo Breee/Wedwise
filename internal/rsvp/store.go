@@ -19,6 +19,7 @@ var ErrValidation = errors.New("invalid rsvp data")
 
 const (
 	maxShortLen   = 200
+	maxChildAge   = 17
 	maxMessageLen = 4000
 )
 
@@ -37,6 +38,8 @@ func NewStore(db *sql.DB, contributionStore *contributions.Store) *Store {
 type AttendeeInput struct {
 	Name      string
 	IsChild   bool
+	Age       int
+	PhotoOK   bool
 	Diet      string
 	Allergies string
 }
@@ -103,6 +106,13 @@ func (p *SubmitParams) normalize() error {
 		}
 		if len(attendee.Name) > maxShortLen || len(attendee.Allergies) > maxMessageLen {
 			return fmt.Errorf("%w: attendee details are too long", ErrValidation)
+		}
+		if !attendee.IsChild {
+			attendee.Age = 0
+			attendee.PhotoOK = true
+		}
+		if attendee.Age < 0 || attendee.Age > maxChildAge {
+			return fmt.Errorf("%w: child age must be between 0 and %d", ErrValidation, maxChildAge)
 		}
 		if attendee.Diet == "" {
 			attendee.Diet = DietNone
@@ -216,8 +226,8 @@ func (s *Store) update(ctx context.Context, id int64, params SubmitParams, touch
 func (s *Store) writeDetails(ctx context.Context, tx *sql.Tx, responseID int64, params SubmitParams, touchContribution bool) error {
 	for _, attendee := range params.Attendees {
 		if _, err := tx.ExecContext(ctx,
-			`INSERT INTO response_attendees (response_id, name, is_child, diet, allergies) VALUES (?, ?, ?, ?, ?)`,
-			responseID, attendee.Name, attendee.IsChild, attendee.Diet, attendee.Allergies); err != nil {
+			`INSERT INTO response_attendees (response_id, name, is_child, age, photo_ok, diet, allergies) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+			responseID, attendee.Name, attendee.IsChild, attendee.Age, attendee.PhotoOK, attendee.Diet, attendee.Allergies); err != nil {
 			return fmt.Errorf("insert attendee: %w", err)
 		}
 	}
@@ -290,7 +300,7 @@ func (s *Store) AllAttendees(ctx context.Context) ([]Attendee, error) {
 
 func (s *Store) queryAttendees(ctx context.Context, where string, args ...any) ([]Attendee, error) {
 	rows, err := s.db.QueryContext(ctx,
-		"SELECT id, response_id, name, is_child, diet, allergies FROM response_attendees "+where+" ORDER BY response_id, id", args...)
+		"SELECT id, response_id, name, is_child, age, photo_ok, diet, allergies FROM response_attendees "+where+" ORDER BY response_id, id", args...)
 	if err != nil {
 		return nil, fmt.Errorf("list attendees: %w", err)
 	}
@@ -299,7 +309,7 @@ func (s *Store) queryAttendees(ctx context.Context, where string, args ...any) (
 	result := make([]Attendee, 0)
 	for rows.Next() {
 		var attendee Attendee
-		if err := rows.Scan(&attendee.ID, &attendee.ResponseID, &attendee.Name, &attendee.IsChild,
+		if err := rows.Scan(&attendee.ID, &attendee.ResponseID, &attendee.Name, &attendee.IsChild, &attendee.Age, &attendee.PhotoOK,
 			&attendee.Diet, &attendee.Allergies); err != nil {
 			return nil, fmt.Errorf("scan attendee: %w", err)
 		}

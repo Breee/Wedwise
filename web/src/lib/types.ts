@@ -175,6 +175,8 @@ export interface Attendee {
   id?: number
   name: string
   isChild: boolean
+  age: number
+  photoOk: boolean
   diet: Diet | ''
   allergies: string
 }

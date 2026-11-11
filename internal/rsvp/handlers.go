@@ -33,6 +33,8 @@ func NewHandler(store *Store, contributionStore *contributions.Store, links *inv
 type attendeeRequest struct {
 	Name      string `json:"name"`
 	IsChild   bool   `json:"isChild"`
+	Age       int    `json:"age"`
+	PhotoOK   *bool  `json:"photoOk"`
 	Diet      string `json:"diet"`
 	Allergies string `json:"allergies"`
 }
@@ -60,7 +62,14 @@ func (req submitRequest) toParams() SubmitParams {
 		MusicSong:   req.MusicSong,
 	}
 	for _, attendee := range req.Attendees {
-		params.Attendees = append(params.Attendees, AttendeeInput(attendee))
+		params.Attendees = append(params.Attendees, AttendeeInput{
+			Name:      attendee.Name,
+			IsChild:   attendee.IsChild,
+			Age:       attendee.Age,
+			PhotoOK:   attendee.PhotoOK == nil || *attendee.PhotoOK,
+			Diet:      attendee.Diet,
+			Allergies: attendee.Allergies,
+		})
 	}
 	if req.Contribution != nil {
 		input := req.Contribution.ToInput()

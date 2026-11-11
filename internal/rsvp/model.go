@@ -46,6 +46,8 @@ type Attendee struct {
 	ResponseID int64  `json:"responseId"`
 	Name       string `json:"name"`
 	IsChild    bool   `json:"isChild"`
+	Age        int    `json:"age"`
+	PhotoOK    bool   `json:"photoOk"`
 	Diet       string `json:"diet"`
 	Allergies  string `json:"allergies"`
 }

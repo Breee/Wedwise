@@ -17,7 +17,7 @@ import { Textarea } from '@/components/ui/textarea'
 
 const MAX_ATTENDEES = 10
 
-const emptyAttendee = (): Attendee => ({ name: '', isChild: false, diet: 'none', allergies: '' })
+const emptyAttendee = (): Attendee => ({ name: '', isChild: false, age: 0, photoOk: true, diet: 'none', allergies: '' })
 
 function useResponseMutations(onDone: () => void) {
   const queryClient = useQueryClient()
@@ -37,7 +37,7 @@ function useResponseMutations(onDone: () => void) {
         message: r.message,
         musicGenres: r.musicGenres,
         musicSong: r.musicSong,
-        attendees: r.status === 'yes' ? r.attendees.map(({ name, isChild, diet, allergies }) => ({ name, isChild, diet, allergies })) : [],
+        attendees: r.status === 'yes' ? r.attendees.map(({ name, isChild, age, photoOk, diet, allergies }) => ({ name, isChild, age, photoOk, diet, allergies })) : [],
         contribution: null,
       }),
     onSuccess: () => {
@@ -122,6 +122,15 @@ function EditForm({ initial, onClose }: { initial: ResponseWithAttendees; onClos
                   <X className="size-4" />
                 </Button>
               </div>
+              {a.isChild && (
+                <div className="flex flex-wrap items-center gap-3 text-sm">
+                  <Input aria-label={`Alter Person ${i + 1}`} type="number" min={0} max={17} placeholder="Alter" className="w-20" value={a.age || ''} onChange={(e) => setAttendee(i, { age: Math.min(17, Math.max(0, Number(e.target.value) || 0)) })} />
+                  <label className="flex items-center gap-2">
+                    <Checkbox checked={a.photoOk} onCheckedChange={(v) => setAttendee(i, { photoOk: v === true })} />
+                    Fotos erlaubt
+                  </label>
+                </div>
+              )}
               <div className="grid grid-cols-2 gap-2">
                 <Select value={a.diet || 'none'} onValueChange={(v) => setAttendee(i, { diet: v as Diet })}>
                   <SelectTrigger aria-label={`Essen Person ${i + 1}`} className="w-full">
@@ -223,7 +232,8 @@ export function ResponsesTable({ responses }: { responses: ResponseWithAttendees
                     {r.attendees.map((a, i) => (
                       <li key={a.id ?? i}>
                         {a.name}
-                        {a.isChild && <span className="text-muted-foreground"> (Kind)</span>}
+                        {a.isChild && <span className="text-muted-foreground"> (Kind{a.age ? `, ${a.age} J.` : ''})</span>}
+                        {a.isChild && !a.photoOk && <span className="font-medium text-destructive"> · keine Fotos</span>}
                         <span className="text-muted-foreground">
                           {a.diet && a.diet !== 'none' ? ` · ${DIET_LABEL[a.diet] ?? a.diet}` : ''}
                           {a.allergies ? ` · ${a.allergies}` : ''}

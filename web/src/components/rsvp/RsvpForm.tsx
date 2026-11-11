@@ -40,7 +40,7 @@ export type FormProps = {
   onDone: (view: GuestView) => void
 }
 
-const newAttendee = (name = ''): Attendee => ({ name, isChild: false, diet: 'none', allergies: '' })
+const newAttendee = (name = ''): Attendee => ({ name, isChild: false, age: 0, photoOk: true, diet: 'none', allergies: '' })
 const emptyContribution: ContributionRequest = { title: '', description: '', needs: '', phone: '', messengers: [] }
 
 export function RsvpForm({ initial, link, onDone }: FormProps) {
@@ -172,6 +172,34 @@ export function RsvpForm({ initial, link, onDone }: FormProps) {
                       </Button>
                     )}
                   </div>
+                  {a.isChild && (
+                    <div className="space-y-3 rounded-lg bg-secondary/40 p-3">
+                      <div className="flex items-center gap-3">
+                        <Label htmlFor={`age-${i}`}>Alter</Label>
+                        <Input
+                          id={`age-${i}`}
+                          type="number"
+                          inputMode="numeric"
+                          min={0}
+                          max={17}
+                          className="w-20"
+                          value={a.age || ''}
+                          onChange={(e) => updateAttendee(i, { age: Math.min(17, Math.max(0, Number(e.target.value) || 0)) })}
+                        />
+                        <span className="text-sm text-muted-foreground">Jahre</span>
+                      </div>
+                      <Label className="flex items-start gap-2 text-sm leading-snug font-normal">
+                        <Checkbox className="mt-0.5" checked={a.photoOk} onCheckedChange={(c) => updateAttendee(i, { photoOk: c === true })} />
+                        <span>
+                          Unsere Fotografin darf {a.name || 'euer Kind'} mit aufs Bild nehmen.
+                          <span className="mt-1 block text-muted-foreground">
+                            Die Fotos bleiben eine private Erinnerung für uns und werden nicht veröffentlicht. Wenn ihr das lieber nicht
+                            möchtet, ist das völlig in Ordnung – nehmt einfach das Häkchen raus.
+                          </span>
+                        </span>
+                      </Label>
+                    </div>
+                  )}
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label>Ernährung</Label>

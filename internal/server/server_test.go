@@ -466,7 +466,7 @@ func validResponse() map[string]any {
 		"message":     "Wir freuen uns!",
 		"attendees": []map[string]any{
 			{"name": "Max Muster", "diet": "vegetarian", "allergies": "Nüsse"},
-			{"name": "Mia Muster", "isChild": true, "diet": "none"},
+			{"name": "Mia Muster", "isChild": true, "age": 6, "photoOk": false, "diet": "none"},
 		},
 	}
 }
@@ -492,6 +492,8 @@ type responseView struct {
 		Diet      string `json:"diet"`
 		Allergies string `json:"allergies"`
 		IsChild   bool   `json:"isChild"`
+		Age       int    `json:"age"`
+		PhotoOK   bool   `json:"photoOk"`
 	} `json:"attendees"`
 	Contribution *struct {
 		Title string `json:"title"`
@@ -1172,4 +1174,24 @@ func bodyContains(t *testing.T, resp *http.Response, needle string) bool {
 	defer resp.Body.Close()
 	raw, _ := io.ReadAll(resp.Body)
 	return strings.Contains(string(raw), needle)
+}
+
+func TestRSVP_ChildDetails(t *testing.T) {
+	app, _ := newTestAppWithUsers(t)
+	view := submitResponse(t, app, validResponse())
+	adult, child := view.Attendees[0], view.Attendees[1]
+	if adult.Age != 0 || !adult.PhotoOK {
+		t.Errorf("adult: got age %d photoOk %v, want 0 true", adult.Age, adult.PhotoOK)
+	}
+	if child.Age != 6 || child.PhotoOK {
+		t.Errorf("child: got age %d photoOk %v, want 6 false", child.Age, child.PhotoOK)
+	}
+
+	body := validResponse()
+	body["attendees"] = []map[string]any{{"name": "Mia", "isChild": true, "age": 40}}
+	resp := app.do("POST", app.submitPath(t), body, nil)
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Errorf("age 40: got %d, want 400", resp.StatusCode)
+	}
 }
