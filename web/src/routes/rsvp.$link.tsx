@@ -11,7 +11,6 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Done, RsvpForm, RsvpHeader } from '@/components/rsvp/RsvpForm'
-import { InviteIntro } from '@/components/rsvp/InviteIntro'
 import { InviteStory } from '@/components/rsvp/InviteStory'
 
 export const Route = createFileRoute('/rsvp/$link')({
@@ -43,7 +42,6 @@ function InviteLinkPage() {
   const locked = status.pinRequired && !status.unlocked
   return (
     <>
-      <InviteIntro />
       {!locked && !done && <InviteStory target="antwort" />}
       <section id="antwort" className="mx-auto max-w-2xl scroll-mt-16 px-6 py-16">
         <RsvpHeader />

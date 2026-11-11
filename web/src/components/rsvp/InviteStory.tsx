@@ -11,7 +11,7 @@ const SCENES: SceneVariant[] = ['dusk', 'forest', 'night']
 const rise = (delay: number) => ({
   initial: { opacity: 0, y: 24, filter: 'blur(10px)' },
   whileInView: { opacity: 1, y: 0, filter: 'blur(0px)' },
-  viewport: { once: true, amount: 0.3 },
+  viewport: { once: true, amount: 0.1 },
   transition: { duration: 1.1, delay, ease: EASE },
 })
 
@@ -27,13 +27,17 @@ export function InviteStory({ target }: { target: string }) {
         <div className="absolute inset-0 bg-gradient-to-b from-black/55 via-black/35 to-black/75" />
       </div>
       <div className="relative -mt-[100svh]">
-        <section className="mx-auto flex min-h-svh max-w-xl flex-col justify-center px-6 py-16">
-          <Welcome />
-          <motion.div className="mt-12 flex justify-center text-[#d9c9a3]" {...rise(1.4)}>
+        <section className="mx-auto flex min-h-[calc(100svh-4rem)] max-w-xl flex-col justify-center px-6 py-12">
+          <Title />
+          <motion.div className="mt-14 flex flex-col items-center gap-2 text-[#d9c9a3]" {...rise(1.8)}>
+            <span className="text-[0.65rem] tracking-[0.3em] uppercase">Nach unten wischen</span>
             <ChevronDown className="size-6 animate-bounce" aria-hidden />
           </motion.div>
         </section>
-        <section className="mx-auto flex min-h-svh max-w-xl flex-col justify-center px-6 py-16">
+        <section className="mx-auto flex min-h-svh max-w-xl flex-col justify-center px-6 py-12">
+          <Welcome />
+        </section>
+        <section className="mx-auto flex min-h-svh max-w-xl flex-col justify-center px-6 py-12">
           <Schedule />
           <motion.a
             href={`#${target}`}
@@ -75,6 +79,25 @@ function GoldLine({ delay }: { delay: number }) {
   )
 }
 
+function Title() {
+  const { data } = useQuery(publicContentQuery)
+  const names = data?.event.couple?.map((c) => c.name).join(' & ') || data?.event.title
+  return (
+    <div className="text-center [text-shadow:0_1px_18px_rgba(0,0,0,0.6)]">
+      <Eyebrow>Ihr seid eingeladen</Eyebrow>
+      <motion.h1 className="mt-6 font-display text-5xl leading-tight text-balance md:text-7xl" {...rise(0.4)}>
+        {names}
+      </motion.h1>
+      <GoldLine delay={0.9} />
+      {data?.event.date && (
+        <motion.p className="font-display text-2xl text-[#d9c9a3]" {...rise(1.2)}>
+          {formatDate(data.event.date)}
+        </motion.p>
+      )}
+    </div>
+  )
+}
+
 function Welcome() {
   const { data } = useQuery(publicContentQuery)
   const location = data?.content.location
@@ -82,9 +105,9 @@ function Welcome() {
   return (
     <div className="text-center [text-shadow:0_1px_18px_rgba(0,0,0,0.6)]">
       <Eyebrow>Willkommen</Eyebrow>
-      <motion.h1 className="mt-5 font-display text-5xl leading-tight md:text-6xl" {...rise(0.3)}>
+      <motion.h2 className="mt-5 font-display text-4xl leading-tight sm:text-5xl md:text-6xl" {...rise(0.3)}>
         Schön, dass ihr da seid
-      </motion.h1>
+      </motion.h2>
       <GoldLine delay={0.7} />
       {paragraphs.map((t, i) => (
         <motion.p
@@ -96,7 +119,6 @@ function Welcome() {
         </motion.p>
       ))}
       <motion.div className="mt-10 space-y-1" {...rise(1.1 + paragraphs.length * 0.35)}>
-        {data?.event.date && <p className="font-display text-3xl text-[#d9c9a3]">{formatDate(data.event.date)}</p>}
         {location?.name && <p className="text-sm tracking-[0.25em] uppercase">{location.name}</p>}
         {location?.address && <p className="text-sm text-[#f4efe2]/70">{location.address}</p>}
       </motion.div>
@@ -110,11 +132,11 @@ function Schedule() {
   return (
     <div className="[text-shadow:0_1px_18px_rgba(0,0,0,0.6)]">
       <Eyebrow>Unser Tag</Eyebrow>
-      <motion.h1 className="mt-5 text-center font-display text-5xl leading-tight md:text-6xl" {...rise(0.3)}>
+      <motion.h2 className="mt-5 text-center font-display text-4xl leading-tight sm:text-5xl md:text-6xl" {...rise(0.3)}>
         So feiern wir
-      </motion.h1>
+      </motion.h2>
       <GoldLine delay={0.7} />
-      <ol className="relative mx-auto mt-2 max-w-sm space-y-6 pl-8">
+      <ol className="relative mx-auto mt-2 max-w-sm space-y-4 pl-8">
         <motion.span
           aria-hidden
           className="absolute top-2 bottom-2 left-[5px] w-px origin-top bg-gradient-to-b from-[#d9c9a3] via-[#d9c9a3]/60 to-transparent shadow-[0_0_12px_rgba(217,201,163,0.8)]"
@@ -125,9 +147,11 @@ function Schedule() {
         />
         {schedule.map((entry, i) => (
           <motion.li key={entry.id} className="relative" {...rise(0.1 + i * 0.1)}>
-            <span className="absolute top-2.5 -left-8 size-[11px] rounded-full bg-[#f7e9a8] shadow-[0_0_14px_4px_rgba(247,233,168,0.55)]" />
-            <p className="font-display text-2xl text-[#d9c9a3]">{entry.time}</p>
-            <p className="text-lg font-medium">{entry.title}</p>
+            <span className="absolute top-2 -left-8 size-[11px] rounded-full bg-[#f7e9a8] shadow-[0_0_14px_4px_rgba(247,233,168,0.55)]" />
+            <p className="flex flex-wrap items-baseline gap-x-3">
+              <span className="font-display text-xl text-[#d9c9a3]">{entry.time}</span>
+              <span className="font-medium">{entry.title}</span>
+            </p>
             {entry.description && <p className="text-sm text-[#f4efe2]/75">{entry.description}</p>}
           </motion.li>
         ))}
