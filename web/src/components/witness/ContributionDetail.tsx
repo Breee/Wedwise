@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { Pencil } from 'lucide-react'
 import { contributionQuery } from '@/lib/queries'
 import { CONTRIBUTION_STATUS_LABEL, formatDateTime } from '@/lib/format'
 import type { ContributionStatus } from '@/lib/types'
@@ -14,8 +15,9 @@ import { ContactLinks } from './ContactLinks'
 
 export function ContributionDetail({ id, onClose }: { id: number; onClose: () => void }) {
   const { data, isPending } = useQuery(contributionQuery(id))
-  const { setStatus, setSchedule, addNote } = useContributionMutations()
+  const { setStatus, setSchedule, addNote, updateContent } = useContributionMutations()
   const [note, setNote] = useState('')
+  const [editing, setEditing] = useState(false)
 
   if (isPending || !data) return <p className="py-8 text-center text-muted-foreground">Lädt…</p>
 
@@ -42,12 +44,31 @@ export function ContributionDetail({ id, onClose }: { id: number; onClose: () =>
             </SelectContent>
           </Select>
         </div>
-        {data.description && <p className="whitespace-pre-line">{data.description}</p>}
-        {data.needs && (
-          <div className="text-sm">
-            <p className="text-muted-foreground">Benötigt</p>
-            <p className="whitespace-pre-line">{data.needs}</p>
-          </div>
+        {editing ? (
+          <ContentForm
+            initial={data}
+            pending={updateContent.isPending}
+            onCancel={() => setEditing(false)}
+            onSave={(content) =>
+              updateContent.mutate(
+                { id, ...content, phone: data.phone, messengers: data.messengers.map((m) => ({ ...m, handle: m.handle || data.phone })) },
+                { onSuccess: () => setEditing(false) },
+              )
+            }
+          />
+        ) : (
+          <>
+            {data.description && <p className="whitespace-pre-line">{data.description}</p>}
+            {data.needs && (
+              <div className="text-sm">
+                <p className="text-muted-foreground">Benötigt</p>
+                <p className="whitespace-pre-line">{data.needs}</p>
+              </div>
+            )}
+            <Button variant="outline" size="sm" onClick={() => setEditing(true)}>
+              <Pencil /> Beitrag bearbeiten
+            </Button>
+          </>
         )}
 
         <ScheduleForm
@@ -90,6 +111,55 @@ export function ContributionDetail({ id, onClose }: { id: number; onClose: () =>
         </div>
       </div>
     </>
+  )
+}
+
+type Content = { title: string; description: string; needs: string }
+
+function ContentForm({
+  initial,
+  pending,
+  onSave,
+  onCancel,
+}: {
+  initial: Content
+  pending: boolean
+  onSave: (content: Content) => void
+  onCancel: () => void
+}) {
+  const [title, setTitle] = useState(initial.title)
+  const [description, setDescription] = useState(initial.description)
+  const [needs, setNeeds] = useState(initial.needs)
+
+  return (
+    <form
+      className="grid gap-3 rounded-lg border bg-muted/30 p-4"
+      onSubmit={(e) => {
+        e.preventDefault()
+        onSave({ title, description, needs })
+      }}
+    >
+      <div className="grid gap-1.5">
+        <Label htmlFor="e-title">Titel</Label>
+        <Input id="e-title" required maxLength={200} value={title} onChange={(e) => setTitle(e.target.value)} />
+      </div>
+      <div className="grid gap-1.5">
+        <Label htmlFor="e-description">Beschreibung</Label>
+        <Textarea id="e-description" rows={3} value={description} onChange={(e) => setDescription(e.target.value)} />
+      </div>
+      <div className="grid gap-1.5">
+        <Label htmlFor="e-needs">Benötigt</Label>
+        <Textarea id="e-needs" rows={2} value={needs} onChange={(e) => setNeeds(e.target.value)} />
+      </div>
+      <div className="flex justify-end gap-2">
+        <Button type="button" variant="outline" onClick={onCancel}>
+          Abbrechen
+        </Button>
+        <Button type="submit" disabled={pending || !title.trim()}>
+          Speichern
+        </Button>
+      </div>
+    </form>
   )
 }
 

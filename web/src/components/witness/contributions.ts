@@ -2,7 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { api, errorMessage } from '@/lib/api'
 import { CONTRIBUTION_STATUS_LABEL } from '@/lib/format'
-import type { Contribution, ContributionStatus } from '@/lib/types'
+import type { Contribution, ContributionRequest, ContributionStatus } from '@/lib/types'
 
 export const STATUSES = Object.keys(CONTRIBUTION_STATUS_LABEL) as ContributionStatus[]
 
@@ -68,5 +68,14 @@ export function useContributionMutations() {
     onError,
   })
 
-  return { setStatus, setSchedule, setScheduleAll, addNote }
+  const updateContent = useMutation({
+    mutationFn: ({ id, ...content }: { id: number } & ContributionRequest) => api.put(`/contributions/${id}`, content),
+    onSuccess: () => {
+      invalidate()
+      toast.success('Beitrag gespeichert.')
+    },
+    onError,
+  })
+
+  return { setStatus, setSchedule, setScheduleAll, addNote, updateContent }
 }
