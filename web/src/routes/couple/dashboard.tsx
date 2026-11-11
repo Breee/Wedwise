@@ -1,13 +1,13 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { responsesQuery, summaryQuery } from '@/lib/queries'
-import { DIET_LABEL, RSVP_STATUS_LABEL, formatDateTime } from '@/lib/format'
+import { DIET_LABEL } from '@/lib/format'
+import { Badge } from '@/components/ui/badge'
 import { splitList } from '@/components/rsvp/music'
 import { PageHeader } from '@/components/admin/PageHeader'
 import { Stat } from '@/components/admin/Stat'
+import { ResponsesTable } from '@/components/admin/ResponsesTable'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 
 export const Route = createFileRoute('/couple/dashboard')({
   loader: ({ context }) =>
@@ -111,59 +111,8 @@ function CoupleDashboard() {
       </div>
 
       <h2 className="mt-12 text-3xl">Rückmeldungen</h2>
-      <div className="mt-4 rounded-lg border bg-card">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Kontakt</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Personen</TableHead>
-              <TableHead>Musik</TableHead>
-              <TableHead>Nachricht</TableHead>
-              <TableHead className="text-right">Eingegangen</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {responses.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">
-                  Noch keine Rückmeldungen.
-                </TableCell>
-              </TableRow>
-            )}
-            {responses.map((r) => (
-              <TableRow key={r.id}>
-                <TableCell className="align-top">
-                  <div className="font-medium">{r.contactName}</div>
-                  <div className="text-xs text-muted-foreground">{[r.email, r.phone].filter(Boolean).join(' · ')}</div>
-                </TableCell>
-                <TableCell className="align-top">
-                  <Badge variant={r.status === 'yes' ? 'default' : 'secondary'}>{RSVP_STATUS_LABEL[r.status] ?? r.status}</Badge>
-                </TableCell>
-                <TableCell className="align-top">
-                  <ul className="space-y-0.5 text-sm">
-                    {r.attendees?.map((a) => (
-                      <li key={a.id}>
-                        {a.name}
-                        {a.isChild && <span className="text-muted-foreground"> (Kind)</span>}
-                        <span className="text-muted-foreground">
-                          {a.diet && a.diet !== 'none' ? ` · ${DIET_LABEL[a.diet] ?? a.diet}` : ''}
-                          {a.allergies ? ` · ${a.allergies}` : ''}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                </TableCell>
-                <TableCell className="max-w-xs align-top text-sm text-muted-foreground">
-                  {r.musicGenres && <div>{r.musicGenres}</div>}
-                  {r.musicSong && <div className="text-foreground">♪ {r.musicSong}</div>}
-                </TableCell>
-                <TableCell className="max-w-xs align-top text-sm whitespace-pre-line text-muted-foreground">{r.message}</TableCell>
-                <TableCell className="text-right align-top text-xs text-muted-foreground">{formatDateTime(r.submittedAt)}</TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+      <div className="mt-4">
+        <ResponsesTable responses={responses} />
       </div>
     </>
   )

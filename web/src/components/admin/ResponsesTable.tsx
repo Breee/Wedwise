@@ -1,0 +1,262 @@
+import { useState } from 'react'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { Pencil, Plus, Trash2, X } from 'lucide-react'
+import { toast } from 'sonner'
+import { api, errorMessage } from '@/lib/api'
+import { DIET_LABEL, DIET_OPTIONS, RSVP_STATUS_LABEL, formatDateTime } from '@/lib/format'
+import type { Attendee, Diet, ResponseWithAttendees, RsvpStatus } from '@/lib/types'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Textarea } from '@/components/ui/textarea'
+
+const MAX_ATTENDEES = 10
+
+const emptyAttendee = (): Attendee => ({ name: '', isChild: false, diet: 'none', allergies: '' })
+
+function useResponseMutations(onDone: () => void) {
+  const queryClient = useQueryClient()
+  const refresh = () => {
+    for (const key of ['responses', 'rsvp-summary', 'contributions']) {
+      queryClient.invalidateQueries({ queryKey: [key] })
+    }
+    onDone()
+  }
+  const save = useMutation({
+    mutationFn: (r: ResponseWithAttendees) =>
+      api.put(`/responses/${r.id}`, {
+        contactName: r.contactName,
+        email: r.email,
+        phone: r.phone,
+        status: r.status,
+        message: r.message,
+        musicGenres: r.musicGenres,
+        musicSong: r.musicSong,
+        attendees: r.status === 'yes' ? r.attendees.map(({ name, isChild, diet, allergies }) => ({ name, isChild, diet, allergies })) : [],
+        contribution: null,
+      }),
+    onSuccess: () => {
+      toast.success('Rückmeldung gespeichert.')
+      refresh()
+    },
+    onError: (e) => toast.error(errorMessage(e)),
+  })
+  const remove = useMutation({
+    mutationFn: (id: number) => api.delete(`/responses/${id}`),
+    onSuccess: () => {
+      toast.success('Rückmeldung gelöscht.')
+      refresh()
+    },
+    onError: (e) => toast.error(errorMessage(e)),
+  })
+  return { save, remove }
+}
+
+function EditForm({ initial, onClose }: { initial: ResponseWithAttendees; onClose: () => void }) {
+  const [draft, setDraft] = useState(initial)
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const { save, remove } = useResponseMutations(onClose)
+  const busy = save.isPending || remove.isPending
+
+  const setAttendee = (i: number, patch: Partial<Attendee>) =>
+    setDraft((d) => ({ ...d, attendees: d.attendees.map((a, j) => (j === i ? { ...a, ...patch } : a)) }))
+
+  const setStatus = (status: RsvpStatus) =>
+    setDraft((d) => ({
+      ...d,
+      status,
+      attendees: status === 'yes' && d.attendees.length === 0 ? [{ ...emptyAttendee(), name: d.contactName }] : d.attendees,
+    }))
+
+  return (
+    <form
+      className="space-y-5"
+      onSubmit={(e) => {
+        e.preventDefault()
+        save.mutate(draft)
+      }}
+    >
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="space-y-2">
+          <Label htmlFor="r-name">Kontakt</Label>
+          <Input id="r-name" required value={draft.contactName} onChange={(e) => setDraft({ ...draft, contactName: e.target.value })} />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="r-status">Status</Label>
+          <Select value={draft.status} onValueChange={(v) => setStatus(v as RsvpStatus)}>
+            <SelectTrigger id="r-status" className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="yes">{RSVP_STATUS_LABEL.yes}</SelectItem>
+              <SelectItem value="no">{RSVP_STATUS_LABEL.no}</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      {draft.status === 'yes' && (
+        <div className="space-y-3">
+          <Label>Personen</Label>
+          {draft.attendees.map((a, i) => (
+            <div key={i} className="space-y-2 rounded-lg border p-3">
+              <div className="flex items-center gap-2">
+                <Input aria-label={`Name Person ${i + 1}`} required placeholder="Name" value={a.name} onChange={(e) => setAttendee(i, { name: e.target.value })} />
+                <label className="flex shrink-0 items-center gap-2 text-sm">
+                  <Checkbox checked={a.isChild} onCheckedChange={(v) => setAttendee(i, { isChild: v === true })} />
+                  Kind
+                </label>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  aria-label={`Person ${i + 1} entfernen`}
+                  disabled={draft.attendees.length === 1}
+                  onClick={() => setDraft({ ...draft, attendees: draft.attendees.filter((_, j) => j !== i) })}
+                >
+                  <X className="size-4" />
+                </Button>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <Select value={a.diet || 'none'} onValueChange={(v) => setAttendee(i, { diet: v as Diet })}>
+                  <SelectTrigger aria-label={`Essen Person ${i + 1}`} className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {DIET_OPTIONS.map((o) => (
+                      <SelectItem key={o.value} value={o.value}>
+                        {o.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Input aria-label={`Allergien Person ${i + 1}`} placeholder="Allergien" value={a.allergies} onChange={(e) => setAttendee(i, { allergies: e.target.value })} />
+              </div>
+            </div>
+          ))}
+          {draft.attendees.length < MAX_ATTENDEES && (
+            <Button type="button" variant="outline" size="sm" onClick={() => setDraft({ ...draft, attendees: [...draft.attendees, emptyAttendee()] })}>
+              <Plus className="size-4" /> Person hinzufügen
+            </Button>
+          )}
+        </div>
+      )}
+
+      <div className="space-y-2">
+        <Label htmlFor="r-message">Nachricht</Label>
+        <Textarea id="r-message" rows={3} value={draft.message} onChange={(e) => setDraft({ ...draft, message: e.target.value })} />
+      </div>
+
+      <DialogFooter className="gap-2 sm:justify-between">
+        {confirmDelete ? (
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground">Wirklich löschen?</span>
+            <Button type="button" variant="destructive" size="sm" disabled={busy} onClick={() => remove.mutate(draft.id)}>
+              Ja, löschen
+            </Button>
+            <Button type="button" variant="ghost" size="sm" onClick={() => setConfirmDelete(false)}>
+              Abbrechen
+            </Button>
+          </div>
+        ) : (
+          <Button type="button" variant="ghost" className="text-destructive" onClick={() => setConfirmDelete(true)}>
+            <Trash2 className="size-4" /> Löschen
+          </Button>
+        )}
+        <div className="flex gap-2">
+          <Button type="button" variant="outline" onClick={onClose}>
+            Schließen
+          </Button>
+          <Button type="submit" disabled={busy}>
+            Speichern
+          </Button>
+        </div>
+      </DialogFooter>
+    </form>
+  )
+}
+
+export function ResponsesTable({ responses }: { responses: ResponseWithAttendees[] }) {
+  const [editing, setEditing] = useState<ResponseWithAttendees | null>(null)
+
+  return (
+    <>
+      <div className="rounded-lg border bg-card">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Kontakt</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Personen</TableHead>
+              <TableHead>Musik</TableHead>
+              <TableHead>Nachricht</TableHead>
+              <TableHead className="text-right">Eingegangen</TableHead>
+              <TableHead />
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {responses.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={7} className="py-8 text-center text-muted-foreground">
+                  Noch keine Rückmeldungen.
+                </TableCell>
+              </TableRow>
+            )}
+            {responses.map((r) => (
+              <TableRow key={r.id}>
+                <TableCell className="align-top font-medium">
+                  {r.contactName}
+                  {(r.email || r.phone) && (
+                    <div className="text-xs font-normal text-muted-foreground">{[r.email, r.phone].filter(Boolean).join(' · ')}</div>
+                  )}
+                </TableCell>
+                <TableCell className="align-top">
+                  <Badge variant={r.status === 'yes' ? 'default' : 'secondary'}>{RSVP_STATUS_LABEL[r.status] ?? r.status}</Badge>
+                </TableCell>
+                <TableCell className="align-top">
+                  <ul className="space-y-1 text-sm">
+                    {r.attendees.map((a, i) => (
+                      <li key={a.id ?? i}>
+                        {a.name}
+                        {a.isChild && <span className="text-muted-foreground"> (Kind)</span>}
+                        <span className="text-muted-foreground">
+                          {a.diet && a.diet !== 'none' ? ` · ${DIET_LABEL[a.diet] ?? a.diet}` : ''}
+                          {a.allergies ? ` · ${a.allergies}` : ''}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </TableCell>
+                <TableCell className="max-w-xs align-top text-sm text-muted-foreground">
+                  {r.musicGenres && <div>{r.musicGenres}</div>}
+                  {r.musicSong && <div className="text-foreground">♪ {r.musicSong}</div>}
+                </TableCell>
+                <TableCell className="max-w-xs align-top text-sm whitespace-pre-line text-muted-foreground">{r.message}</TableCell>
+                <TableCell className="text-right align-top text-xs text-muted-foreground">{formatDateTime(r.submittedAt)}</TableCell>
+                <TableCell className="align-top">
+                  <Button variant="ghost" size="icon" aria-label={`${r.contactName} bearbeiten`} onClick={() => setEditing(r)}>
+                    <Pencil className="size-4" />
+                  </Button>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+
+      <Dialog open={editing !== null} onOpenChange={(open) => !open && setEditing(null)}>
+        <DialogContent className="max-h-[90svh] overflow-y-auto sm:max-w-xl">
+          <DialogHeader>
+            <DialogTitle>Rückmeldung bearbeiten</DialogTitle>
+          </DialogHeader>
+          {editing && <EditForm key={editing.id} initial={editing} onClose={() => setEditing(null)} />}
+        </DialogContent>
+      </Dialog>
+    </>
+  )
+}

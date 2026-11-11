@@ -2,11 +2,12 @@ import { useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { cn } from '@/lib/utils'
-import { contributionsQuery, summaryQuery } from '@/lib/queries'
+import { contributionsQuery, responsesQuery, summaryQuery } from '@/lib/queries'
 import { CONTRIBUTION_STATUS_LABEL, formatDateTime } from '@/lib/format'
 import type { Contribution } from '@/lib/types'
 import { PageHeader } from '@/components/admin/PageHeader'
 import { Stat } from '@/components/admin/Stat'
+import { ResponsesTable } from '@/components/admin/ResponsesTable'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -21,6 +22,7 @@ export const Route = createFileRoute('/witness/dashboard')({
     Promise.all([
       context.queryClient.ensureQueryData(contributionsQuery),
       context.queryClient.ensureQueryData(summaryQuery),
+      context.queryClient.ensureQueryData(responsesQuery),
     ]),
   component: WitnessDashboard,
 })
@@ -28,6 +30,7 @@ export const Route = createFileRoute('/witness/dashboard')({
 function WitnessDashboard() {
   const { data: contributions } = useSuspenseQuery(contributionsQuery)
   const { data: summary } = useSuspenseQuery(summaryQuery)
+  const { data: responses } = useSuspenseQuery(responsesQuery)
   const [selected, setSelected] = useState<Contribution | null>(null)
   const open = contributions.filter(isOpen).length
   const confirmed = contributions.filter((c) => c.status === 'confirmed')
@@ -49,6 +52,7 @@ function WitnessDashboard() {
           <TabsTrigger value="board">Board</TabsTrigger>
           <TabsTrigger value="list">Liste</TabsTrigger>
           <TabsTrigger value="schedule">Ablaufplan</TabsTrigger>
+          <TabsTrigger value="responses">Rückmeldungen</TabsTrigger>
         </TabsList>
         <TabsContent value="board" className="mt-4">
           {contributions.length === 0 ? (
@@ -62,6 +66,9 @@ function WitnessDashboard() {
         </TabsContent>
         <TabsContent value="schedule" className="mt-4">
           <Schedule items={contributions} onOpen={setSelected} />
+        </TabsContent>
+        <TabsContent value="responses" className="mt-4">
+          <ResponsesTable responses={responses} />
         </TabsContent>
       </Tabs>
 
