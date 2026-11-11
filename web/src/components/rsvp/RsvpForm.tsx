@@ -191,7 +191,7 @@ export function RsvpForm({ initial, link, onDone }: FormProps) {
                       <Label className="flex items-start gap-2 text-sm leading-snug font-normal">
                         <Checkbox className="mt-0.5" checked={a.photoOk} onCheckedChange={(c) => updateAttendee(i, { photoOk: c === true })} />
                         <span>
-                          Unsere Fotografin darf {a.name || 'euer Kind'} mit aufs Bild nehmen.
+                          Unsere Fotografin oder unser Fotograf darf {a.name || 'euer Kind'} mit aufs Bild nehmen.
                           <span className="mt-1 block text-muted-foreground">
                             Die Fotos bleiben eine private Erinnerung für uns und werden nicht veröffentlicht. Wenn ihr das lieber nicht
                             möchtet, ist das völlig in Ordnung – nehmt einfach das Häkchen raus.
