@@ -136,16 +136,16 @@ function HomePage() {
       )}
 
       <Section id="ort" eyebrow="Die Location" title={location.name || 'Ort'}>
-        <div className="mx-auto max-w-5xl space-y-10">
+        <div className="mx-auto max-w-5xl space-y-6 sm:space-y-10">
           {location.image && (
             <motion.figure
               initial={{ opacity: 0, scale: 0.98 }}
               whileInView={{ opacity: 1, scale: 1 }}
               viewport={{ once: true }}
               transition={{ duration: 0.8 }}
-              className="relative overflow-hidden rounded-3xl border border-gold/40 shadow-xl shadow-primary/10"
+              className="relative overflow-hidden rounded-2xl border sm:rounded-3xl border border-gold/40 shadow-xl shadow-primary/10"
             >
-              <img src={location.image} alt={location.name || 'Location'} className="aspect-[21/9] w-full object-cover" loading="lazy" />
+              <img src={location.image} alt={location.name || 'Location'} className="aspect-[4/3] w-full object-cover sm:aspect-[21/9]" loading="lazy" />
               {address && (
                 <div className="absolute inset-x-0 bottom-0 hidden bg-gradient-to-t from-black/60 to-transparent p-6 text-white sm:block md:p-8">
                   <p className="flex items-center gap-2 text-sm md:text-base">
@@ -157,8 +157,9 @@ function HomePage() {
           )}
           <div className="mx-auto max-w-2xl space-y-4 text-center text-lg leading-relaxed text-foreground/85">
             {address && (
-              <p className={cn('flex items-center justify-center gap-2 text-base', location.image && 'sm:hidden')}>
-                <MapPin className="size-4 shrink-0 text-primary" /> {address}
+              <p className={cn('text-base text-balance text-muted-foreground', location.image && 'sm:hidden')}>
+                <MapPin className="mr-1.5 inline size-4 align-[-2px] text-primary" />
+                {address}
               </p>
             )}
             {location.description && <Paragraphs text={location.description} />}
