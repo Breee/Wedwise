@@ -3,7 +3,7 @@ import { useQueries, useQuery } from '@tanstack/react-query'
 import * as maplibregl from 'maplibre-gl'
 import type { Map as MapLibreMap } from 'maplibre-gl'
 import { Bike, CalendarDays, Car, ChevronDown, ExternalLink, Footprints, Home, MapPin, TramFront } from 'lucide-react'
-import type { Accommodation, Hotel, Stop, Travel, Walk } from '@/lib/types'
+import type { Accommodation, Hotel, StayKind, Stop, Travel, Walk } from '@/lib/types'
 import {
   airbnbUrl,
   bookingUrl,
@@ -69,7 +69,7 @@ export function StayMap({ accommodation, travel, city }: { accommodation: Accomm
   })
   const stopWalk = stored(stop?.walk) ?? stopWalkQuery.data
 
-  const hotels = useMemo<Ranked[]>(() => {
+  const allHotels = useMemo<Ranked[]>(() => {
     const ranked = accommodation.hotels.map((h, i): Ranked => {
       const here: LngLat = [h.lng, h.lat]
       // Fall back to a straight-line estimate so the walk-vs-tram decision never waits on the router.
@@ -89,6 +89,14 @@ export function StayMap({ accommodation, travel, city }: { accommodation: Accomm
   const [hover, setHover] = useState<number | null>(null)
   const [selected, setSelected] = useState<string | null>(null)
   const [showAll, setShowAll] = useState(false)
+  const [tiers, setTiers] = useState<number[]>([])
+  const [kind, setKind] = useState<StayKind | null>(null)
+  const hotels = useMemo(
+    () => allHotels.filter((h) => (!tiers.length || tiers.includes(h.priceTier)) && (!kind || (h.kind ?? 'hotel') === kind)),
+    [allHotels, tiers, kind],
+  )
+  const hasApartments = allHotels.some((h) => h.kind === 'apartment')
+  const toggleTier = (t: number) => setTiers((cur) => (cur.includes(t) ? cur.filter((x) => x !== t) : [...cur, t]))
   const visible = showAll ? hotels : hotels.slice(0, INITIAL_VISIBLE)
   const selectedIndex = hotels.findIndex((h) => h.name === selected)
   const active = hover ?? (selectedIndex >= 0 ? selectedIndex : null)
@@ -184,6 +192,20 @@ export function StayMap({ accommodation, travel, city }: { accommodation: Accomm
             ))}
           </div>
         )}
+        <div className="flex flex-wrap items-center justify-center gap-2" role="group" aria-label="Filter">
+          {([1, 2, 3] as const).map((t) => (
+            <FilterChip key={t} pressed={tiers.includes(t)} onClick={() => toggleTier(t)}>
+              {TIER[t].label} <span className="text-xs opacity-80">{TIER[t].hint}</span>
+            </FilterChip>
+          ))}
+          {hasApartments && (
+            <>
+              <span className="mx-1 h-4 w-px bg-border" aria-hidden />
+              <FilterChip pressed={kind === 'hotel'} onClick={() => setKind(kind === 'hotel' ? null : 'hotel')}>Hotel</FilterChip>
+              <FilterChip pressed={kind === 'apartment'} onClick={() => setKind(kind === 'apartment' ? null : 'apartment')}>Ferienwohnung</FilterChip>
+            </>
+          )}
+        </div>
         {stay && (
           <p>
             Alle Links sind für <strong className="whitespace-nowrap text-foreground">{stay}</strong> vorausgefüllt.
@@ -204,6 +226,11 @@ export function StayMap({ accommodation, travel, city }: { accommodation: Accomm
           )}
         </BaseMap>
         <ol className="space-y-3 lg:col-span-2">
+          {hotels.length === 0 && (
+            <li className="rounded-2xl border border-dashed p-6 text-center text-sm text-muted-foreground">
+              Keine Unterkunft passt zu diesem Filter.
+            </li>
+          )}
           {visible.map((h, i) => (
             <HotelCard
               key={h.name}
@@ -398,4 +425,20 @@ function datesBetween(from: string, to: string): string[] {
 
 function formatDay(iso: string): string {
   return new Date(iso).toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit' })
+}
+
+function FilterChip({ pressed, onClick, children }: { pressed: boolean; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button
+      type="button"
+      aria-pressed={pressed}
+      onClick={onClick}
+      className={cn(
+        'rounded-full border px-3 py-1.5 text-sm transition-colors',
+        pressed ? 'border-primary bg-primary text-primary-foreground' : 'bg-background hover:border-primary/60',
+      )}
+    >
+      {children}
+    </button>
+  )
 }
