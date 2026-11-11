@@ -1,12 +1,15 @@
 // Package routing proxies route lookups to OpenRouteService so the API key
-// never reaches the browser.
+// never reaches the browser. Answers are cached in memory and in the database,
+// so every route costs one upstream request, also across restarts.
 package routing
 
 import (
 	"bytes"
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"math"
 	"net/http"
 	"strconv"
@@ -40,17 +43,20 @@ type Handler struct {
 	key     string
 	baseURL string
 	client  *http.Client
+	db      *sql.DB
 
 	mu    sync.Mutex
 	cache map[string]Route
 }
 
-// NewHandler creates a handler. An empty key disables the endpoint.
-func NewHandler(key string) *Handler {
+// NewHandler creates a handler. An empty key disables the endpoint. A nil db
+// keeps the cache in memory only.
+func NewHandler(key string, db *sql.DB) *Handler {
 	return &Handler{
 		key:     strings.TrimSpace(key),
 		baseURL: defaultBaseURL,
 		client:  &http.Client{Timeout: 8 * time.Second},
+		db:      db,
 		cache:   map[string]Route{},
 	}
 }
@@ -74,8 +80,14 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	h.mu.Lock()
 	cached, hit := h.cache[cacheKey]
 	h.mu.Unlock()
+	if !hit {
+		cached, hit = h.load(r.Context(), cacheKey)
+		if hit {
+			h.remember(cacheKey, cached)
+		}
+	}
 	if hit {
-		httpx.WriteJSON(w, http.StatusOK, cached)
+		writeRoute(w, cached)
 		return
 	}
 
@@ -85,13 +97,53 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	h.remember(cacheKey, route)
+	h.store(r.Context(), cacheKey, route)
+	writeRoute(w, route)
+}
+
+func writeRoute(w http.ResponseWriter, route Route) {
+	w.Header().Set("Cache-Control", "public, max-age=604800")
+	httpx.WriteJSON(w, http.StatusOK, route)
+}
+
+func (h *Handler) remember(key string, route Route) {
 	h.mu.Lock()
+	defer h.mu.Unlock()
 	if len(h.cache) >= maxCacheSize {
 		h.cache = map[string]Route{}
 	}
-	h.cache[cacheKey] = route
-	h.mu.Unlock()
-	httpx.WriteJSON(w, http.StatusOK, route)
+	h.cache[key] = route
+}
+
+func (h *Handler) load(ctx context.Context, key string) (Route, bool) {
+	if h.db == nil {
+		return Route{}, false
+	}
+	var raw string
+	if err := h.db.QueryRowContext(ctx, `SELECT route FROM route_cache WHERE cache_key = ?`, key).Scan(&raw); err != nil {
+		return Route{}, false
+	}
+	var route Route
+	if err := json.Unmarshal([]byte(raw), &route); err != nil || len(route.Coords) < 2 {
+		return Route{}, false
+	}
+	return route, true
+}
+
+func (h *Handler) store(ctx context.Context, key string, route Route) {
+	if h.db == nil {
+		return
+	}
+	raw, err := json.Marshal(route)
+	if err != nil {
+		return
+	}
+	if _, err := h.db.ExecContext(ctx,
+		`INSERT INTO route_cache (cache_key, route) VALUES (?, ?)
+		 ON CONFLICT(cache_key) DO UPDATE SET route = excluded.route`, key, string(raw)); err != nil {
+		slog.Warn("route cache write failed", "error", err)
+	}
 }
 
 func (h *Handler) fetch(ctx context.Context, profile string, from, to [2]float64) (Route, error) {

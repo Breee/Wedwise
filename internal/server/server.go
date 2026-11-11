@@ -88,7 +88,7 @@ func New(cfg configuration.Config, db *sql.DB) (*Server, error) {
 		api.Mount("/rsvp", rsvpHandler.PublicRoutes(rsvpLimit))
 		api.Get("/content/public", contentHandler.PublicHandler)
 		api.Get("/themes", contentHandler.ThemesHandler)
-		api.With(routeLimit).Method(http.MethodGet, "/route", routing.NewHandler(cfg.RoutingAPIKey))
+		api.With(routeLimit).Method(http.MethodGet, "/route", routing.NewHandler(cfg.RoutingAPIKey, db))
 
 		api.Group(func(protected chi.Router) {
 			protected.Use(authService.RequireAuth)

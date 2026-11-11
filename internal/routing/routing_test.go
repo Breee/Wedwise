@@ -1,10 +1,14 @@
 package routing
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"testing"
+
+	"github.com/Breee/Wedwise/internal/database"
 )
 
 func upstream(t *testing.T, calls *int) *httptest.Server {
@@ -33,7 +37,7 @@ func get(h *Handler, query string) *httptest.ResponseRecorder {
 
 func TestRouteProxiesAndCaches(t *testing.T) {
 	calls := 0
-	h := NewHandler("secret")
+	h := NewHandler("secret", nil)
 	h.baseURL = upstream(t, &calls).URL
 
 	const query = "profile=foot&from=7.85,47.99&to=7.87,47.98"
@@ -58,14 +62,14 @@ func TestRouteProxiesAndCaches(t *testing.T) {
 }
 
 func TestRouteDisabledWithoutKey(t *testing.T) {
-	if rec := get(NewHandler(""), "profile=foot&from=7.85,47.99&to=7.87,47.98"); rec.Code != http.StatusNotFound {
+	if rec := get(NewHandler("", nil), "profile=foot&from=7.85,47.99&to=7.87,47.98"); rec.Code != http.StatusNotFound {
 		t.Fatalf("status = %d, want 404", rec.Code)
 	}
 }
 
 func TestRouteValidation(t *testing.T) {
 	calls := 0
-	h := NewHandler("secret")
+	h := NewHandler("secret", nil)
 	h.baseURL = upstream(t, &calls).URL
 
 	for _, query := range []string{
@@ -85,11 +89,36 @@ func TestRouteValidation(t *testing.T) {
 
 func TestRouteUpstreamFailure(t *testing.T) {
 	calls := 0
-	h := NewHandler("wrong")
+	h := NewHandler("wrong", nil)
 	h.baseURL = upstream(t, &calls).URL
 
 	rec := get(h, "profile=foot&from=7.85,47.99&to=7.87,47.98")
 	if rec.Code != http.StatusBadGateway {
 		t.Fatalf("status = %d, want 502", rec.Code)
+	}
+}
+
+func TestRouteCacheSurvivesRestart(t *testing.T) {
+	db, err := database.Open(filepath.Join(t.TempDir(), "test.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { db.Close() })
+	if err := database.Migrate(context.Background(), db); err != nil {
+		t.Fatal(err)
+	}
+
+	calls := 0
+	srv := upstream(t, &calls)
+	const query = "profile=foot&from=7.85,47.99&to=7.87,47.98"
+	for range 2 {
+		h := NewHandler("secret", db)
+		h.baseURL = srv.URL
+		if rec := get(h, query); rec.Code != http.StatusOK {
+			t.Fatalf("status = %d", rec.Code)
+		}
+	}
+	if calls != 1 {
+		t.Fatalf("upstream calls = %d, want 1", calls)
 	}
 }
