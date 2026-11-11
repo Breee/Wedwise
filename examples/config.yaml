@@ -11,6 +11,8 @@ configPath: "/config/config.yaml"
 # Set to true only when a reverse proxy in front of Wedwise sets X-Forwarded-For;
 # used for rate limiting by client IP. Env: TRUST_PROXY_HEADERS=true
 trustProxyHeaders: false
+# Optional OpenRouteService key for live walking/bike/car routes.
+# routingApiKey: ""
 
 event:
   title: "Alex & Sam's Wedding"

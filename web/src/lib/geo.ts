@@ -92,9 +92,26 @@ export function transitRoute(line: TransitLine, from: LngLat, to: LngLat): Route
   return { coordinates: [from, ...ride.coordinates], minutes: Math.round(walk / METERS_PER_MINUTE.foot) + ride.minutes, meters: walk + ride.meters, estimated: false }
 }
 
+let ownRouting = true
+
+async function ownRoute(profile: Profile, from: LngLat, to: LngLat): Promise<Route | null> {
+  if (!ownRouting) return null
+  try {
+    const res = await fetch(`/api/route?profile=${profile}&from=${from.join(',')}&to=${to.join(',')}`)
+    if (res.status === 404) ownRouting = false
+    if (!res.ok) return null
+    const data = (await res.json()) as { minutes: number; meters: number; coords: LngLat[] }
+    return { coordinates: data.coords, minutes: data.minutes, meters: data.meters, estimated: false }
+  } catch {
+    return null
+  }
+}
+
 export async function route(profile: Profile, from: LngLat, to: LngLat, line?: TransitLine): Promise<Route> {
   const estimated = () => estimate(profile, from, to)
   if (profile === 'transit') return line ? transitRoute(line, from, to) : estimated()
+  const own = await ownRoute(profile, from, to)
+  if (own) return own
   try {
     const res = await fetch(`${ROUTER[profile]}/${from.join(',')};${to.join(',')}?overview=full&geometries=geojson`)
     if (!res.ok) return estimated()

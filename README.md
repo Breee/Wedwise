@@ -132,6 +132,12 @@ variables, not committed to the config file.
   `X-Forwarded-For` hop is used instead. Do not enable it without a proxy, as
   the header could then be spoofed to bypass the limits.
 - Request bodies are capped at 1 MB and unknown JSON fields are rejected.
+- Live route lookups are optional. Set `ROUTING_API_KEY` (or `routingApiKey`)
+  to a free [OpenRouteService](https://openrouteservice.org) key and the app
+  proxies them through `GET /api/route` (60 requests per minute per IP), so
+  the key never reaches the browser. Routes stored in the content are always
+  used first; without a key the public OSRM demo server and a straight-line
+  estimate are the fallbacks.
 
 ## User Administration
 

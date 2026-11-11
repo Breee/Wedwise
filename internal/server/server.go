@@ -18,6 +18,7 @@ import (
 	"github.com/Breee/Wedwise/internal/httpx"
 	"github.com/Breee/Wedwise/internal/invites"
 	"github.com/Breee/Wedwise/internal/middleware"
+	"github.com/Breee/Wedwise/internal/routing"
 	"github.com/Breee/Wedwise/internal/rsvp"
 	"github.com/Breee/Wedwise/internal/theme"
 	"github.com/Breee/Wedwise/internal/users"
@@ -28,6 +29,7 @@ import (
 const (
 	loginRateLimit = 10
 	rsvpRateLimit  = 30
+	routeRateLimit = 60
 )
 
 // Server holds the application dependencies.
@@ -62,6 +64,7 @@ func New(cfg configuration.Config, db *sql.DB) (*Server, error) {
 
 	loginLimit := middleware.RateLimit(middleware.NewLimiter(loginRateLimit, time.Minute), cfg.TrustProxyHeaders)
 	rsvpLimit := middleware.RateLimit(middleware.NewLimiter(rsvpRateLimit, time.Minute), cfg.TrustProxyHeaders)
+	routeLimit := middleware.RateLimit(middleware.NewLimiter(routeRateLimit, time.Minute), cfg.TrustProxyHeaders)
 
 	spa, err := spaHandler()
 	if err != nil {
@@ -85,6 +88,7 @@ func New(cfg configuration.Config, db *sql.DB) (*Server, error) {
 		api.Mount("/rsvp", rsvpHandler.PublicRoutes(rsvpLimit))
 		api.Get("/content/public", contentHandler.PublicHandler)
 		api.Get("/themes", contentHandler.ThemesHandler)
+		api.With(routeLimit).Method(http.MethodGet, "/route", routing.NewHandler(cfg.RoutingAPIKey))
 
 		api.Group(func(protected chi.Router) {
 			protected.Use(authService.RequireAuth)
