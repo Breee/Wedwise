@@ -187,8 +187,8 @@ export function ResponsesTable({ responses }: { responses: ResponseWithAttendees
   return (
     <>
       <div className="rounded-lg border bg-card">
-        <Table>
-          <TableHeader>
+        <Table className="block sm:table">
+          <TableHeader className="hidden sm:table-header-group">
             <TableRow>
               <TableHead>Kontakt</TableHead>
               <TableHead>Status</TableHead>
@@ -199,7 +199,7 @@ export function ResponsesTable({ responses }: { responses: ResponseWithAttendees
               <TableHead />
             </TableRow>
           </TableHeader>
-          <TableBody>
+          <TableBody className="block sm:table-row-group">
             {responses.length === 0 && (
               <TableRow>
                 <TableCell colSpan={7} className="py-8 text-center text-muted-foreground">
@@ -208,17 +208,17 @@ export function ResponsesTable({ responses }: { responses: ResponseWithAttendees
               </TableRow>
             )}
             {responses.map((r) => (
-              <TableRow key={r.id}>
-                <TableCell className="align-top font-medium">
+              <TableRow key={r.id} className="relative flex flex-col gap-1 p-3 pr-14 whitespace-normal sm:table-row sm:p-0">
+                <TableCell className="p-0 whitespace-normal sm:p-2 align-top font-medium">
                   {r.contactName}
                   {(r.email || r.phone) && (
                     <div className="text-xs font-normal text-muted-foreground">{[r.email, r.phone].filter(Boolean).join(' · ')}</div>
                   )}
                 </TableCell>
-                <TableCell className="align-top">
+                <TableCell className="p-0 whitespace-normal sm:p-2 align-top">
                   <Badge variant={r.status === 'yes' ? 'default' : 'secondary'}>{RSVP_STATUS_LABEL[r.status] ?? r.status}</Badge>
                 </TableCell>
-                <TableCell className="align-top">
+                <TableCell className="p-0 whitespace-normal sm:p-2 align-top">
                   <ul className="space-y-1 text-sm">
                     {r.attendees.map((a, i) => (
                       <li key={a.id ?? i}>
@@ -232,14 +232,14 @@ export function ResponsesTable({ responses }: { responses: ResponseWithAttendees
                     ))}
                   </ul>
                 </TableCell>
-                <TableCell className="max-w-xs align-top text-sm text-muted-foreground">
+                <TableCell className="p-0 whitespace-normal sm:p-2 max-w-xs align-top text-sm text-muted-foreground">
                   {r.musicGenres && <div>{r.musicGenres}</div>}
                   {r.musicSong && <div className="text-foreground">♪ {r.musicSong}</div>}
                 </TableCell>
-                <TableCell className="max-w-xs align-top text-sm whitespace-pre-line text-muted-foreground">{r.message}</TableCell>
-                <TableCell className="text-right align-top text-xs text-muted-foreground">{formatDateTime(r.submittedAt)}</TableCell>
-                <TableCell className="align-top">
-                  <Button variant="ghost" size="icon" aria-label={`${r.contactName} bearbeiten`} onClick={() => setEditing(r)}>
+                <TableCell className="p-0 sm:p-2 max-w-xs align-top text-sm whitespace-pre-line text-muted-foreground">{r.message}</TableCell>
+                <TableCell className="p-0 whitespace-normal sm:p-2 text-left align-top sm:text-right text-xs text-muted-foreground">{formatDateTime(r.submittedAt)}</TableCell>
+                <TableCell className="absolute top-2 right-2 p-0 sm:static sm:p-2 align-top">
+                  <Button variant="ghost" size="icon" className="size-10 sm:size-9" aria-label={`${r.contactName} bearbeiten`} onClick={() => setEditing(r)}>
                     <Pencil className="size-4" />
                   </Button>
                 </TableCell>
