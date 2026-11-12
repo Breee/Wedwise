@@ -14,6 +14,7 @@ spec:
       labels: {{- include "wedwise.selectorLabels" . | nindent 8 }}
       annotations:
         checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
         {{- with .Values.podAnnotations }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
@@ -53,6 +54,12 @@ spec:
             - name: CONTENT_PATH
               value: /config/content.json
             {{- end }}
+            - name: USERS_PATH
+              value: /secrets/users.yaml
+            {{- if or .Values.images.files .Values.images.existingConfigMap }}
+            - name: IMAGES_PATH
+              value: /images
+            {{- end }}
             {{- if .Values.theme }}
             - name: THEME_PATH
               value: /config/theme.yaml
@@ -81,6 +88,14 @@ spec:
               readOnly: true
             - name: tmp
               mountPath: /tmp
+            - name: users
+              mountPath: /secrets
+              readOnly: true
+            {{- if or .Values.images.files .Values.images.existingConfigMap }}
+            - name: images
+              mountPath: /images
+              readOnly: true
+            {{- end }}
           livenessProbe:
             httpGet:
               path: /healthz
@@ -95,6 +110,18 @@ spec:
       volumes:
         - name: tmp
           emptyDir: {}
+        - name: users
+          secret:
+            secretName: {{ .Values.secret.existingSecret | default (include "wedwise.fullname" .) }}
+            optional: true
+            items:
+              - key: users.yaml
+                path: users.yaml
+        {{- if or .Values.images.files .Values.images.existingConfigMap }}
+        - name: images
+          configMap:
+            name: {{ .Values.images.existingConfigMap | default (printf "%s-images" (include "wedwise.fullname" .)) }}
+        {{- end }}
         - name: config
           configMap:
             name: {{ include "wedwise.fullname" . }}

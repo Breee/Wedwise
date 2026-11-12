@@ -57,6 +57,10 @@ type Config struct {
 	ThemePath     string `yaml:"themePath" json:"themePath"`
 	// ContentPath is an optional JSON content file applied at startup whenever it changes.
 	ContentPath string `yaml:"contentPath" json:"contentPath"`
+	// UsersPath is an optional YAML file with users created at startup.
+	UsersPath string `yaml:"usersPath" json:"usersPath"`
+	// ImagesPath is an optional directory served read-only under /images/.
+	ImagesPath  string `yaml:"imagesPath" json:"imagesPath"`
 	Environment string `yaml:"environment" json:"environment"`
 	// TrustProxyHeaders enables X-Forwarded-For for client IP detection. Only
 	// enable when a reverse proxy in front of the app sets the header.
@@ -153,6 +157,8 @@ func applyEnv(cfg *Config) {
 		"CONFIG_PATH":     &cfg.ConfigPath,
 		"THEME_PATH":      &cfg.ThemePath,
 		"CONTENT_PATH":    &cfg.ContentPath,
+		"USERS_PATH":      &cfg.UsersPath,
+		"IMAGES_PATH":     &cfg.ImagesPath,
 		"ENVIRONMENT":     &cfg.Environment,
 		"ROUTING_API_KEY": &cfg.RoutingAPIKey,
 	}

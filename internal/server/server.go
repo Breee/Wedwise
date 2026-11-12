@@ -63,6 +63,15 @@ func New(cfg configuration.Config, db *sql.DB) (*Server, error) {
 	if err != nil {
 		return nil, err
 	}
+	if cfg.UsersPath != "" {
+		changed, err := userStore.Seed(context.Background(), cfg.UsersPath)
+		if err != nil {
+			return nil, err
+		}
+		if changed > 0 {
+			slog.Info("users applied from file", "path", cfg.UsersPath, "changed", changed)
+		}
+	}
 	if cfg.ContentPath != "" {
 		applied, err := contentStore.Seed(context.Background(), cfg.ContentPath)
 		if err != nil {
@@ -118,6 +127,10 @@ func New(cfg configuration.Config, db *sql.DB) (*Server, error) {
 			httpx.NotFound(w, "The requested API endpoint does not exist.")
 		})
 	})
+
+	if cfg.ImagesPath != "" {
+		r.Handle("/images/*", http.StripPrefix("/images/", imagesHandler(cfg.ImagesPath)))
+	}
 
 	r.NotFound(spa)
 
@@ -197,3 +210,16 @@ const placeholderIndex = `<!DOCTYPE html>
   </body>
 </html>
 `
+
+// imagesHandler serves files from dir without directory listings.
+func imagesHandler(dir string) http.Handler {
+	files := http.FileServer(http.Dir(dir))
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "" || strings.HasSuffix(r.URL.Path, "/") {
+			http.NotFound(w, r)
+			return
+		}
+		w.Header().Set("Cache-Control", "public, max-age=86400")
+		files.ServeHTTP(w, r)
+	})
+}

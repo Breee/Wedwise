@@ -105,6 +105,8 @@ Settings come from a YAML file (`CONFIG_PATH`, default
 | `ROUTING_API_KEY` | `routingApiKey` | — | Optional OpenRouteService key. |
 | `THEME_PATH` | `themePath` | — | Optional custom theme file. |
 | `CONTENT_PATH` | `contentPath` | — | Optional JSON content file (shape of `examples/content.json`). Applied at startup whenever the file changes; editor changes are kept until then. |
+| `USERS_PATH` | `usersPath` | — | Optional YAML list of users (`username`, `role`, `password`, optional `email`, `displayName`) created at startup. Existing users are kept; a changed password is applied. |
+| `IMAGES_PATH` | `imagesPath` | — | Optional directory served read-only under `/images/<name>`, e.g. for `location.image`. |
 
 Keep secrets in environment variables, not in the config file.
 
@@ -189,6 +191,8 @@ Useful values (see [`values.yaml`](charts/wedwise/values.yaml)):
 | `config` | Your event settings, same keys as `examples/config.yaml`. |
 | `content` | Page content (schedule, location, travel, accommodation, FAQ, theme name), same shape as `examples/content.json`. Applied whenever it changes; leave empty to use the editor only. |
 | `theme` | Optional custom theme, same shape as the files in `themes/`. |
+| `users` | Users created at startup (`username`, `role`, `password`). Stored in the chart Secret; with `secret.existingSecret` add a `users.yaml` key there. |
+| `images.files` | Images as base64 (`--set images.files.lake\\.jpg="$(base64 -w0 lake.jpg)"`), served under `/images/<name>`. About 1 MiB in total; use `images.existingConfigMap` for more. |
 | `secret.existingSecret` | Use your own Secret with keys `session-secret` and optionally `routing-api-key`. |
 | `persistence.size` / `persistence.existingClaim` | Volume for the SQLite file. |
 | `ingress.*` | Host, class, annotations, TLS. |

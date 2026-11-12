@@ -22,6 +22,22 @@ content: {}
 # Optional custom theme, same shape as the files in themes/.
 theme: {}
 
+# Users created at startup. Stored in the chart Secret (key users.yaml); with
+# secret.existingSecret, put a users.yaml key into that Secret instead.
+# Passwords need at least 10 characters. Changing a password here updates it.
+users: []
+  # - username: anna
+  #   role: couple          # couple | witness | admin
+  #   password: change-me-please
+  #   displayName: Anna
+
+# Images served under /images/<name>, e.g. for location.image or hero.image.
+# Values are base64, e.g. --set images.files.lake\\.jpg="$(base64 -w0 lake.jpg)".
+# All images together must stay below ~1 MiB; for more, use images.existingConfigMap.
+images:
+  files: {}
+  existingConfigMap: ""
+
 # Secret holding the keys below. Created by the chart when existingSecret is empty.
 secret:
   existingSecret: ""

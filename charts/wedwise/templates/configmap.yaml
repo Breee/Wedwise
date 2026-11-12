@@ -13,3 +13,15 @@ data:
   theme.yaml: |
     {{- toYaml . | nindent 4 }}
   {{- end }}
+{{- if .Values.images.files }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "wedwise.fullname" . }}-images
+  labels: {{- include "wedwise.labels" . | nindent 4 }}
+binaryData:
+  {{- range $name, $data := .Values.images.files }}
+  {{ $name | quote }}: {{ $data | quote }}
+  {{- end }}
+{{- end }}
