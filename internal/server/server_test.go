@@ -15,7 +15,11 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/pquerna/otp/totp"
+
+	"github.com/Breee/Wedwise/internal/auth"
 	"github.com/Breee/Wedwise/internal/configuration"
 	"github.com/Breee/Wedwise/internal/database"
 	"github.com/Breee/Wedwise/internal/server"
@@ -1400,5 +1404,102 @@ func TestUserSetupLink(t *testing.T) {
 	}
 	if res := app.do(http.MethodPost, "/api/setup/"+token, map[string]any{"password": "AnotherSecret123"}, nil); res.StatusCode != http.StatusNotFound {
 		t.Fatalf("token reuse: got %d, want 404", res.StatusCode)
+	}
+}
+
+func TestTwoFactorTOTP(t *testing.T) {
+	app, dbPath := newTestAppWithUsers(t)
+	cookie, _ := app.login("couple_user", "TestPass123!")
+
+	resp := app.do(http.MethodPost, "/api/account/2fa/totp", nil, cookie)
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("begin: %d", resp.StatusCode)
+	}
+	var begin struct{ Secret, URL string }
+	json.NewDecoder(resp.Body).Decode(&begin)
+	resp.Body.Close()
+
+	// Not confirmed yet: login still works without a code.
+	if _, status := app.login("couple_user", "TestPass123!"); status != http.StatusOK {
+		t.Fatalf("login before confirm: %d", status)
+	}
+
+	resp = app.do(http.MethodPost, "/api/account/2fa/totp/confirm", map[string]string{"code": "000000"}, cookie)
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Fatalf("wrong confirm code: %d", resp.StatusCode)
+	}
+	resp.Body.Close()
+
+	code, _ := totp.GenerateCode(begin.Secret, time.Now())
+	resp = app.do(http.MethodPost, "/api/account/2fa/totp/confirm", map[string]string{"code": code}, cookie)
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("confirm: %d", resp.StatusCode)
+	}
+	var confirmed struct{ RecoveryCodes []string }
+	json.NewDecoder(resp.Body).Decode(&confirmed)
+	resp.Body.Close()
+	if len(confirmed.RecoveryCodes) != 8 {
+		t.Fatalf("recovery codes: %d", len(confirmed.RecoveryCodes))
+	}
+
+	login := func(code string) (*http.Cookie, int, string) {
+		body := map[string]string{"username": "couple_user", "password": "TestPass123!", "code": code}
+		resp := app.do(http.MethodPost, "/api/auth/login", body, nil)
+		defer resp.Body.Close()
+		var e struct{ Error struct{ Code string } }
+		json.NewDecoder(resp.Body).Decode(&e)
+		var c *http.Cookie
+		for _, ck := range resp.Cookies() {
+			if ck.Name == auth.SessionCookieName {
+				c = ck
+			}
+		}
+		return c, resp.StatusCode, e.Error.Code
+	}
+
+	if _, status, code := login(""); status != http.StatusUnauthorized || code != "two_factor_required" {
+		t.Fatalf("login without code: %d %s", status, code)
+	}
+	if _, status, code := login("123456"); status != http.StatusUnauthorized || code != "invalid_code" {
+		t.Fatalf("login wrong code: %d %s", status, code)
+	}
+	// The TOTP code used for confirming cannot be replayed.
+	if _, status, _ := login(code); status != http.StatusUnauthorized {
+		t.Fatalf("replayed code: %d", status)
+	}
+	session, status, _ := login(confirmed.RecoveryCodes[0])
+	if status != http.StatusOK {
+		t.Fatalf("recovery code login: %d", status)
+	}
+	if _, status, _ := login(confirmed.RecoveryCodes[0]); status != http.StatusUnauthorized {
+		t.Fatalf("recovery code reuse: %d", status)
+	}
+
+	// Secrets are not stored in plaintext.
+	var enc string
+	db, err := database.Open(dbPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	db.QueryRow(`SELECT secret_enc FROM user_totp`).Scan(&enc)
+	if enc == "" || strings.Contains(enc, begin.Secret) {
+		t.Fatalf("secret stored unencrypted")
+	}
+
+	witness, _ := app.login("witness_user", "TestPass123!")
+	resp = app.do(http.MethodDelete, "/api/two-factor/1", nil, witness)
+	if resp.StatusCode != http.StatusForbidden {
+		t.Fatalf("witness reset: %d", resp.StatusCode)
+	}
+	resp.Body.Close()
+
+	resp = app.do(http.MethodPost, "/api/account/2fa/disable", map[string]string{"code": confirmed.RecoveryCodes[1]}, session)
+	if resp.StatusCode != http.StatusNoContent {
+		t.Fatalf("disable: %d", resp.StatusCode)
+	}
+	resp.Body.Close()
+	if _, status := app.login("couple_user", "TestPass123!"); status != http.StatusOK {
+		t.Fatalf("login after disable: %d", status)
 	}
 }

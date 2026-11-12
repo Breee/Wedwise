@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"strings"
@@ -13,7 +14,23 @@ import (
 type loginRequest struct {
 	Username string `json:"username"`
 	Password string `json:"password"`
+	Code     string `json:"code"`
 }
+
+// Error codes of the second login step.
+const (
+	CodeTwoFactorRequired = "two_factor_required"
+	CodeInvalidCode       = "invalid_code"
+)
+
+// SecondFactor checks an additional login code for users who enabled it.
+type SecondFactor interface {
+	Enabled(ctx context.Context, userID int64) (bool, error)
+	Verify(ctx context.Context, userID int64, code string) (bool, error)
+}
+
+// SetSecondFactor enables the second login step.
+func (s *Service) SetSecondFactor(f SecondFactor) { s.secondFactor = f }
 
 type identityResponse struct {
 	Authenticated bool     `json:"authenticated"`
@@ -55,6 +72,30 @@ func (s *Service) HandleLogin(w http.ResponseWriter, r *http.Request) {
 		}
 		httpx.Internal(w, err)
 		return
+	}
+
+	if s.secondFactor != nil {
+		enabled, err := s.secondFactor.Enabled(r.Context(), identity.ID)
+		if err != nil {
+			httpx.Internal(w, err)
+			return
+		}
+		if enabled {
+			code := strings.TrimSpace(req.Code)
+			if code == "" {
+				httpx.WriteError(w, http.StatusUnauthorized, CodeTwoFactorRequired, "A login code is required.")
+				return
+			}
+			ok, err := s.secondFactor.Verify(r.Context(), identity.ID, code)
+			if err != nil {
+				httpx.Internal(w, err)
+				return
+			}
+			if !ok {
+				httpx.WriteError(w, http.StatusUnauthorized, CodeInvalidCode, "The login code is not correct.")
+				return
+			}
+		}
 	}
 
 	session, err := s.sessions.Create(r.Context(), identity.ID, SessionDuration)

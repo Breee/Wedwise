@@ -5,6 +5,7 @@ go 1.24
 require (
 	github.com/go-chi/chi/v5 v5.1.0
 	github.com/google/uuid v1.6.0
+	github.com/pquerna/otp v1.5.0
 	golang.org/x/crypto v0.31.0
 	golang.org/x/term v0.27.0
 	gopkg.in/yaml.v3 v3.0.1
@@ -12,6 +13,7 @@ require (
 )
 
 require (
+	github.com/boombuler/barcode v1.0.1-0.20190219062509-6c824513bacc // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/ncruces/go-strftime v0.1.9 // indirect

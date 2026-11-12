@@ -7,8 +7,8 @@ import (
 	"io/fs"
 	"log/slog"
 	"net/http"
-	"path/filepath"
 	"path"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -25,6 +25,7 @@ import (
 	"github.com/Breee/Wedwise/internal/rsvp"
 	"github.com/Breee/Wedwise/internal/songs"
 	"github.com/Breee/Wedwise/internal/theme"
+	"github.com/Breee/Wedwise/internal/twofactor"
 	"github.com/Breee/Wedwise/internal/uploads"
 	"github.com/Breee/Wedwise/internal/users"
 	"github.com/Breee/Wedwise/web"
@@ -54,6 +55,13 @@ func New(cfg configuration.Config, db *sql.DB) (*Server, error) {
 	userStore := users.NewStore(db)
 	sessionStore := auth.NewSessionStore(db)
 	authService := auth.NewService(sessionStore, userStore, cfg.IsProduction(), cfg.BaseURL)
+
+	twoFactorStore, err := twofactor.NewStore(db, cfg.SessionSecret, "Wedwise")
+	if err != nil {
+		return nil, err
+	}
+	authService.SetSecondFactor(twoFactorStore)
+	twoFactorHandler := twofactor.NewHandler(twoFactorStore)
 
 	contributionStore := contributions.NewStore(db)
 	rsvpStore := rsvp.NewStore(db, contributionStore)
@@ -114,7 +122,7 @@ func New(cfg configuration.Config, db *sql.DB) (*Server, error) {
 	r.Route("/api", func(api chi.Router) {
 		api.Mount("/auth", authService.Routes(loginLimit))
 		api.Mount("/setup", userHandler.SetupRoutes(loginLimit))
-	api.Mount("/rsvp", rsvpHandler.PublicRoutes(rsvpLimit))
+		api.Mount("/rsvp", rsvpHandler.PublicRoutes(rsvpLimit))
 		api.Get("/content/public", contentHandler.PublicHandler)
 		api.Get("/themes", contentHandler.ThemesHandler)
 		api.With(routeLimit).Method(http.MethodGet, "/route", routing.NewHandler(cfg.RoutingAPIKey, db))
@@ -125,6 +133,9 @@ func New(cfg configuration.Config, db *sql.DB) (*Server, error) {
 			protected.Mount("/contributions", contributionHandler.Routes())
 			protected.Mount("/content", contentHandler.Routes())
 			protected.Mount("/users", userHandler.Routes())
+			protected.Mount("/account/2fa", twoFactorHandler.Routes())
+			protected.With(authService.RequirePermission(auth.PermUserManage)).
+				Delete("/two-factor/{id}", twoFactorHandler.Reset)
 			protected.Mount("/invite-links", inviteHandler.Routes())
 			protected.With(authService.RequirePermission(auth.PermRSVPRead)).
 				Get("/rsvp-summary", rsvpHandler.SummaryHandler)

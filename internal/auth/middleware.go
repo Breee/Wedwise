@@ -21,6 +21,8 @@ type Service struct {
 	users    UserLookup
 	secure   bool
 	baseURL  string
+
+	secondFactor SecondFactor
 }
 
 // NewService creates an authentication service. When secure is true, session

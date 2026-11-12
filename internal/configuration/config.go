@@ -60,7 +60,7 @@ type Config struct {
 	// UsersPath is an optional YAML file with users created at startup.
 	UsersPath string `yaml:"usersPath" json:"usersPath"`
 	// ImagesPath is an optional directory served read-only under /images/.
-	ImagesPath  string `yaml:"imagesPath" json:"imagesPath"`
+	ImagesPath string `yaml:"imagesPath" json:"imagesPath"`
 	// UploadsPath stores images uploaded in the editor. Defaults to an
 	// "uploads" directory next to the database.
 	UploadsPath string `yaml:"uploadsPath" json:"uploadsPath"`
