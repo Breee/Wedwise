@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQueryClient, useSuspenseQuery } from '@tanstack/react-query'
-import { Copy, KeyRound, Plus } from 'lucide-react'
+import { Copy, KeyRound, Plus, ShieldOff } from 'lucide-react'
 import { toast } from 'sonner'
 import { api, errorMessage } from '@/lib/api'
 import { requireRole } from '@/lib/auth'
@@ -46,6 +46,12 @@ function UsersPage() {
     onError: (e) => toast.error(errorMessage(e)),
   })
 
+  const resetTwoFactor = useMutation({
+    mutationFn: (u: User) => api.delete(`/two-factor/${u.id}`),
+    onSuccess: () => toast.success('Zwei-Faktor-Anmeldung zurückgesetzt.'),
+    onError: (e) => toast.error(errorMessage(e)),
+  })
+
   return (
     <div className="mx-auto max-w-6xl px-6 py-10">
       <PageHeader
@@ -64,7 +70,7 @@ function UsersPage() {
             <TableHead>Name</TableHead>
             <TableHead>Rolle</TableHead>
             <TableHead>Aktiv</TableHead>
-            <TableHead className="text-right">Link</TableHead>
+            <TableHead className="text-right">Zugang</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody className="block sm:table-row-group">
@@ -95,6 +101,17 @@ function UsersPage() {
                   aria-label={`Einrichtungslink für ${u.username} erzeugen`}
                 >
                   <KeyRound className="size-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="size-10 sm:size-9"
+                  onClick={() => {
+                    if (window.confirm(`Zwei-Faktor-Anmeldung von ${u.username} zurücksetzen?`)) resetTwoFactor.mutate(u)
+                  }}
+                  aria-label={`Zwei-Faktor-Anmeldung von ${u.username} zurücksetzen`}
+                >
+                  <ShieldOff className="size-4" />
                 </Button>
               </TableCell>
             </TableRow>

@@ -1,10 +1,17 @@
 export class ApiError extends Error {
   status: number
-  constructor(message: string, status: number) {
+  code?: string
+  constructor(message: string, status: number, code?: string) {
     super(message)
     this.name = 'ApiError'
     this.status = status
+    this.code = code
   }
+}
+
+function extractCode(payload: unknown): string | undefined {
+  const error = (payload as { error?: { code?: unknown } } | null)?.error
+  return error && typeof error === 'object' && typeof error.code === 'string' ? error.code : undefined
 }
 
 function extractMessage(payload: unknown, status: number): string {
@@ -14,6 +21,10 @@ function extractMessage(payload: unknown, status: number): string {
     for (const key of ['error', 'message', 'detail']) {
       const value = record[key]
       if (typeof value === 'string' && value.trim() !== '') return value
+      if (value && typeof value === 'object') {
+        const nested = (value as Record<string, unknown>).message
+        if (typeof nested === 'string' && nested.trim() !== '') return nested
+      }
     }
   }
   if (status === 401) return 'Nicht angemeldet.'
@@ -38,7 +49,7 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
       payload = text
     }
   }
-  if (!response.ok) throw new ApiError(extractMessage(payload, response.status), response.status)
+  if (!response.ok) throw new ApiError(extractMessage(payload, response.status), response.status, extractCode(payload))
   return payload as T
 }
 

@@ -16,10 +16,12 @@ const coupleLinks = [
 const witnessLinks = [{ to: '/witness/dashboard', label: 'Beiträge' }] as const
 const adminLinks = [{ to: '/admin/users', label: 'Benutzer' }] as const
 
+const accountLinks = [{ to: '/account', label: 'Konto' }] as const
+
 function linksFor(role: string | undefined) {
-  if (role === 'admin') return [...coupleLinks, ...witnessLinks, ...adminLinks]
-  if (role === 'witness') return witnessLinks
-  return role ? coupleLinks : []
+  if (role === 'admin') return [...coupleLinks, ...witnessLinks, ...adminLinks, ...accountLinks]
+  if (role === 'witness') return [...witnessLinks, ...accountLinks]
+  return role ? [...coupleLinks, ...accountLinks] : []
 }
 
 export function AppNav() {

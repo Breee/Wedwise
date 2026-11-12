@@ -128,7 +128,15 @@ There is no public sign-up. Admins create users and deactivate accounts in
 the UI under "Benutzer". Creating a user yields a one-time setup link (valid
 7 days) where the person sets their own password; a new link doubles as a
 password reset. Only a hash of the link token is stored, passwords are
-stored as argon2id hashes. The first admin is created
+stored as argon2id hashes.
+
+Every user can switch on two-factor login under "Konto" (TOTP authenticator
+app). The TOTP secret is stored AES-GCM encrypted with a key derived from
+`SESSION_SECRET` (changing that secret invalidates enrolments), recovery
+codes are stored as hashes and shown once. Admins can reset a user's second
+factor in the user list.
+
+The first admin is created
 with the CLI inside the container (or via `USERS_PATH`):
 
 ```bash
