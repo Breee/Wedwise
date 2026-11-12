@@ -149,6 +149,7 @@ func newTestAppWithOptions(t *testing.T, configure func(*configuration.Config)) 
 	cfg := configuration.Default()
 	cfg.SessionSecret = "test-secret-32-bytes-long-padding"
 	cfg.BaseURL = "http://localhost"
+	cfg.UploadsPath = filepath.Join(dir, "uploads")
 	if configure != nil {
 		configure(&cfg)
 	}
@@ -1224,5 +1225,56 @@ func TestInviteLinkPINAttemptLimit(t *testing.T) {
 	ok.Body.Close()
 	if ok.StatusCode != http.StatusNoContent {
 		t.Fatalf("other link: got %d, want 204", ok.StatusCode)
+	}
+}
+
+func TestImageUpload(t *testing.T) {
+	app, _ := newTestAppWithUsers(t)
+	couple, _ := app.login("couple_user", "TestPass123!")
+	witness, _ := app.login("witness_user", "TestPass123!")
+
+	png := append([]byte("\x89PNG\r\n\x1a\n"), make([]byte, 64)...)
+	upload := func(body []byte, cookie *http.Cookie) *http.Response {
+		req, err := http.NewRequest(http.MethodPost, app.srv.URL+"/api/uploads", bytes.NewReader(body))
+		if err != nil {
+			t.Fatal(err)
+		}
+		req.Header.Set("Origin", "http://localhost")
+		if cookie != nil {
+			req.AddCookie(cookie)
+		}
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return resp
+	}
+
+	if resp := upload(png, nil); resp.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("anonymous upload: got %d", resp.StatusCode)
+	}
+	if resp := upload(png, witness); resp.StatusCode != http.StatusForbidden {
+		t.Fatalf("witness upload: got %d", resp.StatusCode)
+	}
+	if resp := upload([]byte("<svg onload=alert(1)>"), couple); resp.StatusCode != http.StatusBadRequest {
+		t.Fatalf("svg upload: got %d", resp.StatusCode)
+	}
+	if resp := upload(make([]byte, 9<<20), couple); resp.StatusCode != http.StatusRequestEntityTooLarge {
+		t.Fatalf("oversized upload: got %d", resp.StatusCode)
+	}
+
+	resp := upload(png, couple)
+	if resp.StatusCode != http.StatusCreated {
+		t.Fatalf("upload: got %d", resp.StatusCode)
+	}
+	var out struct{ URL string }
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasPrefix(out.URL, "/uploads/") || !strings.HasSuffix(out.URL, ".png") {
+		t.Fatalf("unexpected url %q", out.URL)
+	}
+	if got := app.do(http.MethodGet, out.URL, nil, nil); got.StatusCode != http.StatusOK {
+		t.Fatalf("serve upload: got %d", got.StatusCode)
 	}
 }

@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"log/slog"
 	"net/http"
+	"path/filepath"
 	"path"
 	"strings"
 	"time"
@@ -24,6 +25,7 @@ import (
 	"github.com/Breee/Wedwise/internal/rsvp"
 	"github.com/Breee/Wedwise/internal/songs"
 	"github.com/Breee/Wedwise/internal/theme"
+	"github.com/Breee/Wedwise/internal/uploads"
 	"github.com/Breee/Wedwise/internal/users"
 	"github.com/Breee/Wedwise/web"
 )
@@ -45,6 +47,10 @@ type Server struct {
 
 // New creates a fully wired server.
 func New(cfg configuration.Config, db *sql.DB) (*Server, error) {
+	uploadsDir := cfg.UploadsPath
+	if uploadsDir == "" {
+		uploadsDir = filepath.Join(filepath.Dir(cfg.DatabasePath), "uploads")
+	}
 	userStore := users.NewStore(db)
 	sessionStore := auth.NewSessionStore(db)
 	authService := auth.NewService(sessionStore, userStore, cfg.IsProduction(), cfg.BaseURL)
@@ -120,6 +126,8 @@ func New(cfg configuration.Config, db *sql.DB) (*Server, error) {
 			protected.Mount("/invite-links", inviteHandler.Routes())
 			protected.With(authService.RequirePermission(auth.PermRSVPRead)).
 				Get("/rsvp-summary", rsvpHandler.SummaryHandler)
+			protected.With(authService.RequirePermission(auth.PermContentWrite)).
+				Method(http.MethodPost, "/uploads", uploads.NewHandler(uploadsDir))
 			protected.Mount("/responses", rsvpHandler.StaffRoutes(authService))
 		})
 
@@ -128,6 +136,7 @@ func New(cfg configuration.Config, db *sql.DB) (*Server, error) {
 		})
 	})
 
+	r.Handle(uploads.URLPrefix+"*", http.StripPrefix(uploads.URLPrefix, imagesHandler(uploadsDir)))
 	if cfg.ImagesPath != "" {
 		r.Handle("/images/*", http.StripPrefix("/images/", imagesHandler(cfg.ImagesPath)))
 	}
@@ -220,6 +229,7 @@ func imagesHandler(dir string) http.Handler {
 			return
 		}
 		w.Header().Set("Cache-Control", "public, max-age=86400")
+		w.Header().Set("X-Content-Type-Options", "nosniff")
 		files.ServeHTTP(w, r)
 	})
 }

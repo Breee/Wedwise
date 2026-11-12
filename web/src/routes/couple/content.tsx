@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQueryClient, useSuspenseQuery } from '@tanstack/react-query'
-import { ArrowDown, ArrowUp, Plus, Trash2 } from 'lucide-react'
+import { ArrowDown, ArrowUp, Plus, Trash2, Upload } from 'lucide-react'
 import { toast } from 'sonner'
 import { api, errorMessage } from '@/lib/api'
 import { contentQuery, themesQuery } from '@/lib/queries'
@@ -119,7 +119,10 @@ function ContentPage() {
               <Field label="Name" value={draft.location.name} onChange={(v) => set('location', { ...draft.location, name: v })} />
               <Field label="Adresse" value={draft.location.address} onChange={(v) => set('location', { ...draft.location, address: v })} />
               <Field label="Navigationslink" value={draft.location.navigationUrl} onChange={(v) => set('location', { ...draft.location, navigationUrl: v })} className="sm:col-span-2" />
-              <Field label="Bild-URL" value={draft.location.image ?? ''} onChange={(v) => set('location', { ...draft.location, image: v })} className="sm:col-span-2" />
+              <div className="space-y-2 sm:col-span-2">
+                <Field label="Bild-URL" value={draft.location.image ?? ''} onChange={(v) => set('location', { ...draft.location, image: v })} />
+                <ImageUpload onUploaded={(url) => set('location', { ...draft.location, image: url })} />
+              </div>
               <Field label="Beschreibung" multiline value={draft.location.description} onChange={(v) => set('location', { ...draft.location, description: v })} className="sm:col-span-2" />
               <Field label="Anreise" multiline value={draft.location.transport} onChange={(v) => set('location', { ...draft.location, transport: v })} />
               <Field label="Parken" multiline value={draft.location.parking} onChange={(v) => set('location', { ...draft.location, parking: v })} />
@@ -359,5 +362,44 @@ function ListEditor<T extends object>({
         <Plus className="size-4" /> {addLabel}
       </Button>
     </div>
+  )
+}
+
+function ImageUpload({ onUploaded }: { onUploaded: (url: string) => void }) {
+  const [busy, setBusy] = useState(false)
+
+  async function upload(file: File) {
+    setBusy(true)
+    try {
+      const res = await fetch('/api/uploads', { method: 'POST', credentials: 'include', body: file })
+      const body = await res.json().catch(() => null)
+      if (!res.ok) throw new Error(body?.error?.message ?? 'Das Bild konnte nicht hochgeladen werden.')
+      onUploaded(body.url)
+      toast.success('Bild hochgeladen. Speichern nicht vergessen.')
+    } catch (e) {
+      toast.error(errorMessage(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <Button asChild variant="outline" size="sm" disabled={busy}>
+      <label className="cursor-pointer">
+        <Upload className="size-4" />
+        {busy ? 'Lädt hoch…' : 'Bild hochladen'}
+        <input
+          type="file"
+          accept="image/jpeg,image/png,image/webp,image/gif"
+          className="sr-only"
+          disabled={busy}
+          onChange={(e) => {
+            const file = e.target.files?.[0]
+            e.target.value = ''
+            if (file) upload(file)
+          }}
+        />
+      </label>
+    </Button>
   )
 }

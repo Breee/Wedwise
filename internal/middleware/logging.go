@@ -118,7 +118,10 @@ func SecurityHeaders(next http.Handler) http.Handler {
 // LimitBody restricts the size of request bodies.
 func LimitBody(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		r.Body = http.MaxBytesReader(w, r.Body, httpx.MaxBodyBytes)
+		// Uploads enforce their own, larger limit.
+		if r.URL.Path != "/api/uploads" {
+			r.Body = http.MaxBytesReader(w, r.Body, httpx.MaxBodyBytes)
+		}
 		next.ServeHTTP(w, r)
 	})
 }

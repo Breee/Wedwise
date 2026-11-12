@@ -61,6 +61,9 @@ type Config struct {
 	UsersPath string `yaml:"usersPath" json:"usersPath"`
 	// ImagesPath is an optional directory served read-only under /images/.
 	ImagesPath  string `yaml:"imagesPath" json:"imagesPath"`
+	// UploadsPath stores images uploaded in the editor. Defaults to an
+	// "uploads" directory next to the database.
+	UploadsPath string `yaml:"uploadsPath" json:"uploadsPath"`
 	Environment string `yaml:"environment" json:"environment"`
 	// TrustProxyHeaders enables X-Forwarded-For for client IP detection. Only
 	// enable when a reverse proxy in front of the app sets the header.
@@ -159,6 +162,7 @@ func applyEnv(cfg *Config) {
 		"CONTENT_PATH":    &cfg.ContentPath,
 		"USERS_PATH":      &cfg.UsersPath,
 		"IMAGES_PATH":     &cfg.ImagesPath,
+		"UPLOADS_PATH":    &cfg.UploadsPath,
 		"ENVIRONMENT":     &cfg.Environment,
 		"ROUTING_API_KEY": &cfg.RoutingAPIKey,
 	}
