@@ -6,3 +6,10 @@ metadata:
 data:
   config.yaml: |
     {{- toYaml .Values.config | nindent 4 }}
+  {{- with .Values.content }}
+  content.json: {{ toJson . | quote }}
+  {{- end }}
+  {{- with .Values.theme }}
+  theme.yaml: |
+    {{- toYaml . | nindent 4 }}
+  {{- end }}

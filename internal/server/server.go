@@ -2,8 +2,10 @@
 package server
 
 import (
+	"context"
 	"database/sql"
 	"io/fs"
+	"log/slog"
 	"net/http"
 	"path"
 	"strings"
@@ -60,6 +62,15 @@ func New(cfg configuration.Config, db *sql.DB) (*Server, error) {
 	themes, err := theme.Load(cfg.ThemePath)
 	if err != nil {
 		return nil, err
+	}
+	if cfg.ContentPath != "" {
+		applied, err := contentStore.Seed(context.Background(), cfg.ContentPath)
+		if err != nil {
+			return nil, err
+		}
+		if applied {
+			slog.Info("content applied from file", "path", cfg.ContentPath)
+		}
 	}
 	contentHandler := content.NewHandler(contentStore, authService, cfg.Event, themes)
 

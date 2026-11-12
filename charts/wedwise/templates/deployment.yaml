@@ -49,6 +49,14 @@ spec:
               value: /data/wedding.db
             - name: CONFIG_PATH
               value: /config/config.yaml
+            {{- if .Values.content }}
+            - name: CONTENT_PATH
+              value: /config/content.json
+            {{- end }}
+            {{- if .Values.theme }}
+            - name: THEME_PATH
+              value: /config/theme.yaml
+            {{- end }}
             - name: BASE_URL
               value: {{ .Values.baseUrl | quote }}
             - name: SESSION_SECRET

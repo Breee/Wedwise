@@ -13,6 +13,15 @@ baseUrl: "http://localhost:8080"
 config:
   title: "Our Wedding"
 
+# Page content (schedule, location, travel, accommodation, FAQ, theme name),
+# same shape as examples/content.json. Applied at startup whenever it changes;
+# edits made in the editor are kept until then. Leave empty to manage content
+# in the editor only.
+content: {}
+
+# Optional custom theme, same shape as the files in themes/.
+theme: {}
+
 # Secret holding the keys below. Created by the chart when existingSecret is empty.
 secret:
   existingSecret: ""

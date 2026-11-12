@@ -104,6 +104,7 @@ Settings come from a YAML file (`CONFIG_PATH`, default
 | `TRUST_PROXY_HEADERS` | `trustProxyHeaders` | `false` | Set `true` only behind a reverse proxy, so rate limits use `X-Forwarded-For`. |
 | `ROUTING_API_KEY` | `routingApiKey` | — | Optional OpenRouteService key. |
 | `THEME_PATH` | `themePath` | — | Optional custom theme file. |
+| `CONTENT_PATH` | `contentPath` | — | Optional JSON content file (shape of `examples/content.json`). Applied at startup whenever the file changes; editor changes are kept until then. |
 
 Keep secrets in environment variables, not in the config file.
 
@@ -186,6 +187,8 @@ Useful values (see [`values.yaml`](charts/wedwise/values.yaml)):
 | Value | Purpose |
 |-------|---------|
 | `config` | Your event settings, same keys as `examples/config.yaml`. |
+| `content` | Page content (schedule, location, travel, accommodation, FAQ, theme name), same shape as `examples/content.json`. Applied whenever it changes; leave empty to use the editor only. |
+| `theme` | Optional custom theme, same shape as the files in `themes/`. |
 | `secret.existingSecret` | Use your own Secret with keys `session-secret` and optionally `routing-api-key`. |
 | `persistence.size` / `persistence.existingClaim` | Volume for the SQLite file. |
 | `ingress.*` | Host, class, annotations, TLS. |

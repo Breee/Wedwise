@@ -55,7 +55,9 @@ type Config struct {
 	SessionSecret string `yaml:"sessionSecret" json:"-"`
 	ConfigPath    string `yaml:"configPath" json:"configPath"`
 	ThemePath     string `yaml:"themePath" json:"themePath"`
-	Environment   string `yaml:"environment" json:"environment"`
+	// ContentPath is an optional JSON content file applied at startup whenever it changes.
+	ContentPath string `yaml:"contentPath" json:"contentPath"`
+	Environment string `yaml:"environment" json:"environment"`
 	// TrustProxyHeaders enables X-Forwarded-For for client IP detection. Only
 	// enable when a reverse proxy in front of the app sets the header.
 	TrustProxyHeaders bool `yaml:"trustProxyHeaders" json:"trustProxyHeaders"`
@@ -150,6 +152,7 @@ func applyEnv(cfg *Config) {
 		"SESSION_SECRET":  &cfg.SessionSecret,
 		"CONFIG_PATH":     &cfg.ConfigPath,
 		"THEME_PATH":      &cfg.ThemePath,
+		"CONTENT_PATH":    &cfg.ContentPath,
 		"ENVIRONMENT":     &cfg.Environment,
 		"ROUTING_API_KEY": &cfg.RoutingAPIKey,
 	}
