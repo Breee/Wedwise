@@ -1,0 +1,9 @@
+apiVersion: v2
+name: wedwise
+description: Self-hosted wedding website with RSVP, invite links and planning tools
+type: application
+version: 0.0.0
+appVersion: "0.0.0"
+home: https://github.com/Breee/Wedwise
+sources:
+  - https://github.com/Breee/Wedwise

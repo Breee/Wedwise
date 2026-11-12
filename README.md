@@ -188,33 +188,23 @@ schedule view.
 
 ## Kubernetes Deployment
 
-Manifests are provided under [`deploy/kubernetes/`](deploy/kubernetes):
-
-| File | Purpose |
-|------|---------|
-| `deployment.yaml` | Runs the `wedwise` container, mounts data/config volumes, wires up probes and resource limits. |
-| `service.yaml` | Exposes the deployment on port 80 inside the cluster. |
-| `pvc.yaml` | Persistent volume claim for the SQLite database. |
-| `ingress.yaml` | Example NGINX ingress with TLS termination. |
-| `configmap.yaml` | Application configuration (`config.yaml`) as a ConfigMap. |
-| `secret-example.yaml` | Template for the `wedwise-secrets` Secret; copy to `secret.yaml`, fill in real values, and **do not commit it**. |
-
-Deploy:
+A Helm chart lives in [`charts/wedwise`](charts/wedwise). Releases publish it to
+`oci://ghcr.io/breee/charts/wedwise` and the image to `ghcr.io/breee/wedwise`
+(multi-arch, signed with cosign).
 
 ```bash
-cp deploy/kubernetes/secret-example.yaml deploy/kubernetes/secret.yaml
-# edit deploy/kubernetes/secret.yaml with a real session secret
-
-kubectl apply -f deploy/kubernetes/configmap.yaml
-kubectl apply -f deploy/kubernetes/secret.yaml
-kubectl apply -f deploy/kubernetes/pvc.yaml
-kubectl apply -f deploy/kubernetes/deployment.yaml
-kubectl apply -f deploy/kubernetes/service.yaml
-kubectl apply -f deploy/kubernetes/ingress.yaml
+helm install wedding oci://ghcr.io/breee/charts/wedwise \
+  --set baseUrl=https://wedding.example.com \
+  --set secret.sessionSecret="$(openssl rand -hex 32)" \
+  --set ingress.enabled=true --set ingress.host=wedding.example.com
 ```
 
-Update `ingress.yaml`'s host and `configmap.yaml`'s `baseUrl` before going
-to production.
+Event settings go under `config:` in your values (same keys as
+[`examples/config.yaml`](examples/config.yaml)). Use `secret.existingSecret` to
+bring your own Secret with the keys `session-secret` and optionally
+`routing-api-key`. SQLite is stored on a PersistentVolumeClaim, so the app runs
+as a single replica. Create users with
+`kubectl exec deploy/wedding-wedwise -- /app/wedding user create`.
 
 ## Backup Procedure
 

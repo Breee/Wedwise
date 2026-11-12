@@ -1,0 +1,108 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "wedwise.fullname" . }}
+  labels: {{- include "wedwise.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels: {{- include "wedwise.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels: {{- include "wedwise.selectorLabels" . | nindent 8 }}
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: wedwise
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            - name: LISTEN_ADDRESS
+              value: ":8080"
+            - name: ENVIRONMENT
+              value: production
+            - name: DATABASE_PATH
+              value: /data/wedding.db
+            - name: CONFIG_PATH
+              value: /config/config.yaml
+            - name: BASE_URL
+              value: {{ .Values.baseUrl | quote }}
+            - name: SESSION_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "wedwise.secretName" . }}
+                  key: session-secret
+            - name: ROUTING_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "wedwise.secretName" . }}
+                  key: routing-api-key
+                  optional: true
+            {{- with .Values.env }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            - name: config
+              mountPath: /config
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+          {{- with .Values.resources }}
+          resources: {{- toYaml . | nindent 12 }}
+          {{- end }}
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        - name: config
+          configMap:
+            name: {{ include "wedwise.fullname" . }}
+        - name: data
+          {{- if .Values.persistence.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ .Values.persistence.existingClaim | default (include "wedwise.fullname" .) }}
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity: {{- toYaml . | nindent 8 }}
+      {{- end }}

@@ -1,0 +1,52 @@
+image:
+  repository: ghcr.io/breee/wedwise
+  # Defaults to the chart appVersion.
+  tag: ""
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+
+# Public address guests open. Logins from any other origin are rejected.
+baseUrl: "http://localhost:8080"
+
+# Event configuration, rendered to /config/config.yaml. See examples/config.yaml.
+config:
+  title: "Our Wedding"
+
+# Secret holding the keys below. Created by the chart when existingSecret is empty.
+secret:
+  existingSecret: ""
+  # Required when existingSecret is empty. At least 16 characters.
+  sessionSecret: ""
+  # Optional OpenRouteService key for walking, cycling and driving routes.
+  routingApiKey: ""
+
+# Extra environment variables, e.g. TRUST_PROXY_HEADERS behind an ingress.
+env: []
+#  - name: TRUST_PROXY_HEADERS
+#    value: "true"
+
+# SQLite lives on this volume. The app runs as a single replica.
+persistence:
+  enabled: true
+  existingClaim: ""
+  size: 1Gi
+  storageClass: ""
+  accessModes: [ReadWriteOnce]
+
+service:
+  type: ClusterIP
+  port: 80
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  host: wedding.example.com
+  tls: []
+
+resources: {}
+podAnnotations: {}
+nodeSelector: {}
+tolerations: []
+affinity: {}
