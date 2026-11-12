@@ -2,7 +2,7 @@ import { Link, useNavigate, useRouterState } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Heart, LogOut, Menu } from 'lucide-react'
 import { api } from '@/lib/api'
-import { meQuery } from '@/lib/queries'
+import { meQuery, publicContentQuery } from '@/lib/queries'
 import { Button } from '@/components/ui/button'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
@@ -23,6 +23,8 @@ function linksFor(role: string | undefined) {
 
 export function AppNav() {
   const { data: me } = useQuery(meQuery)
+  const { data: content } = useQuery(publicContentQuery)
+  const names = content?.event.couple.map((c) => c.name).filter(Boolean) ?? []
   const queryClient = useQueryClient()
   const navigate = useNavigate()
   const pathname = useRouterState({ select: (s) => s.location.pathname })
@@ -48,8 +50,18 @@ export function AppNav() {
     >
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-3 px-4 sm:px-6">
         <Link to="/" className="flex shrink-0 items-center gap-2 font-display text-xl tracking-wide whitespace-nowrap sm:text-2xl">
-          <Heart className="size-5 fill-primary/20 text-primary" />
-          Unsere Hochzeit
+          {names.length === 2 ? (
+            <>
+              {names[0]}
+              <Heart aria-label="und" className="size-4 fill-primary/20 text-primary" />
+              {names[1]}
+            </>
+          ) : (
+            <>
+              <Heart className="size-5 fill-primary/20 text-primary" />
+              {content?.event.title ?? 'Unsere Hochzeit'}
+            </>
+          )}
         </Link>
         <nav className="flex min-w-0 items-center gap-1 text-sm">
           {authed && (
