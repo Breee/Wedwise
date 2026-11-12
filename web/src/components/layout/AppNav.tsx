@@ -48,7 +48,12 @@ export function AppNav() {
         isPublic ? 'bg-background/70' : 'bg-card/80',
       )}
     >
-      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-3 px-4 sm:px-6">
+      <div
+        className={cn(
+          'mx-auto flex h-16 max-w-6xl items-center gap-3 px-4 sm:px-6',
+          !authed && isPublic ? 'justify-center' : 'justify-between',
+        )}
+      >
         <Link to="/" className="flex shrink-0 items-center gap-2 font-display text-xl tracking-wide whitespace-nowrap sm:text-2xl">
           {names.length === 2 ? (
             <>
