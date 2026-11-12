@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { Pencil, Plus, Trash2, X } from 'lucide-react'
+import { Link2, Pencil, Plus, Trash2, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { api, errorMessage } from '@/lib/api'
 import { DIET_LABEL, DIET_OPTIONS, RSVP_STATUS_LABEL, formatDateTime } from '@/lib/format'
@@ -217,7 +217,7 @@ export function ResponsesTable({ responses }: { responses: ResponseWithAttendees
               </TableRow>
             )}
             {responses.map((r) => (
-              <TableRow key={r.id} className="relative flex flex-col gap-1 p-3 pr-14 whitespace-normal sm:table-row sm:p-0">
+              <TableRow key={r.id} className="relative flex flex-col gap-1 p-3 pr-24 whitespace-normal sm:table-row sm:p-0">
                 <TableCell className="p-0 whitespace-normal sm:p-2 align-top font-medium">
                   {r.contactName}
                   {(r.email || r.phone) && (
@@ -248,7 +248,21 @@ export function ResponsesTable({ responses }: { responses: ResponseWithAttendees
                 </TableCell>
                 <TableCell className="p-0 sm:p-2 max-w-xs align-top text-sm whitespace-pre-line text-muted-foreground">{r.message}</TableCell>
                 <TableCell className="p-0 whitespace-normal sm:p-2 text-left align-top sm:text-right text-xs text-muted-foreground">{formatDateTime(r.submittedAt)}</TableCell>
-                <TableCell className="absolute top-2 right-2 p-0 sm:static sm:p-2 align-top">
+                <TableCell className="absolute top-2 right-2 flex p-0 sm:static sm:p-2 align-top">
+                  {r.editToken && <Button
+                    variant="ghost"
+                    size="icon"
+                    className="size-10 sm:size-9"
+                    aria-label={`Bearbeitungslink von ${r.contactName} kopieren`}
+                    title="Bearbeitungslink kopieren"
+                    onClick={() =>
+                      navigator.clipboard
+                        .writeText(`${window.location.origin}/rsvp?token=${r.editToken}`)
+                        .then(() => toast.success('Bearbeitungslink kopiert.'))
+                    }
+                  >
+                    <Link2 className="size-4" />
+                  </Button>}
                   <Button variant="ghost" size="icon" className="size-10 sm:size-9" aria-label={`${r.contactName} bearbeiten`} onClick={() => setEditing(r)}>
                     <Pencil className="size-4" />
                   </Button>

@@ -379,3 +379,23 @@ func scanResponse(row scanner) (Response, error) {
 	err := row.Scan(&r.ID, &r.ContactName, &r.Email, &r.Phone, &r.Status, &r.Message, &r.MusicGenres, &r.MusicSong, &r.SubmittedAt, &r.UpdatedAt)
 	return r, err
 }
+
+// EditTokens returns the edit token of every response, for staff who help
+// guests that lost their link.
+func (s *Store) EditTokens(ctx context.Context) (map[int64]string, error) {
+	rows, err := s.db.QueryContext(ctx, "SELECT id, edit_token FROM responses")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	tokens := map[int64]string{}
+	for rows.Next() {
+		var id int64
+		var token string
+		if err := rows.Scan(&id, &token); err != nil {
+			return nil, err
+		}
+		tokens[id] = token
+	}
+	return tokens, rows.Err()
+}

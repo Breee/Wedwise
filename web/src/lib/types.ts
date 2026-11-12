@@ -229,6 +229,7 @@ export interface GuestView extends Response {
 }
 
 export interface ResponseWithAttendees extends Response {
+  editToken?: string
   attendees: Attendee[]
 }
 

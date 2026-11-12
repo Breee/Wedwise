@@ -109,6 +109,7 @@ type guestView struct {
 
 type coupleView struct {
 	Response
+	EditToken string     `json:"editToken,omitempty"`
 	Attendees []Attendee `json:"attendees"`
 }
 
@@ -202,7 +203,23 @@ func (h *Handler) writeCoupleView(w http.ResponseWriter, r *http.Request, respon
 	if attendees == nil {
 		attendees = []Attendee{}
 	}
-	httpx.WriteJSON(w, http.StatusOK, coupleView{Response: response, Attendees: attendees})
+	tokens, err := h.editTokens(r)
+	if err != nil {
+		httpx.Internal(w, err)
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, coupleView{Response: response, EditToken: tokens[response.ID], Attendees: attendees})
+}
+
+// editTokens returns the edit links only for staff who may see contributions:
+// the guest view behind an edit link shows the contribution, which the couple
+// must never see.
+func (h *Handler) editTokens(r *http.Request) (map[int64]string, error) {
+	identity, ok := auth.IdentityFrom(r.Context())
+	if !ok || !auth.RoleHasPermission(identity.Role, auth.PermContributionRead) {
+		return map[int64]string{}, nil
+	}
+	return h.store.EditTokens(r.Context())
 }
 
 // ListHandler returns every response with attendees but without contributions.
@@ -217,6 +234,11 @@ func (h *Handler) ListHandler(w http.ResponseWriter, r *http.Request) {
 		httpx.Internal(w, err)
 		return
 	}
+	tokens, err := h.editTokens(r)
+	if err != nil {
+		httpx.Internal(w, err)
+		return
+	}
 	byResponse := map[int64][]Attendee{}
 	for _, attendee := range attendees {
 		byResponse[attendee.ResponseID] = append(byResponse[attendee.ResponseID], attendee)
@@ -227,7 +249,7 @@ func (h *Handler) ListHandler(w http.ResponseWriter, r *http.Request) {
 		if list == nil {
 			list = []Attendee{}
 		}
-		views = append(views, coupleView{Response: response, Attendees: list})
+		views = append(views, coupleView{Response: response, EditToken: tokens[response.ID], Attendees: list})
 	}
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{"responses": views})
 }
