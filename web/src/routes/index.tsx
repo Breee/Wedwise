@@ -1,11 +1,13 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, Link } from '@tanstack/react-router'
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { motion } from 'motion/react'
-import { Bike, CalendarPlus, Car, ChevronDown, MapPin, Navigation, TramFront } from 'lucide-react'
+import { Bike, CalendarPlus, PencilLine, Car, ChevronDown, MapPin, Navigation, TramFront } from 'lucide-react'
 import { lazy, Suspense, useState } from 'react'
 import { publicContentQuery } from '@/lib/queries'
 import { formatDate } from '@/lib/format'
 import { icsUrl } from '@/lib/ics'
+import { InstallApp } from '@/components/public/InstallApp'
+import { rememberedToken } from '@/lib/remember'
 import type { DirectionsMode } from '@/lib/geo'
 import { DirectionsLinks } from '@/components/public/DirectionsLinks'
 import { Section } from '@/components/public/Section'
@@ -92,7 +94,19 @@ function HomePage() {
                 <CalendarPlus className="size-4" /> Zum Kalender hinzufügen
               </a>
             </Button>
+            {rememberedToken() && (
+              <Button asChild variant="outline" size="sm">
+                <Link to="/rsvp">
+                  <PencilLine className="size-4" /> Eure Antwort bearbeiten
+                </Link>
+              </Button>
+            )}
           </div>
+          {rememberedToken() && (
+            <div className="mx-auto mt-6 max-w-sm">
+              <InstallApp />
+            </div>
+          )}
           {schedule.length > 0 && (
             <a href="#ablauf" className="mt-10 inline-flex flex-col items-center gap-1 text-xs tracking-widest text-muted-foreground uppercase transition-colors hover:text-primary">
               Zum Ablauf <ChevronDown className="size-4 animate-bounce" />

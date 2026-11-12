@@ -3,6 +3,7 @@ import { createFileRoute } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { errorMessage } from '@/lib/api'
 import { rsvpQuery } from '@/lib/queries'
+import { rememberedToken } from '@/lib/remember'
 import type { GuestView } from '@/lib/types'
 import { Card, CardContent } from '@/components/ui/card'
 import { Done, RsvpForm, RsvpHeader } from '@/components/rsvp/RsvpForm'
@@ -15,7 +16,8 @@ export const Route = createFileRoute('/rsvp/')({
 })
 
 function EditResponsePage() {
-  const { token } = Route.useSearch()
+  const { token: fromUrl } = Route.useSearch()
+  const token = fromUrl ?? rememberedToken() ?? undefined
   const [done, setDone] = useState<GuestView | null>(null)
 
   return (

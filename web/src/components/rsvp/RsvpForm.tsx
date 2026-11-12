@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useNavigate } from '@tanstack/react-router'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion, AnimatePresence } from 'motion/react'
@@ -19,6 +19,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Separator } from '@/components/ui/separator'
 import { GENRES, NEEDS_OPTIONS, SongSearch, formatNeeds, joinList, parseNeeds, splitList } from '@/components/rsvp/music'
 import { MESSENGERS, MessengerIcon } from '@/lib/contact'
+import { rememberToken } from '@/lib/remember'
+import { InstallApp } from '@/components/public/InstallApp'
 
 const MAX_ATTENDEES = 10
 
@@ -398,6 +400,7 @@ export function RsvpForm({ initial, link, onDone }: FormProps) {
 }
 
 export function Done({ view, onEdit }: { view: GuestView; onEdit: () => void }) {
+  useEffect(() => rememberToken(view.editToken), [view.editToken])
   const editUrl = `${window.location.origin}/rsvp?token=${encodeURIComponent(view.editToken)}`
   return (
     <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }}>
@@ -437,6 +440,7 @@ export function Done({ view, onEdit }: { view: GuestView; onEdit: () => void }) 
               )}
             </div>
           </div>
+          <InstallApp />
           <div className="flex flex-col items-center gap-3 pt-2">
             <Button asChild size="lg">
               <Link to="/">Alle Infos zur Hochzeit ansehen</Link>

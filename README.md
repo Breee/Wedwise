@@ -24,6 +24,8 @@ third-party SaaS required.
 ## Features
 
 - 📖 **Wedding page** — hero, schedule, location, FAQ, add-to-calendar.
+- 📱 **Installable** — guests can add the site to their home screen; their
+  response is remembered so they can come back and edit it.
 - 🗺️ **Arrival & stay maps** — MapLibre maps on OpenFreeMap tiles (no API
   key): tram line, walking and bike routes to the venue, and recommended
   hotels / holiday flats with price tier, filters and Booking.com links

@@ -109,6 +109,7 @@ func New(cfg configuration.Config, db *sql.DB) (*Server, error) {
 
 	r.Get("/healthz", healthz)
 	r.Get("/readyz", readyz(db))
+	r.Get("/manifest.webmanifest", manifestHandler(cfg.Event))
 
 	r.Route("/api", func(api chi.Router) {
 		api.Mount("/auth", authService.Routes(loginLimit))
