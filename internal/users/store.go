@@ -45,6 +45,15 @@ func (s *Store) Create(ctx context.Context, params CreateParams) (User, error) {
 	if !auth.IsValidRole(params.Role) {
 		return User{}, fmt.Errorf("invalid role %q, must be one of %s", params.Role, strings.Join(auth.KnownRoles(), ", "))
 	}
+	// Without a password the account gets a random one nobody knows; the
+	// user chooses their own through a setup link.
+	if params.Password == "" {
+		random, err := randomToken(32)
+		if err != nil {
+			return User{}, err
+		}
+		params.Password = random
+	}
 	if err := auth.ValidatePassword(params.Password); err != nil {
 		return User{}, err
 	}

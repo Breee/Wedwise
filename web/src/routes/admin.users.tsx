@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQueryClient, useSuspenseQuery } from '@tanstack/react-query'
-import { KeyRound, Plus } from 'lucide-react'
+import { Copy, KeyRound, Plus } from 'lucide-react'
 import { toast } from 'sonner'
 import { api, errorMessage } from '@/lib/api'
 import { requireRole } from '@/lib/auth'
@@ -24,19 +24,25 @@ export const Route = createFileRoute('/admin/users')({
 })
 
 const ROLE_LABEL: Record<Role, string> = { couple: 'Brautpaar', witness: 'Trauzeug:in', admin: 'Admin' }
-const MIN_PASSWORD = 10
 
 function UsersPage() {
   const queryClient = useQueryClient()
   const { data: users } = useSuspenseQuery(usersQuery)
   const { data: me } = useSuspenseQuery(meQuery)
   const [creating, setCreating] = useState(false)
-  const [passwordTarget, setPasswordTarget] = useState<User | null>(null)
+  const [link, setLink] = useState<{ user: string; url: string } | null>(null)
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: usersQuery.queryKey })
   const setActive = useMutation({
     mutationFn: ({ id, active }: { id: number; active: boolean }) => api.put(`/users/${id}/active`, { active }),
     onSuccess: refresh,
+    onError: (e) => toast.error(errorMessage(e)),
+  })
+
+  const newLink = useMutation({
+    mutationFn: (u: User) =>
+      api.post<{ setupUrl: string }>(`/users/${u.id}/setup-link`, {}).then((r) => ({ user: u.username, url: r.setupUrl })),
+    onSuccess: setLink,
     onError: (e) => toast.error(errorMessage(e)),
   })
 
@@ -58,7 +64,7 @@ function UsersPage() {
             <TableHead>Name</TableHead>
             <TableHead>Rolle</TableHead>
             <TableHead>Aktiv</TableHead>
-            <TableHead className="text-right">Passwort</TableHead>
+            <TableHead className="text-right">Link</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody className="block sm:table-row-group">
@@ -85,8 +91,8 @@ function UsersPage() {
                   variant="ghost"
                   size="icon"
                   className="size-10 sm:size-9"
-                  onClick={() => setPasswordTarget(u)}
-                  aria-label={`Passwort für ${u.username} ändern`}
+                  onClick={() => newLink.mutate(u)}
+                  aria-label={`Einrichtungslink für ${u.username} erzeugen`}
                 >
                   <KeyRound className="size-4" />
                 </Button>
@@ -97,28 +103,32 @@ function UsersPage() {
       </Table>
 
       <Dialog open={creating} onOpenChange={setCreating}>
-        <DialogContent>{creating && <CreateForm onDone={() => (setCreating(false), refresh())} />}</DialogContent>
-      </Dialog>
-      <Dialog open={!!passwordTarget} onOpenChange={(open) => !open && setPasswordTarget(null)}>
         <DialogContent>
-          {passwordTarget && <PasswordForm user={passwordTarget} onDone={() => setPasswordTarget(null)} />}
+          {creating && (
+            <CreateForm
+              onDone={(created) => {
+                setCreating(false)
+                setLink(created)
+                refresh()
+              }}
+            />
+          )}
         </DialogContent>
+      </Dialog>
+      <Dialog open={!!link} onOpenChange={(open) => !open && setLink(null)}>
+        <DialogContent>{link && <SetupLink user={link.user} url={link.url} />}</DialogContent>
       </Dialog>
     </div>
   )
 }
 
-function CreateForm({ onDone }: { onDone: () => void }) {
+function CreateForm({ onDone }: { onDone: (created: { user: string; url: string }) => void }) {
   const [username, setUsername] = useState('')
   const [displayName, setDisplayName] = useState('')
   const [role, setRole] = useState<Role>('witness')
-  const [password, setPassword] = useState('')
   const create = useMutation({
-    mutationFn: () => api.post('/users', { username, displayName, role, password }),
-    onSuccess: () => {
-      toast.success('Benutzer angelegt.')
-      onDone()
-    },
+    mutationFn: () => api.post<User & { setupUrl: string }>('/users', { username, displayName, role }),
+    onSuccess: (u) => onDone({ user: u.username, url: u.setupUrl }),
     onError: (e) => toast.error(errorMessage(e)),
   })
 
@@ -132,7 +142,9 @@ function CreateForm({ onDone }: { onDone: () => void }) {
     >
       <DialogHeader>
         <DialogTitle>Neuer Benutzer</DialogTitle>
-        <DialogDescription>Gebt das Passwort persönlich weiter – es wird nicht verschickt.</DialogDescription>
+        <DialogDescription>
+          Ihr bekommt einen Einrichtungslink. Darüber legt die Person ihr Passwort selbst fest.
+        </DialogDescription>
       </DialogHeader>
       <div className="space-y-2">
         <Label htmlFor="u-username">Benutzername</Label>
@@ -157,7 +169,6 @@ function CreateForm({ onDone }: { onDone: () => void }) {
           </SelectContent>
         </Select>
       </div>
-      <PasswordField id="u-password" value={password} onChange={setPassword} />
       <DialogFooter>
         <Button type="submit" disabled={create.isPending}>
           Anlegen
@@ -167,53 +178,27 @@ function CreateForm({ onDone }: { onDone: () => void }) {
   )
 }
 
-function PasswordForm({ user, onDone }: { user: User; onDone: () => void }) {
-  const [password, setPassword] = useState('')
-  const save = useMutation({
-    mutationFn: () => api.put(`/users/${user.id}/password`, { password }),
-    onSuccess: () => {
-      toast.success('Passwort geändert.')
-      onDone()
-    },
-    onError: (e) => toast.error(errorMessage(e)),
-  })
-
+function SetupLink({ user, url }: { user: string; url: string }) {
   return (
-    <form
-      className="space-y-4"
-      onSubmit={(e) => {
-        e.preventDefault()
-        save.mutate()
-      }}
-    >
+    <div className="space-y-4">
       <DialogHeader>
-        <DialogTitle>Passwort für {user.username}</DialogTitle>
-        <DialogDescription>Das alte Passwort gilt danach nicht mehr.</DialogDescription>
+        <DialogTitle>Einrichtungslink für {user}</DialogTitle>
+        <DialogDescription>
+          Gebt den Link persönlich weiter. Er gilt 7 Tage und nur einmal – wir zeigen ihn nicht noch einmal an.
+        </DialogDescription>
       </DialogHeader>
-      <PasswordField id="p-password" value={password} onChange={setPassword} />
-      <DialogFooter>
-        <Button type="submit" disabled={save.isPending}>
-          Speichern
+      <div className="flex gap-2">
+        <Input readOnly value={url} aria-label="Einrichtungslink" onFocus={(e) => e.target.select()} />
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          aria-label="Link kopieren"
+          onClick={() => navigator.clipboard.writeText(url).then(() => toast.success('Link kopiert.'))}
+        >
+          <Copy className="size-4" />
         </Button>
-      </DialogFooter>
-    </form>
-  )
-}
-
-function PasswordField({ id, value, onChange }: { id: string; value: string; onChange: (v: string) => void }) {
-  return (
-    <div className="space-y-2">
-      <Label htmlFor={id}>Passwort (mind. {MIN_PASSWORD} Zeichen)</Label>
-      <Input
-        id={id}
-        type="password"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        required
-        minLength={MIN_PASSWORD}
-        maxLength={200}
-        autoComplete="new-password"
-      />
+      </div>
     </div>
   )
 }

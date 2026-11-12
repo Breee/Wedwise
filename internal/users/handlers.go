@@ -15,13 +15,14 @@ import (
 
 // Handler exposes user endpoints.
 type Handler struct {
-	store *Store
-	auth  *auth.Service
+	store   *Store
+	auth    *auth.Service
+	baseURL string
 }
 
 // NewHandler creates a user handler.
-func NewHandler(store *Store, authService *auth.Service) *Handler {
-	return &Handler{store: store, auth: authService}
+func NewHandler(store *Store, authService *auth.Service, baseURL string) *Handler {
+	return &Handler{store: store, auth: authService, baseURL: strings.TrimRight(baseURL, "/")}
 }
 
 type userResponse struct {
@@ -43,6 +44,7 @@ func (h *Handler) Routes() http.Handler {
 		r.Use(h.auth.RequirePermission(auth.PermUserManage))
 		r.Post("/", h.create)
 		r.Put("/{id}/password", h.setPassword)
+		r.Post("/{id}/setup-link", h.setupLink)
 		r.Put("/{id}/active", h.setActive)
 	})
 	return r
@@ -91,7 +93,7 @@ func (h *Handler) create(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, http.StatusBadRequest, httpx.CodeBadRequest, "Unknown role.")
 		return
 	}
-	if !validPassword(w, req.Password) {
+	if req.Password != "" && !validPassword(w, req.Password) {
 		return
 	}
 	user, err := h.store.Create(r.Context(), CreateParams{
@@ -109,7 +111,86 @@ func (h *Handler) create(w http.ResponseWriter, r *http.Request) {
 		httpx.Internal(w, err)
 		return
 	}
-	httpx.WriteJSON(w, http.StatusCreated, toResponse(user))
+	response := struct {
+		userResponse
+		SetupURL string `json:"setupUrl,omitempty"`
+	}{userResponse: toResponse(user)}
+	if req.Password == "" {
+		if response.SetupURL, err = h.newSetupURL(r, user.ID); err != nil {
+			httpx.Internal(w, err)
+			return
+		}
+	}
+	httpx.WriteJSON(w, http.StatusCreated, response)
+}
+
+func (h *Handler) newSetupURL(r *http.Request, userID int64) (string, error) {
+	token, err := h.store.CreateSetupToken(r.Context(), userID)
+	if err != nil {
+		return "", err
+	}
+	return h.baseURL + "/setup/" + token, nil
+}
+
+func (h *Handler) setupLink(w http.ResponseWriter, r *http.Request) {
+	user, ok := h.target(w, r)
+	if !ok {
+		return
+	}
+	url, err := h.newSetupURL(r, user.ID)
+	if err != nil {
+		httpx.Internal(w, err)
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, map[string]string{"setupUrl": url})
+}
+
+// SetupRoutes returns the public routes behind a setup link.
+func (h *Handler) SetupRoutes(middlewares ...func(http.Handler) http.Handler) http.Handler {
+	r := chi.NewRouter()
+	r.Use(middlewares...)
+	r.Get("/{token}", h.setupInfo)
+	r.Post("/{token}", h.setupRedeem)
+	return r
+}
+
+func setupNotFound(w http.ResponseWriter) {
+	httpx.WriteError(w, http.StatusNotFound, httpx.CodeNotFound, "This link is invalid or has expired.")
+}
+
+func (h *Handler) setupInfo(w http.ResponseWriter, r *http.Request) {
+	user, err := h.store.SetupUser(r.Context(), chi.URLParam(r, "token"))
+	if errors.Is(err, ErrNotFound) {
+		setupNotFound(w)
+		return
+	}
+	if err != nil {
+		httpx.Internal(w, err)
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, map[string]string{"username": user.Username, "displayName": user.DisplayName})
+}
+
+func (h *Handler) setupRedeem(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Password string `json:"password"`
+	}
+	if !httpx.DecodeJSON(w, r, &req) {
+		return
+	}
+	if !validPassword(w, req.Password) {
+		return
+	}
+	err := h.store.RedeemSetupToken(r.Context(), chi.URLParam(r, "token"), req.Password)
+	if errors.Is(err, ErrNotFound) {
+		setupNotFound(w)
+		return
+	}
+	if err != nil {
+		httpx.Internal(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (h *Handler) target(w http.ResponseWriter, r *http.Request) (User, bool) {

@@ -1346,3 +1346,59 @@ func TestUserManagement(t *testing.T) {
 		t.Fatalf("self deactivate: got %d, want 400", res.StatusCode)
 	}
 }
+
+func TestUserSetupLink(t *testing.T) {
+	app, _ := newTestAppWithUsers(t)
+	admin, _ := app.login("admin_user", "TestPass123!")
+	couple, _ := app.login("couple_user", "TestPass123!")
+
+	tokenOf := func(res *http.Response) string {
+		t.Helper()
+		var body struct {
+			ID       int64  `json:"id"`
+			SetupURL string `json:"setupUrl"`
+		}
+		if err := json.NewDecoder(res.Body).Decode(&body); err != nil {
+			t.Fatal(err)
+		}
+		i := strings.LastIndex(body.SetupURL, "/setup/")
+		if i < 0 {
+			t.Fatalf("no setup url in response: %q", body.SetupURL)
+		}
+		return body.SetupURL[i+len("/setup/"):]
+	}
+
+	res := app.do(http.MethodPost, "/api/users/", map[string]any{"username": "neu", "role": "witness"}, admin)
+	if res.StatusCode != http.StatusCreated {
+		t.Fatalf("create without password: got %d, want 201", res.StatusCode)
+	}
+	first := tokenOf(res)
+
+	if res := app.do(http.MethodPost, "/api/users/4/setup-link", nil, couple); res.StatusCode != http.StatusForbidden {
+		t.Fatalf("couple setup-link: got %d, want 403", res.StatusCode)
+	}
+	res = app.do(http.MethodPost, "/api/users/4/setup-link", nil, admin)
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("new setup-link: got %d, want 200", res.StatusCode)
+	}
+	token := tokenOf(res)
+
+	if res := app.do(http.MethodGet, "/api/setup/"+first, nil, nil); res.StatusCode != http.StatusNotFound {
+		t.Fatalf("replaced token: got %d, want 404", res.StatusCode)
+	}
+	if res := app.do(http.MethodGet, "/api/setup/"+token, nil, nil); res.StatusCode != http.StatusOK {
+		t.Fatalf("setup info: got %d, want 200", res.StatusCode)
+	}
+	if res := app.do(http.MethodPost, "/api/setup/"+token, map[string]any{"password": "short"}, nil); res.StatusCode != http.StatusBadRequest {
+		t.Fatalf("short password: got %d, want 400", res.StatusCode)
+	}
+	if res := app.do(http.MethodPost, "/api/setup/"+token, map[string]any{"password": "MyOwnSecret123"}, nil); res.StatusCode != http.StatusNoContent {
+		t.Fatalf("redeem: got %d, want 204", res.StatusCode)
+	}
+	if _, status := app.login("neu", "MyOwnSecret123"); status != http.StatusOK {
+		t.Fatalf("login after setup: got %d", status)
+	}
+	if res := app.do(http.MethodPost, "/api/setup/"+token, map[string]any{"password": "AnotherSecret123"}, nil); res.StatusCode != http.StatusNotFound {
+		t.Fatalf("token reuse: got %d, want 404", res.StatusCode)
+	}
+}

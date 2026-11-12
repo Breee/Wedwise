@@ -61,7 +61,7 @@ func New(cfg configuration.Config, db *sql.DB) (*Server, error) {
 	inviteStore := invites.NewStore(db)
 	inviteGate := invites.NewGate(cfg.SessionSecret, cfg.IsProduction())
 
-	userHandler := users.NewHandler(userStore, authService)
+	userHandler := users.NewHandler(userStore, authService, cfg.BaseURL)
 	rsvpHandler := rsvp.NewHandler(rsvpStore, contributionStore, inviteStore, inviteGate)
 	inviteHandler := invites.NewHandler(inviteStore, authService)
 	contributionHandler := contributions.NewHandler(contributionStore, authService)
@@ -113,7 +113,8 @@ func New(cfg configuration.Config, db *sql.DB) (*Server, error) {
 
 	r.Route("/api", func(api chi.Router) {
 		api.Mount("/auth", authService.Routes(loginLimit))
-		api.Mount("/rsvp", rsvpHandler.PublicRoutes(rsvpLimit))
+		api.Mount("/setup", userHandler.SetupRoutes(loginLimit))
+	api.Mount("/rsvp", rsvpHandler.PublicRoutes(rsvpLimit))
 		api.Get("/content/public", contentHandler.PublicHandler)
 		api.Get("/themes", contentHandler.ThemesHandler)
 		api.With(routeLimit).Method(http.MethodGet, "/route", routing.NewHandler(cfg.RoutingAPIKey, db))
