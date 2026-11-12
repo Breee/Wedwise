@@ -131,7 +131,10 @@ variables, not committed to the config file.
 - Invite links can carry a PIN (stored as an argon2id hash). A successful
   unlock sets an HttpOnly cookie signed with `SESSION_SECRET` (at least
   16 characters, required); changing the PIN invalidates existing cookies.
-  Inactive or unknown links answer `404`.
+  Inactive or unknown links answer `404`. After 10 wrong PINs a link stays
+  locked for 15 minutes (`429`), whatever the client IP.
+- The song search in the response form is proxied by the backend
+  (`GET /api/songs?q=`), so guests' browsers never contact a third party.
 - Client IPs are taken from the TCP connection. Behind a reverse proxy set
   `TRUST_PROXY_HEADERS=true` (or `trustProxyHeaders: true`) so the last
   `X-Forwarded-For` hop is used instead. Do not enable it without a proxy, as

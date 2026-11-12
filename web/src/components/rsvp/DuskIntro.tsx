@@ -1,7 +1,6 @@
 import { useMemo } from "react";
 import { motion, useReducedMotion } from "motion/react";
 
-const EASE = [0.22, 1, 0.36, 1] as const;
 
 type Firefly = {
   x: number;
@@ -196,10 +195,14 @@ export function DuskScene({ variant = "dusk" }: { variant?: SceneVariant }) {
               width: f.size,
               height: f.size,
             }}
-            animate={{
-              x: [0, f.dx * 0.4, f.dx, f.dx * 0.6, 0],
-              y: [0, f.dy * 0.6, f.dy, f.dy * 0.3, 0],
-            }}
+            animate={
+              reduced
+                ? undefined
+                : {
+                    x: [0, f.dx * 0.4, f.dx, f.dx * 0.6, 0],
+                    y: [0, f.dy * 0.6, f.dy, f.dy * 0.3, 0],
+                  }
+            }
             transition={{
               duration: f.duration,
               delay: f.delay,
@@ -214,8 +217,8 @@ export function DuskScene({ variant = "dusk" }: { variant?: SceneVariant }) {
                 boxShadow:
                   "0 0 10px 4px rgba(247,233,168,0.7), 0 0 26px 10px rgba(247,233,168,0.25)",
               }}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: [0, 1, 0.2, 0.9, 0] }}
+              initial={{ opacity: reduced ? 0.6 : 0 }}
+              animate={reduced ? undefined : { opacity: [0, 1, 0.2, 0.9, 0] }}
               transition={{
                 duration: f.blink,
                 delay: f.delay,
@@ -227,64 +230,6 @@ export function DuskScene({ variant = "dusk" }: { variant?: SceneVariant }) {
           </motion.span>
         ))}
       </motion.div>
-    </div>
-  );
-}
-
-export function DuskTitle({
-  title,
-  date,
-  delay = 0,
-}: {
-  title: string;
-  date: string;
-  delay?: number;
-}) {
-  return (
-    <div
-      className="relative flex flex-col items-center"
-      style={{
-        marginTop: "-38vh",
-        textShadow: "0 2px 6px rgba(0,0,0,0.6), 0 4px 32px rgba(0,0,0,0.6)",
-      }}
-    >
-      <motion.p
-        className="text-xs font-medium text-[#d9c9a3] uppercase"
-        initial={{ opacity: 0, letterSpacing: "0.1em" }}
-        animate={{ opacity: 1, letterSpacing: "0.45em" }}
-        transition={{ duration: 1.6, ease: EASE, delay: 0.3 + delay }}
-      >
-        Ihr seid eingeladen
-      </motion.p>
-      <div className="mt-6 overflow-hidden pb-1">
-        <motion.h1
-          className="font-display text-5xl leading-tight font-medium text-[#f4efe2] md:text-7xl"
-          style={{ textShadow: "0 2px 24px rgba(0,0,0,0.35)" }}
-          initial={{ opacity: 0, y: "105%", filter: "blur(10px)" }}
-          animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-          transition={{ duration: 1.8, ease: EASE, delay: 1.2 + delay }}
-        >
-          {title}
-        </motion.h1>
-      </div>
-      <motion.div
-        className="my-3 h-px w-[min(80vw,28rem)]"
-        style={{
-          background:
-            "linear-gradient(to right, transparent, #d9c9a3, transparent)",
-        }}
-        initial={{ scaleX: 0, opacity: 0 }}
-        animate={{ scaleX: 1, opacity: 1 }}
-        transition={{ duration: 1.6, ease: "easeInOut", delay: 0.8 + delay }}
-      />
-      <motion.p
-        className="font-display text-xl text-[#d9c9a3]/90 md:text-2xl"
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 1.2, ease: "easeOut", delay: 2.4 + delay }}
-      >
-        {date}
-      </motion.p>
     </div>
   );
 }

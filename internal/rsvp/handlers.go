@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 
@@ -11,10 +12,18 @@ import (
 	"github.com/Breee/Wedwise/internal/contributions"
 	"github.com/Breee/Wedwise/internal/httpx"
 	"github.com/Breee/Wedwise/internal/invites"
+	"github.com/Breee/Wedwise/internal/middleware"
 )
 
 // CodeInvalidPIN is the error code for a wrong or missing invite PIN.
 const CodeInvalidPIN = "invalid_pin"
+
+// A link accepts at most pinFailureLimit wrong PINs per pinFailureWindow,
+// regardless of where the attempts come from.
+const (
+	pinFailureLimit  = 10
+	pinFailureWindow = 15 * time.Minute
+)
 
 // Handler exposes the public RSVP endpoints and the protected response
 // overview for the couple.
@@ -23,11 +32,18 @@ type Handler struct {
 	contributions *contributions.Store
 	links         *invites.Store
 	gate          *invites.Gate
+	pinFailures   *middleware.Limiter
 }
 
 // NewHandler creates an RSVP handler.
 func NewHandler(store *Store, contributionStore *contributions.Store, links *invites.Store, gate *invites.Gate) *Handler {
-	return &Handler{store: store, contributions: contributionStore, links: links, gate: gate}
+	return &Handler{
+		store:         store,
+		contributions: contributionStore,
+		links:         links,
+		gate:          gate,
+		pinFailures:   middleware.NewLimiter(pinFailureLimit, pinFailureWindow),
+	}
 }
 
 type attendeeRequest struct {
@@ -251,7 +267,14 @@ func (h *Handler) unlock(w http.ResponseWriter, r *http.Request) {
 	if !httpx.DecodeJSON(w, r, &req) {
 		return
 	}
+	key := strconv.FormatInt(link.ID, 10)
+	if blocked, retryAfter := h.pinFailures.Blocked(key); blocked {
+		w.Header().Set("Retry-After", strconv.Itoa(int(retryAfter.Seconds())+1))
+		httpx.WriteError(w, http.StatusTooManyRequests, httpx.CodeTooManyRequests, "Too many wrong PINs. Please try again later.")
+		return
+	}
 	if !h.gate.Unlock(w, link, req.PIN) {
+		h.pinFailures.Allow(key)
 		httpx.WriteError(w, http.StatusUnauthorized, CodeInvalidPIN, "The PIN is not correct.")
 		return
 	}

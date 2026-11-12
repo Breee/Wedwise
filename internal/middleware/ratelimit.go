@@ -62,6 +62,21 @@ func (l *Limiter) Allow(key string) (bool, time.Duration) {
 	return true, 0
 }
 
+// Blocked reports whether key has used up its limit, without recording a
+// request. It lets callers count only failures via Allow.
+func (l *Limiter) Blocked(key string) (bool, time.Duration) {
+	now := l.now()
+
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	entry, ok := l.entries[key]
+	if !ok || !now.Before(entry.reset) || entry.count < l.limit {
+		return false, 0
+	}
+	return true, entry.reset.Sub(now)
+}
+
 // sweepLocked drops expired windows at most once per window to bound memory.
 func (l *Limiter) sweepLocked(now time.Time) {
 	if now.Before(l.sweep) {

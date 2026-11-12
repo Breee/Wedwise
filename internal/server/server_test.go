@@ -1195,3 +1195,34 @@ func TestRSVP_ChildDetails(t *testing.T) {
 		t.Errorf("age 40: got %d, want 400", resp.StatusCode)
 	}
 }
+
+func TestInviteLinkPINAttemptLimit(t *testing.T) {
+	app, _ := newTestAppWithUsers(t)
+	couple, _ := app.login("couple_user", "TestPass123!")
+	link := createLink(t, app)
+	set := app.do("PUT", fmt.Sprintf("/api/invite-links/%d/pin", link.ID), map[string]any{"pin": "2027"}, couple)
+	set.Body.Close()
+
+	unlock := "/api/rsvp/links/" + link.Token + "/unlock"
+	for i := range 10 {
+		wrong := app.do("POST", unlock, map[string]any{"pin": "0000"}, nil)
+		wrong.Body.Close()
+		if wrong.StatusCode != http.StatusUnauthorized {
+			t.Fatalf("wrong pin %d: got %d, want 401", i+1, wrong.StatusCode)
+		}
+	}
+	blocked := app.do("POST", unlock, map[string]any{"pin": "2027"}, nil)
+	blocked.Body.Close()
+	if blocked.StatusCode != http.StatusTooManyRequests || blocked.Header.Get("Retry-After") == "" {
+		t.Fatalf("after 10 wrong pins: got %d, want 429 with Retry-After", blocked.StatusCode)
+	}
+
+	other := createLink(t, app)
+	setOther := app.do("PUT", fmt.Sprintf("/api/invite-links/%d/pin", other.ID), map[string]any{"pin": "2027"}, couple)
+	setOther.Body.Close()
+	ok := app.do("POST", "/api/rsvp/links/"+other.Token+"/unlock", map[string]any{"pin": "2027"}, nil)
+	ok.Body.Close()
+	if ok.StatusCode != http.StatusNoContent {
+		t.Fatalf("other link: got %d, want 204", ok.StatusCode)
+	}
+}

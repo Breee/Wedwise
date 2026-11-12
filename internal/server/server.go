@@ -20,6 +20,7 @@ import (
 	"github.com/Breee/Wedwise/internal/middleware"
 	"github.com/Breee/Wedwise/internal/routing"
 	"github.com/Breee/Wedwise/internal/rsvp"
+	"github.com/Breee/Wedwise/internal/songs"
 	"github.com/Breee/Wedwise/internal/theme"
 	"github.com/Breee/Wedwise/internal/users"
 	"github.com/Breee/Wedwise/web"
@@ -89,6 +90,7 @@ func New(cfg configuration.Config, db *sql.DB) (*Server, error) {
 		api.Get("/content/public", contentHandler.PublicHandler)
 		api.Get("/themes", contentHandler.ThemesHandler)
 		api.With(routeLimit).Method(http.MethodGet, "/route", routing.NewHandler(cfg.RoutingAPIKey, db))
+		api.With(routeLimit).Method(http.MethodGet, "/songs", songs.NewHandler())
 
 		api.Group(func(protected chi.Router) {
 			protected.Use(authService.RequireAuth)

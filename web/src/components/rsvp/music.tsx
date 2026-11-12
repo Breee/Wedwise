@@ -26,7 +26,7 @@ export function formatNeeds(selected: string[], other: string): string {
   return joinList([...selected, ...(o ? [OTHER_PREFIX + o] : [])])
 }
 
-type Track = { trackId: number; trackName: string; artistName: string; artworkUrl60?: string }
+type Track = { trackId: number; trackName: string; artistName: string }
 
 export function SongSearch({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const [query, setQuery] = useState(value)
@@ -42,7 +42,7 @@ export function SongSearch({ value, onChange }: { value: string; onChange: (v: s
     }
     const ctrl = new AbortController()
     const t = setTimeout(() => {
-      fetch(`https://itunes.apple.com/search?media=music&entity=song&limit=6&term=${encodeURIComponent(q)}`, { signal: ctrl.signal })
+      fetch(`/api/songs?q=${encodeURIComponent(q)}`, { signal: ctrl.signal })
         .then((r) => r.json())
         .then((d: { results?: Track[] }) => {
           setResults(d.results ?? [])
@@ -87,7 +87,7 @@ export function SongSearch({ value, onChange }: { value: string; onChange: (v: s
                     setOpen(false)
                   }}
                 >
-                  {t.artworkUrl60 ? <img src={t.artworkUrl60} alt="" className="size-8 rounded" /> : <Music className="size-4 text-muted-foreground" />}
+                  <Music className="size-4 text-muted-foreground" />
                   <span>
                     <span className="font-medium">{t.trackName}</span>
                     <span className="text-muted-foreground"> · {t.artistName}</span>
