@@ -1278,3 +1278,71 @@ func TestImageUpload(t *testing.T) {
 		t.Fatalf("serve upload: got %d", got.StatusCode)
 	}
 }
+
+func TestUserManagement(t *testing.T) {
+	app, _ := newTestAppWithUsers(t)
+	admin, _ := app.login("admin_user", "TestPass123!")
+	couple, _ := app.login("couple_user", "TestPass123!")
+
+	newUser := map[string]any{"username": "trauzeugin", "displayName": "Anna", "role": "witness", "password": "LongEnough123"}
+
+	if res := app.do(http.MethodPost, "/api/users/", newUser, couple); res.StatusCode != http.StatusForbidden {
+		t.Fatalf("couple create: got %d, want 403", res.StatusCode)
+	}
+	if res := app.do(http.MethodPost, "/api/users/", map[string]any{"username": "x", "role": "witness", "password": "short"}, admin); res.StatusCode != http.StatusBadRequest {
+		t.Fatalf("short password: got %d, want 400", res.StatusCode)
+	}
+	if res := app.do(http.MethodPost, "/api/users/", map[string]any{"username": "x", "role": "king", "password": "LongEnough123"}, admin); res.StatusCode != http.StatusBadRequest {
+		t.Fatalf("unknown role: got %d, want 400", res.StatusCode)
+	}
+
+	res := app.do(http.MethodPost, "/api/users/", newUser, admin)
+	if res.StatusCode != http.StatusCreated {
+		t.Fatalf("create: got %d, want 201", res.StatusCode)
+	}
+	var created struct {
+		ID int64 `json:"id"`
+	}
+	if err := json.NewDecoder(res.Body).Decode(&created); err != nil {
+		t.Fatal(err)
+	}
+	if res := app.do(http.MethodPost, "/api/users/", newUser, admin); res.StatusCode != http.StatusConflict {
+		t.Fatalf("duplicate: got %d, want 409", res.StatusCode)
+	}
+	if _, status := app.login("trauzeugin", "LongEnough123"); status != http.StatusOK {
+		t.Fatalf("login new user: got %d", status)
+	}
+
+	path := fmt.Sprintf("/api/users/%d", created.ID)
+	if res := app.do(http.MethodPut, path+"/password", map[string]any{"password": "AnotherLong456"}, admin); res.StatusCode != http.StatusNoContent {
+		t.Fatalf("set password: got %d, want 204", res.StatusCode)
+	}
+	if _, status := app.login("trauzeugin", "AnotherLong456"); status != http.StatusOK {
+		t.Fatalf("login with new password: got %d", status)
+	}
+	if res := app.do(http.MethodPut, path+"/active", map[string]any{"active": false}, admin); res.StatusCode != http.StatusNoContent {
+		t.Fatalf("deactivate: got %d, want 204", res.StatusCode)
+	}
+	if _, status := app.login("trauzeugin", "AnotherLong456"); status == http.StatusOK {
+		t.Fatal("deactivated user can still log in")
+	}
+
+	// An admin must not lock themselves out.
+	me := app.do(http.MethodGet, "/api/auth/me", nil, admin)
+	var self struct {
+		User struct {
+			ID int64 `json:"id"`
+		} `json:"user"`
+		ID int64 `json:"id"`
+	}
+	if err := json.NewDecoder(me.Body).Decode(&self); err != nil {
+		t.Fatal(err)
+	}
+	id := self.ID
+	if id == 0 {
+		id = self.User.ID
+	}
+	if res := app.do(http.MethodPut, fmt.Sprintf("/api/users/%d/active", id), map[string]any{"active": false}, admin); res.StatusCode != http.StatusBadRequest {
+		t.Fatalf("self deactivate: got %d, want 400", res.StatusCode)
+	}
+}

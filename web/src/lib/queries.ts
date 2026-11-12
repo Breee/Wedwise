@@ -77,3 +77,8 @@ export const contributionQuery = (id: number) =>
     queryKey: ['contributions', id],
     queryFn: () => api.get<Contribution & { notes: ContributionNote[] }>(`/contributions/${id}`),
   })
+
+export const usersQuery = queryOptions({
+  queryKey: ['users'],
+  queryFn: async () => (await api.get<{ users: import('./types').User[] }>('/users')).users ?? [],
+})

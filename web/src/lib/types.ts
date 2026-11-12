@@ -281,3 +281,14 @@ export interface ContributionNote {
   text: string
   createdAt: string
 }
+
+export interface User {
+  id: number
+  username: string
+  email: string
+  displayName: string
+  role: Role
+  active: boolean
+  createdAt: string
+  updatedAt: string
+}

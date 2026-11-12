@@ -1,7 +1,10 @@
 package users
 
 import (
+	"errors"
 	"net/http"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -36,7 +39,139 @@ type userResponse struct {
 func (h *Handler) Routes() http.Handler {
 	r := chi.NewRouter()
 	r.With(h.auth.RequirePermission(auth.PermUserRead)).Get("/", h.list)
+	r.Group(func(r chi.Router) {
+		r.Use(h.auth.RequirePermission(auth.PermUserManage))
+		r.Post("/", h.create)
+		r.Put("/{id}/password", h.setPassword)
+		r.Put("/{id}/active", h.setActive)
+	})
 	return r
+}
+
+func toResponse(user User) userResponse {
+	return userResponse{
+		ID:          user.ID,
+		Username:    user.Username,
+		Email:       user.Email,
+		DisplayName: user.DisplayName,
+		Role:        user.Role,
+		Active:      user.Active,
+		CreatedAt:   user.CreatedAt,
+		UpdatedAt:   user.UpdatedAt,
+	}
+}
+
+type createRequest struct {
+	Username    string `json:"username"`
+	DisplayName string `json:"displayName"`
+	Email       string `json:"email"`
+	Role        string `json:"role"`
+	Password    string `json:"password"`
+}
+
+func validPassword(w http.ResponseWriter, password string) bool {
+	if len([]rune(password)) < auth.MinPasswordLength || len(password) > 200 {
+		httpx.WriteError(w, http.StatusBadRequest, httpx.CodeBadRequest, "The password must be at least 10 characters long.")
+		return false
+	}
+	return true
+}
+
+func (h *Handler) create(w http.ResponseWriter, r *http.Request) {
+	var req createRequest
+	if !httpx.DecodeJSON(w, r, &req) {
+		return
+	}
+	req.Username = strings.TrimSpace(req.Username)
+	if req.Username == "" || len(req.Username) > 100 || len(req.DisplayName) > 200 || len(req.Email) > 200 {
+		httpx.WriteError(w, http.StatusBadRequest, httpx.CodeBadRequest, "A username is required.")
+		return
+	}
+	if req.Role != "couple" && req.Role != "witness" && req.Role != "admin" {
+		httpx.WriteError(w, http.StatusBadRequest, httpx.CodeBadRequest, "Unknown role.")
+		return
+	}
+	if !validPassword(w, req.Password) {
+		return
+	}
+	user, err := h.store.Create(r.Context(), CreateParams{
+		Username:    req.Username,
+		DisplayName: strings.TrimSpace(req.DisplayName),
+		Email:       strings.TrimSpace(req.Email),
+		Role:        req.Role,
+		Password:    req.Password,
+	})
+	if errors.Is(err, ErrUsernameTaken) {
+		httpx.WriteError(w, http.StatusConflict, httpx.CodeConflict, "This username is already taken.")
+		return
+	}
+	if err != nil {
+		httpx.Internal(w, err)
+		return
+	}
+	httpx.WriteJSON(w, http.StatusCreated, toResponse(user))
+}
+
+func (h *Handler) target(w http.ResponseWriter, r *http.Request) (User, bool) {
+	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	if err != nil {
+		httpx.WriteError(w, http.StatusNotFound, httpx.CodeNotFound, "User not found.")
+		return User{}, false
+	}
+	user, err := h.store.GetByID(r.Context(), id)
+	if errors.Is(err, ErrNotFound) {
+		httpx.WriteError(w, http.StatusNotFound, httpx.CodeNotFound, "User not found.")
+		return User{}, false
+	}
+	if err != nil {
+		httpx.Internal(w, err)
+		return User{}, false
+	}
+	return user, true
+}
+
+func (h *Handler) setPassword(w http.ResponseWriter, r *http.Request) {
+	user, ok := h.target(w, r)
+	if !ok {
+		return
+	}
+	var req struct {
+		Password string `json:"password"`
+	}
+	if !httpx.DecodeJSON(w, r, &req) {
+		return
+	}
+	if !validPassword(w, req.Password) {
+		return
+	}
+	if err := h.store.SetPassword(r.Context(), user.Username, req.Password); err != nil {
+		httpx.Internal(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *Handler) setActive(w http.ResponseWriter, r *http.Request) {
+	user, ok := h.target(w, r)
+	if !ok {
+		return
+	}
+	var req struct {
+		Active bool `json:"active"`
+	}
+	if !httpx.DecodeJSON(w, r, &req) {
+		return
+	}
+	// Deactivating yourself would lock the last person able to undo it out.
+	if identity, ok := auth.IdentityFrom(r.Context()); ok && identity.ID == user.ID && !req.Active {
+		httpx.WriteError(w, http.StatusBadRequest, httpx.CodeBadRequest, "You cannot deactivate your own account.")
+		return
+	}
+	if err := h.store.SetActive(r.Context(), user.Username, req.Active); err != nil {
+		httpx.Internal(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (h *Handler) list(w http.ResponseWriter, r *http.Request) {
@@ -47,16 +182,7 @@ func (h *Handler) list(w http.ResponseWriter, r *http.Request) {
 	}
 	response := make([]userResponse, 0, len(all))
 	for _, user := range all {
-		response = append(response, userResponse{
-			ID:          user.ID,
-			Username:    user.Username,
-			Email:       user.Email,
-			DisplayName: user.DisplayName,
-			Role:        user.Role,
-			Active:      user.Active,
-			CreatedAt:   user.CreatedAt,
-			UpdatedAt:   user.UpdatedAt,
-		})
+		response = append(response, toResponse(user))
 	}
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{"users": response})
 }

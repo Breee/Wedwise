@@ -14,9 +14,10 @@ const coupleLinks = [
 ] as const
 
 const witnessLinks = [{ to: '/witness/dashboard', label: 'Beiträge' }] as const
+const adminLinks = [{ to: '/admin/users', label: 'Benutzer' }] as const
 
 function linksFor(role: string | undefined) {
-  if (role === 'admin') return [...coupleLinks, ...witnessLinks]
+  if (role === 'admin') return [...coupleLinks, ...witnessLinks, ...adminLinks]
   if (role === 'witness') return witnessLinks
   return role ? coupleLinks : []
 }

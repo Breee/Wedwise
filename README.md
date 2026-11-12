@@ -122,8 +122,9 @@ in the picker.
 
 ## Users and roles
 
-Users are managed with the CLI inside the container (there is no public
-sign-up):
+There is no public sign-up. Admins create users, reset passwords and
+deactivate accounts in the UI under "Benutzer". The first admin is created
+with the CLI inside the container (or via `USERS_PATH`):
 
 ```bash
 docker compose exec wedwise /app/wedding user create --username anna --role couple --email anna@example.com
