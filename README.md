@@ -1,250 +1,245 @@
 # Wedwise
 
-Wedwise is a self-hosted, open-source wedding website application. It gives
-couples a single place to publish their wedding story, collect RSVPs through
-shareable invite links, and let guests offer program contributions — all from a
-lightweight Go backend with an embedded SQLite database and a React frontend. It ships as a single container image, so it's easy to run on your
-own server, NAS, or Kubernetes cluster without depending on third-party SaaS
-tools.
+Wedwise is a self-hosted, open-source wedding website. One container gives you
+a public wedding page (schedule, location, arrival maps, places to stay, FAQ),
+RSVP through shareable invite links, and a private area where witnesses plan
+surprise contributions. Go backend, embedded SQLite, React frontend — no
+third-party SaaS required.
+
+> The guest-facing UI is currently German only. English is planned
+> ([#20](https://github.com/Breee/Wedwise/issues/20)).
+
+## Contents
+
+- [Features](#features)
+- [Quick start](#quick-start)
+- [Set up your wedding](#set-up-your-wedding)
+- [Configuration reference](#configuration-reference)
+- [Users and roles](#users-and-roles)
+- [Deployment](#deployment)
+- [Backup and restore](#backup-and-restore)
+- [Security](#security)
+- [Development](#development)
 
 ## Features
 
-- 📖 **Wedding site** — customizable hero, venue details, schedule, and story
-  content driven by a simple YAML configuration file.
-- 🗺️ **Arrival & stay maps** — interactive MapLibre maps (OpenFreeMap tiles,
-  no API key): walking routes with minutes from nearby stops to the venue,
-  bike route highlighting, and recommended hotels with price tier plus
-  Booking.com property links pre-filled with the wedding dates. The
-  `/update-hotels` command (skill `accommodation-research`) re-checks
-  ratings, availability and links via the browser. Stops and hotels are edited in the
-  content UI. Accommodations are hotels or Ferienwohnungen and can be
-  filtered by price tier and type. Routes are stored with the content; missing
-  ones come from OpenRouteService (optional `ROUTING_API_KEY`), the public OSM
-  router, or a straight-line estimate.
-- 🎨 **Theming** — pick a theme in the editor; themes are YAML files (see
-  `themes/`) with colors, fonts and decoration, custom ones via `THEME_PATH`.
-- 💌 **Invite links** — no personalized invitations: create one or more
-  links in the couple area (optionally PIN-protected), share them, and guests
-  respond per household at `/rsvp/<token>`, greeted by a short intro scene.
-  Every response gets a private edit link; couple, witnesses and admins can
-  edit or delete responses in their dashboards.
-- 🎁 **Contributions** — guests can offer a program contribution (what, what
-  they need, a WhatsApp/Signal/Telegram contact, ~15 min limit) in the same
-  form. Only witnesses and admins see these (Kanban board, schedule planning,
-  editing); the couple only ever sees attendance and food.
-- 🔐 **Authentication** — session-based auth with an admin CLI for user
-  management, no external identity provider required.
-- 🗄️ **SQLite storage** — zero-dependency embedded database; back up by
-  copying a single file.
-- 📦 **Single binary / single container** — the React frontend is built and
-  embedded into the Go binary, producing one deployable artifact.
+- 📖 **Wedding page** — hero, schedule, location, FAQ, add-to-calendar.
+- 🗺️ **Arrival & stay maps** — MapLibre maps on OpenFreeMap tiles (no API
+  key): tram line, walking and bike routes to the venue, and recommended
+  hotels / holiday flats with price tier, filters and Booking.com links
+  pre-filled with your dates.
+- 🎨 **Themes** — pick one in the editor; add your own as a YAML file.
+- 💌 **Invite links** — no personalised invitations. Create one or more links
+  (optionally PIN-protected) and share them. Guests answer per household and
+  get a private link to edit their answer later.
+- 🎁 **Contributions** — guests can offer a programme item. Only witnesses and
+  admins see these (Kanban board, schedule planning); the couple only sees
+  attendance and food.
+- 🔐 **Built-in auth** — sessions, roles, admin CLI. No identity provider.
+- 📦 **One artifact** — the frontend is embedded in the Go binary; state is a
+  single SQLite file.
 
-## Quick Start (Docker)
+## Quick start
 
-Pull or build the image, then run it with a persistent volume for the
-database and a mounted config directory:
+Requirements: Docker with Compose, `make`, `curl`.
 
 ```bash
-docker build -t wedwise:latest .
+git clone https://github.com/Breee/Wedwise.git
+cd Wedwise
+make up
+```
 
-docker run -d \
-  --name wedwise \
-  -p 8080:8080 \
+Open <http://localhost:8080>. `make up` builds the image, starts it, creates
+three demo users and loads example content:
+
+| User | Password | Sees |
+|------|----------|------|
+| `admin` | `admin12345` | everything |
+| `couple` | `couple12345` | responses, invite links, content editor |
+| `witness` | `witness12345` | contributions, responses |
+
+Log in at `/login`. Stop with `make down`; wipe all data with
+`docker compose down -v`.
+
+These passwords are for local testing only. For a real deployment see
+[Deployment](#deployment).
+
+## Set up your wedding
+
+1. **Event basics** — on first run `make up` copies `examples/` to `local/`
+   (gitignored, mounted as `/config`). Edit `local/config.yaml`: title, couple
+   names, date, venue, hero text. Restart with `make up`.
+2. **Content** — log in as `couple` or `admin` and open **Inhalte**. Tabs:
+   welcome text, location (text, photo URL), arrival (venue coordinates,
+   stops, parking), places to stay, schedule, FAQ, design (theme). Changes are
+   saved to the database and live immediately.
+   `local/content.json` is only used to seed an empty database; you can also
+   push it yourself with `PUT /api/content`.
+3. **Invite links** — open **Einladungslinks**, create a link, optionally set
+   a PIN, copy the URL and send it to your guests. Deactivate or regenerate a
+   link at any time; existing responses are kept.
+4. **Responses** — the couple dashboard shows attendance, diets, allergies and
+   music wishes. Witnesses see contributions on a board and plan the running
+   order. Staff can edit or delete responses.
+5. **Routes on the maps (optional)** — walking/bike/car routes are stored with
+   the content. For missing ones, set `ROUTING_API_KEY` to a free
+   [OpenRouteService](https://openrouteservice.org/dev/#/signup) key. Results
+   are cached in the database, so each route is fetched once.
+
+## Configuration reference
+
+Settings come from a YAML file (`CONFIG_PATH`, default
+`/config/config.yaml`); environment variables override it. See
+[`examples/config.yaml`](examples/config.yaml) for the full file including the
+`event` block.
+
+| Env var | YAML key | Default | Purpose |
+|---------|----------|---------|---------|
+| `SESSION_SECRET` | `sessionSecret` | — | **Required**, at least 16 characters. Signs PIN cookies. Generate with `openssl rand -hex 32`. |
+| `BASE_URL` | `baseUrl` | `http://localhost:8080` | The address people open. Logins from any other origin are rejected. |
+| `ENVIRONMENT` | `environment` | `development` | Set to `production` behind HTTPS: cookies become `Secure`. |
+| `LISTEN_ADDRESS` | `listenAddress` | `:8080` | Bind address. |
+| `DATABASE_PATH` | `databasePath` | `/data/wedding.db` | SQLite file. |
+| `CONFIG_PATH` | `configPath` | `/config/config.yaml` | This file. |
+| `TRUST_PROXY_HEADERS` | `trustProxyHeaders` | `false` | Set `true` only behind a reverse proxy, so rate limits use `X-Forwarded-For`. |
+| `ROUTING_API_KEY` | `routingApiKey` | — | Optional OpenRouteService key. |
+| `THEME_PATH` | `themePath` | — | Optional custom theme file. |
+
+Keep secrets in environment variables, not in the config file.
+
+### Themes
+
+Bundled themes live in [`themes/`](themes/): `sage-leaf` (default),
+`terracotta`, `sage-botanical`, and the scene themes `waldsee-dusk`,
+`waldsee-forest`, `waldsee-night` with an illustrated backdrop on the invite
+page. A theme defines colors, fonts and a decoration. To add your own, copy
+one of the files, change it, and point `THEME_PATH` at it — it then shows up
+in the picker.
+
+## Users and roles
+
+Users are managed with the CLI inside the container (there is no public
+sign-up):
+
+```bash
+docker compose exec wedwise /app/wedding user create --username anna --role couple --email anna@example.com
+docker compose exec wedwise /app/wedding user list
+docker compose exec wedwise /app/wedding user passwd --username anna
+docker compose exec wedwise /app/wedding user disable --username anna
+docker compose exec wedwise /app/wedding user enable --username anna
+```
+
+The password is prompted for when `--password` is omitted. Resetting a
+password also ends that user's sessions.
+
+| Role | Can do |
+|------|--------|
+| `couple` | edit content, manage invite links, read/edit responses |
+| `witness` | read/manage contributions, read/edit responses |
+| `admin` | everything above, plus users |
+
+Contributions are surprises: the `couple` role can never read them, and the
+response list and summary contain no contribution data.
+
+## Deployment
+
+Always set your own `SESSION_SECRET`, set `BASE_URL` to your public URL, use
+`ENVIRONMENT=production` behind HTTPS, and create your own users.
+
+### Docker
+
+Released images are published to `ghcr.io/breee/wedwise` (amd64 and arm64,
+signed with cosign).
+
+```bash
+docker run -d --name wedwise -p 8080:8080 \
   -v wedwise-data:/data \
-  -v "$(pwd)/examples/config.yaml:/config/config.yaml:ro" \
-  -e SESSION_SECRET=change-me-to-a-random-32-byte-secret \
-  wedwise:latest
+  -v "$(pwd)/config.yaml:/config/config.yaml:ro" \
+  -e SESSION_SECRET="$(openssl rand -hex 32)" \
+  -e BASE_URL=https://wedding.example.com \
+  -e ENVIRONMENT=production \
+  -e TRUST_PROXY_HEADERS=true \
+  ghcr.io/breee/wedwise:latest
+
+docker exec -it wedwise /app/wedding user create --username admin --role admin --email you@example.com
 ```
 
-The `Makefile` provides shortcuts for the same steps:
+Put a TLS-terminating reverse proxy (Caddy, Traefik, nginx) in front. Leave
+out `TRUST_PROXY_HEADERS` if there is no proxy.
 
-```bash
-make docker-build
-make docker-run
-```
+### Kubernetes (Helm)
 
-Once running, visit `http://localhost:8080`.
-
-`make up` runs the compose stack with dev users (`admin`/`couple`/`witness`, password `<role>12345`).
-It bootstraps `local/` (gitignored, mounted as `/config`) from `examples/` on first run —
-edit `local/config.yaml` and `local/content.json` for your own wedding.
-
-## Local Development
-
-Prerequisites: Go 1.22+, Node 20+, and `npm`.
-
-```bash
-# Backend (serves the API, reloads on manual restart)
-make dev-backend
-
-# Frontend (Vite dev server with hot reload, proxies API calls to the backend)
-make dev-frontend
-```
-
-Build a production artifact (frontend assets embedded into the Go binary):
-
-```bash
-make build
-./bin/wedding serve
-```
-
-Run tests and lint:
-
-```bash
-make test
-make lint
-```
-
-## Configuration
-
-Wedwise is configured via a YAML file, by default read from
-`CONFIG_PATH` (defaults to `/config/config.yaml` in the container, or a path
-passed via CLI flag/env var locally). See [`examples/config.yaml`](examples/config.yaml)
-for a fully-documented example covering:
-
-- `listenAddress` / `baseUrl` — where the server binds and its public URL.
-- `databasePath` — path to the SQLite database file.
-- `event` — wedding details: couple names, date, venue, and hero/landing
-  page copy.
-
-Visual appearance is chosen in the content editor (tab "Design"). Themes are
-bundled from [`themes/`](themes/) (`sage-leaf` is the default; also
-`terracotta`, `sage-botanical` and the scene themes `waldsee-dusk`,
-`waldsee-forest`, `waldsee-night`) and define colors, fonts and a decoration
-(`none`, `botanical`, or an invite intro scene `dusk`/`forest`/`night`). To add your own, copy one of the YAML files,
-tweak it, and point `themePath` (env `THEME_PATH`) at it — it then appears in
-the picker alongside the bundled ones. Served via `GET /api/themes`.
-
-Secrets (such as `SESSION_SECRET`) should be provided via environment
-variables, not committed to the config file.
-
-## Security
-
-- Sessions are HttpOnly, SameSite=Lax cookies (Secure when `ENVIRONMENT=production`);
-  state-changing requests are checked against the `Origin`/`Referer` header.
-  Set `BASE_URL` to the address people actually open (for example
-  `BASE_URL=http://192.168.1.20:8080 docker compose up -d`), otherwise logins
-  from other hosts are rejected.
-- `POST /api/auth/login` is limited to 10 requests per client IP and minute,
-  the public RSVP endpoints (unlock, submit, read/update by edit token) to 30.
-  Exceeding the limit returns `429` with a `Retry-After` header.
-- Invite links can carry a PIN (stored as an argon2id hash). A successful
-  unlock sets an HttpOnly cookie signed with `SESSION_SECRET` (at least
-  16 characters, required); changing the PIN invalidates existing cookies.
-  Inactive or unknown links answer `404`. After 10 wrong PINs a link stays
-  locked for 15 minutes (`429`), whatever the client IP.
-- The song search in the response form is proxied by the backend
-  (`GET /api/songs?q=`), so guests' browsers never contact a third party.
-- Client IPs are taken from the TCP connection. Behind a reverse proxy set
-  `TRUST_PROXY_HEADERS=true` (or `trustProxyHeaders: true`) so the last
-  `X-Forwarded-For` hop is used instead. Do not enable it without a proxy, as
-  the header could then be spoofed to bypass the limits.
-- Request bodies are capped at 1 MB and unknown JSON fields are rejected.
-- Live route lookups are optional. Set `ROUTING_API_KEY` (or `routingApiKey`)
-  to a free [OpenRouteService](https://openrouteservice.org) key and the app
-  proxies them through `GET /api/route` (60 requests per minute per IP), so
-  the key never reaches the browser. Routes stored in the content are always
-  used first; without a key the public OSRM demo server and a straight-line
-  estimate are the fallbacks.
-
-## User Administration
-
-Admin users are managed via the `wedding` CLI rather than a public sign-up
-flow:
-
-```bash
-# Create a user (roles: couple, witness, admin)
-./bin/wedding user create --username admin --role admin --email admin@example.com
-
-# List users
-./bin/wedding user list
-
-# Reset a user's password (also invalidates that user's sessions)
-./bin/wedding user passwd --username admin
-
-# Deactivate / reactivate a user
-./bin/wedding user disable --username admin
-./bin/wedding user enable --username admin
-```
-
-Passwords are hashed with argon2id and are prompted for interactively when
-`--password` is omitted. Run `./bin/wedding help` for the full list of
-commands and flags.
-
-### Roles and permissions
-
-| Role | Permissions |
-|------|-------------|
-| `couple` | content read/write, RSVP read, invite links |
-| `witness` | contribution read/manage, RSVP read |
-| `admin` | everything: user read/manage, content read/write, RSVP read, invite links, contribution read/manage |
-
-Contributions are surprises for the couple: the `couple` role cannot read or
-manage them — only witnesses and admins can. Guests offer
-contributions as part of their RSVP, and the response list and summary
-deliberately contain no contribution data. Witnesses coordinate contributions
-on a Kanban board and plan the programme (start time + duration) in the
-schedule view.
-
-## Kubernetes Deployment
-
-A Helm chart lives in [`charts/wedwise`](charts/wedwise). Releases publish it to
-`oci://ghcr.io/breee/charts/wedwise` and the image to `ghcr.io/breee/wedwise`
-(multi-arch, signed with cosign).
+The chart is in [`charts/wedwise`](charts/wedwise) and published to
+`oci://ghcr.io/breee/charts/wedwise`.
 
 ```bash
 helm install wedding oci://ghcr.io/breee/charts/wedwise \
   --set baseUrl=https://wedding.example.com \
   --set secret.sessionSecret="$(openssl rand -hex 32)" \
   --set ingress.enabled=true --set ingress.host=wedding.example.com
+
+kubectl exec -it deploy/wedding-wedwise -- /app/wedding user create --username admin --role admin --email you@example.com
 ```
 
-Event settings go under `config:` in your values (same keys as
-[`examples/config.yaml`](examples/config.yaml)). Use `secret.existingSecret` to
-bring your own Secret with the keys `session-secret` and optionally
-`routing-api-key`. SQLite is stored on a PersistentVolumeClaim, so the app runs
-as a single replica. Create users with
-`kubectl exec deploy/wedding-wedwise -- /app/wedding user create`.
+Useful values (see [`values.yaml`](charts/wedwise/values.yaml)):
 
-## Backup Procedure
+| Value | Purpose |
+|-------|---------|
+| `config` | Your event settings, same keys as `examples/config.yaml`. |
+| `secret.existingSecret` | Use your own Secret with keys `session-secret` and optionally `routing-api-key`. |
+| `persistence.size` / `persistence.existingClaim` | Volume for the SQLite file. |
+| `ingress.*` | Host, class, annotations, TLS. |
 
-The entire application state lives in a single SQLite file at
-`databasePath` (default `/data/wedding.db`). To back it up safely:
+SQLite lives on one volume, so the app runs as a single replica.
+
+## Backup and restore
+
+All state is the SQLite file at `DATABASE_PATH`. Take a consistent snapshot
+while the server runs:
 
 ```bash
-# Docker: copy the file out of the volume (safe even while running, SQLite
-# handles concurrent readers; for extra safety, use the CLI dump command
-# if available, or briefly stop the container first)
-docker cp wedwise:/data/wedding.db ./backups/wedding-$(date +%F).db
-
-# Kubernetes: copy from the running pod
-kubectl cp <namespace>/<pod-name>:/data/wedding.db ./backups/wedding-$(date +%F).db
+docker exec wedwise /app/wedding backup /data/backup.db
+docker cp wedwise:/data/backup.db ./wedding-$(date +%F).db
 ```
 
-The CLI can also write a consistent snapshot while the server is running:
+On Kubernetes use `kubectl exec` and `kubectl cp` the same way. To restore,
+stop the app, replace the file at `DATABASE_PATH`, start it again. Keep
+backups somewhere else and test a restore once.
+
+## Security
+
+- Sessions are HttpOnly, SameSite=Lax cookies (Secure in production).
+  State-changing requests are checked against the `Origin`/`Referer` header.
+- Passwords and invite PINs are stored as argon2id hashes.
+- Rate limits per client IP and minute: login 10, public RSVP endpoints 30,
+  route and song lookups 60. Over the limit returns `429` with `Retry-After`.
+- After 10 wrong PINs an invite link is locked for 15 minutes, whatever the
+  client IP. Unknown or inactive links answer `404`.
+- Song search and route lookups are proxied by the backend, so guests'
+  browsers do not contact those services and the routing key stays private.
+  Map tiles are loaded from OpenFreeMap by the browser.
+- Request bodies are capped at 1 MB; unknown JSON fields are rejected.
+
+## Development
+
+Requirements: Go 1.24+, Node 22+.
 
 ```bash
-./bin/wedding backup ./backups/wedding-$(date +%F).db
+make dev-backend    # API on :8080
+make dev-frontend   # Vite dev server with hot reload
+make test           # go test ./...
+make build          # frontend + binary in bin/wedding
 ```
 
-Restoring is the reverse: stop the container/pod, replace the file at
-`databasePath`, and restart. Store backups off-cluster (e.g., object storage)
-and test restores periodically.
+The frontend lives in `web/` (React, TanStack Router/Query, Tailwind,
+shadcn/ui), the backend in `cmd/` and `internal/`, SQL migrations in
+`migrations/`. CI runs Go tests, the frontend build, a container build and
+`helm lint` on every push.
 
-## Contributing
-
-Contributions are welcome! To contribute:
-
-1. Fork the repository and create a feature branch.
-2. Make your changes, keeping frontend (`web/`) and backend (`internal/`,
-   `cmd/`) concerns separated.
-3. Run `make test` and `make lint` before opening a pull request.
-4. Describe the change and its motivation clearly in the PR description.
-5. Be respectful and constructive in code review — this is a community
-   project maintained in people's spare time.
-
-Bug reports and feature requests are welcome via GitHub Issues.
+Open work is tracked in
+[GitHub issues](https://github.com/Breee/Wedwise/issues), grouped by
+milestone. Bug reports and pull requests are welcome.
 
 ## License
 
-Wedwise is released under the [MIT License](LICENSE).
+[MIT](LICENSE)
