@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { copyText } from '@/lib/clipboard'
 import { t } from '@/lib/i18n'
 import { createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQueryClient, useSuspenseQuery } from '@tanstack/react-query'
@@ -61,7 +62,7 @@ function InvitesPage() {
   })
 
   const share = (token: string) => navigator.share({ url: linkUrl(token) }).catch(() => {})
-  const copy = (token: string) => navigator.clipboard.writeText(linkUrl(token)).then(() => toast.success(t('Link kopiert.')))
+  const copy = (token: string) => copyText(linkUrl(token), t('Link kopiert.'))
 
   return (
     <>

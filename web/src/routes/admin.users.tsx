@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { copyText } from '@/lib/clipboard'
 import { t } from '@/lib/i18n'
 import { createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQueryClient, useSuspenseQuery } from '@tanstack/react-query'
@@ -241,7 +242,7 @@ function SetupLink({ user, url }: { user: string; url: string }) {
           variant="outline"
           size="icon"
           aria-label={t('Link kopieren')}
-          onClick={() => navigator.clipboard.writeText(url).then(() => toast.success(t('Link kopiert.')))}
+          onClick={() => copyText(url, t('Link kopiert.'))}
         >
           <Copy className="size-4" />
         </Button>

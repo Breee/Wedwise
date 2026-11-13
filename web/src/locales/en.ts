@@ -427,4 +427,5 @@ export const en: Record<string, string> = {
   '{name} bearbeiten': 'Edit {name}',
   ' · {n} Min.': ' · {n} min',
   '{n} geplant · {total} Min. gesamt · Ende {end}': '{n} planned · {total} min total · ends {end}',
+  'Kopieren hat nicht geklappt. Bitte markiert den Text und kopiert ihn von Hand.': 'Copying did not work. Please select the text and copy it by hand.',
 }

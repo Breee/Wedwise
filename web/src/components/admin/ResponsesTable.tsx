@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { copyText } from '@/lib/clipboard'
 import { t } from '@/lib/i18n'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link2, Pencil, Plus, Trash2, X } from 'lucide-react'
@@ -257,9 +258,7 @@ export function ResponsesTable({ responses }: { responses: ResponseWithAttendees
                     aria-label={t('Bearbeitungslink von {name} kopieren', { name: r.contactName })}
                     title={t('Bearbeitungslink kopieren')}
                     onClick={() =>
-                      navigator.clipboard
-                        .writeText(`${window.location.origin}/rsvp?token=${r.editToken}`)
-                        .then(() => toast.success(t('Bearbeitungslink kopiert.')))
+                      copyText(`${window.location.origin}/rsvp?token=${r.editToken}`, t('Bearbeitungslink kopiert.'))
                     }
                   >
                     <Link2 className="size-4" />

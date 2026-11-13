@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { copyText } from '@/lib/clipboard'
 import { t } from '@/lib/i18n'
 import { createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -100,7 +101,7 @@ function AccountPage() {
                 type="button"
                 variant="outline"
                 size="sm"
-                onClick={() => navigator.clipboard.writeText(recovery.join('\n')).then(() => toast.success(t('Codes kopiert.')))}
+                onClick={() => copyText(recovery.join('\n'), t('Codes kopiert.'))}
               >
                 <Copy className="size-4" /> {t('Kopieren')}
               </Button>

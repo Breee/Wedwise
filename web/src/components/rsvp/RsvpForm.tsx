@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { copyText } from '@/lib/clipboard'
 import { t } from '@/lib/i18n'
 import { Link, useNavigate } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -427,7 +428,7 @@ export function Done({ view, onEdit }: { view: GuestView; onEdit: () => void }) 
                 variant="outline"
                 size="icon"
                 title={t('Link kopieren')}
-                onClick={() => navigator.clipboard.writeText(editUrl).then(() => toast.success(t('Link kopiert.')))}
+                onClick={() => copyText(editUrl, t('Link kopiert.'))}
               >
                 <Copy className="size-4" />
               </Button>
