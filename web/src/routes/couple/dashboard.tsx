@@ -31,7 +31,7 @@ function CoupleDashboard() {
   return (
     <>
       <PageHeader title="Übersicht" description="Stand der Rückmeldungen auf einen Blick." />
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         <Stat label="Rückmeldungen" value={s.responses} />
         <Stat label="Zusagen" value={s.statusCounts?.yes ?? 0} hint={`${s.statusCounts?.no ?? 0} Absagen`} />
         <Stat label="Gäste" value={s.attendeesAttending} hint="Personen mit Zusage" />
