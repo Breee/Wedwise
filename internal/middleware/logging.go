@@ -104,6 +104,18 @@ func Recoverer(next http.Handler) http.Handler {
 	})
 }
 
+// contentSecurityPolicy allows the app itself plus the map tiles, the public
+// router fallback and Google Fonts. Images may come from any https origin
+// because content can reference external photos.
+const contentSecurityPolicy = "default-src 'self'; " +
+	"script-src 'self'; " +
+	"style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
+	"font-src 'self' https://fonts.gstatic.com; " +
+	"img-src 'self' data: blob: https:; " +
+	"connect-src 'self' https://tiles.openfreemap.org https://routing.openstreetmap.de; " +
+	"worker-src 'self' blob:; " +
+	"object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
+
 // SecurityHeaders sets conservative security headers on every response.
 func SecurityHeaders(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -111,6 +123,11 @@ func SecurityHeaders(next http.Handler) http.Handler {
 		header.Set("X-Content-Type-Options", "nosniff")
 		header.Set("X-Frame-Options", "DENY")
 		header.Set("Referrer-Policy", "same-origin")
+		header.Set("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=()")
+		header.Set("Content-Security-Policy", contentSecurityPolicy)
+		if r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https" {
+			header.Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+		}
 		next.ServeHTTP(w, r)
 	})
 }
