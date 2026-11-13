@@ -82,3 +82,15 @@ export const usersQuery = queryOptions({
   queryKey: ['users'],
   queryFn: async () => (await api.get<{ users: import('./types').User[] }>('/users')).users ?? [],
 })
+
+export interface FeedMessage {
+  id: number
+  title: string
+  body: string
+  createdAt: string
+}
+
+export const messagesQuery = queryOptions({
+  queryKey: ['messages'],
+  queryFn: async () => (await api.get<{ messages: FeedMessage[] }>('/messages')).messages ?? [],
+})

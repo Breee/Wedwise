@@ -1,11 +1,11 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { t } from '@/lib/i18n'
-import { useSuspenseQuery } from '@tanstack/react-query'
+import { useQuery, useSuspenseQuery } from '@tanstack/react-query'
 import { motion } from 'motion/react'
 import { Bike, CalendarPlus, PencilLine, Car, ChevronDown, MapPin, Navigation, TramFront } from 'lucide-react'
 import { lazy, Suspense, useState } from 'react'
-import { publicContentQuery } from '@/lib/queries'
-import { formatDate } from '@/lib/format'
+import { messagesQuery, publicContentQuery } from '@/lib/queries'
+import { formatDate, formatDateTime } from '@/lib/format'
 import { icsUrl } from '@/lib/ics'
 import { InstallApp } from '@/components/public/InstallApp'
 import { GuestNotifications } from '@/components/public/Notifications'
@@ -27,7 +27,11 @@ const TravelMap = lazy(() => import('@/components/public/TravelMap').then((m) =>
 const StayMap = lazy(() => import('@/components/public/StayMap').then((m) => ({ default: m.StayMap })))
 
 export const Route = createFileRoute('/')({
-  loader: ({ context }) => context.queryClient.ensureQueryData(publicContentQuery),
+  loader: ({ context }) =>
+    Promise.all([
+      context.queryClient.ensureQueryData(publicContentQuery),
+      context.queryClient.ensureQueryData(messagesQuery).catch(() => []),
+    ]),
   pendingComponent: () => (
     <div className="mx-auto max-w-3xl space-y-6 px-6 py-32">
       <Skeleton className="mx-auto h-6 w-40" />
@@ -40,6 +44,7 @@ export const Route = createFileRoute('/')({
 
 function HomePage() {
   const { data } = useSuspenseQuery(publicContentQuery)
+  const { data: messages = [] } = useQuery(messagesQuery)
   const { event, content } = data
   const hero = { ...event.hero, ...stripEmpty(content.hero) }
   const location = { ...event.venue, ...stripEmpty(content.location) }
@@ -118,6 +123,20 @@ function HomePage() {
       </section>
 
       <SectionNav />
+
+      {messages.length > 0 && (
+        <Section id="neuigkeiten" eyebrow={t('Von uns')} title={t('Neuigkeiten')}>
+          <ul className="mx-auto max-w-2xl space-y-4">
+            {messages.map((m) => (
+              <li key={m.id} className="rounded-xl border bg-card p-5">
+                <p className="text-xs text-muted-foreground">{formatDateTime(m.createdAt)}</p>
+                <h3 className="mt-1 font-display text-2xl">{m.title}</h3>
+                {m.body && <p className="mt-2 whitespace-pre-line text-foreground/85">{m.body}</p>}
+              </li>
+            ))}
+          </ul>
+        </Section>
+      )}
 
       {content.introduction?.text && (
         <Section eyebrow={t('Willkommen')} title={t('Schön, dass ihr da seid')}>

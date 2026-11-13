@@ -124,6 +124,10 @@ func (h *Handler) Broadcast(w http.ResponseWriter, r *http.Request) {
 		httpx.BadRequest(w, "A title (max 100 characters) is required; the text may have 500 characters.")
 		return
 	}
+	if err := h.service.SaveMessage(r.Context(), req.Title, req.Body); err != nil {
+		httpx.Internal(w, err)
+		return
+	}
 	sent, err := h.service.Send(r.Context(), TopicBroadcast, Message{Title: req.Title, Body: req.Body, URL: req.URL})
 	if err != nil {
 		httpx.Internal(w, err)

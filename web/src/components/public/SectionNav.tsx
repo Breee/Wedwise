@@ -3,6 +3,7 @@ import { t } from '@/lib/i18n'
 import { cn } from '@/lib/utils'
 
 const SECTIONS = [
+  { id: 'neuigkeiten', label: 'Neuigkeiten' },
   { id: 'ablauf', label: 'Ablauf' },
   { id: 'ort', label: 'Ort' },
   { id: 'anreise', label: 'Anreise' },

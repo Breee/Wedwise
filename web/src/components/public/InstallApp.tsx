@@ -1,18 +1,15 @@
 import { useEffect, useState } from 'react'
 import { t } from '@/lib/i18n'
-import { Share, Smartphone } from 'lucide-react'
+import { Download, Share } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 
 interface InstallPromptEvent extends Event {
-  prompt: () => Promise<void>
+  prompt(): Promise<void>
 }
 
 function isStandalone() {
-  return window.matchMedia('(display-mode: standalone)').matches || (navigator as { standalone?: boolean }).standalone === true
-}
-
-function isAndroid() {
-  return /android/i.test(navigator.userAgent)
+  return window.matchMedia('(display-mode: standalone)').matches || ('standalone' in navigator && navigator.standalone === true)
 }
 
 function isIos() {
@@ -22,6 +19,7 @@ function isIos() {
 export function InstallApp() {
   const [prompt, setPrompt] = useState<InstallPromptEvent | null>(null)
   const [installed, setInstalled] = useState(isStandalone)
+  const [help, setHelp] = useState(false)
 
   useEffect(() => {
     const onPrompt = (e: Event) => {
@@ -37,31 +35,47 @@ export function InstallApp() {
     }
   }, [])
 
-  if (installed || (!prompt && !isIos() && !isAndroid())) return null
+  if (installed) return null
+
+  const install = () => {
+    if (prompt) {
+      void prompt.prompt()
+      setPrompt(null)
+    } else {
+      setHelp(true)
+    }
+  }
 
   return (
-    <div className="mx-auto max-w-md space-y-2 rounded-lg border bg-secondary/40 p-4 text-left">
-      <p className="flex items-center gap-2 font-medium">
-        <Smartphone className="size-4 text-primary" /> {t('Als App aufs Handy')}
-      </p>
-      <p className="text-sm text-muted-foreground">
-        {t('So habt ihr alle Infos immer dabei und könnt eure Antwort jederzeit ändern – ganz ohne Link.')}
-      </p>
-      {prompt ? (
-        <Button type="button" variant="outline" onClick={() => prompt.prompt().then(() => setPrompt(null))}>
-          {t('App installieren')}
-        </Button>
-      ) : isAndroid() ? (
-        <p className="text-sm">
-          {t('Öffnet das Browser-Menü')} <span className="font-medium">⋮</span> {t('und tippt auf')}{' '}
-          <span className="font-medium">{t('„Zum Startbildschirm hinzufügen“')}</span>.
-        </p>
-      ) : (
-        <p className="text-sm">
-          {t('Tippt in Safari auf')} <Share className="inline size-4 align-[-2px]" /> <span className="font-medium">{t('Teilen')}</span> {t('und dann auf')}{' '}
-          <span className="font-medium">{t('„Zum Home-Bildschirm“')}</span>.
-        </p>
-      )}
-    </div>
+    <>
+      <Button onClick={install} className="w-full">
+        <Download className="size-4" /> {t('App installieren')}
+      </Button>
+      <Dialog open={help} onOpenChange={setHelp}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t('App installieren')}</DialogTitle>
+            <DialogDescription>
+              {t('So habt ihr alle Infos immer dabei und könnt eure Antwort jederzeit ändern – ganz ohne Link.')}
+            </DialogDescription>
+          </DialogHeader>
+          {isIos() ? (
+            <p className="text-sm">
+              {t('Tippt in Safari auf')} <Share className="inline size-4 align-[-2px]" /> <strong>{t('Teilen')}</strong>{' '}
+              {t('und dann auf')} <strong>{t('„Zum Home-Bildschirm“')}</strong>.
+            </p>
+          ) : window.isSecureContext ? (
+            <p className="text-sm">
+              {t('Öffnet das Browser-Menü')} <strong>⋮</strong> {t('und tippt auf')}{' '}
+              <strong>{t('„App installieren“ oder „Zum Startbildschirm hinzufügen“')}</strong>.
+            </p>
+          ) : (
+            <p className="text-sm">
+              {t('Die Installation klappt nur über die sichere Adresse der Seite (https://). Öffnet die Seite über den Link aus eurer Einladung.')}
+            </p>
+          )}
+        </DialogContent>
+      </Dialog>
+    </>
   )
 }

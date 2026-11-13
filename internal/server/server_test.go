@@ -1731,3 +1731,43 @@ func TestPasskeySetupAndLogin(t *testing.T) {
 		t.Fatalf("unknown challenge: got %d, want 401", res.StatusCode)
 	}
 }
+
+func TestMessageFeed(t *testing.T) {
+	app, _ := newTestAppWithUsers(t)
+	couple, _ := app.login("couple_user", "TestPass123!")
+	witness, _ := app.login("witness_user", "TestPass123!")
+
+	body := map[string]string{"title": "Hallo", "body": "Der Ablauf steht."}
+	if res := app.do(http.MethodPost, "/api/push/broadcast", body, witness); res.StatusCode != http.StatusForbidden {
+		t.Fatalf("witness broadcast: got %d", res.StatusCode)
+	}
+	if res := app.do(http.MethodPost, "/api/push/broadcast", body, couple); res.StatusCode != http.StatusOK {
+		t.Fatalf("couple broadcast: got %d", res.StatusCode)
+	}
+
+	res := app.do(http.MethodGet, "/api/messages", nil, nil)
+	var feed struct {
+		Messages []struct {
+			ID    int64  `json:"id"`
+			Title string `json:"title"`
+			Body  string `json:"body"`
+		} `json:"messages"`
+	}
+	if err := json.NewDecoder(res.Body).Decode(&feed); err != nil {
+		t.Fatal(err)
+	}
+	if len(feed.Messages) != 1 || feed.Messages[0].Title != "Hallo" || feed.Messages[0].Body != "Der Ablauf steht." {
+		t.Fatalf("unexpected feed: %+v", feed.Messages)
+	}
+
+	path := fmt.Sprintf("/api/messages/%d", feed.Messages[0].ID)
+	if res := app.do(http.MethodDelete, path, nil, nil); res.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("anonymous delete: got %d", res.StatusCode)
+	}
+	if res := app.do(http.MethodDelete, path, nil, couple); res.StatusCode != http.StatusNoContent {
+		t.Fatalf("couple delete: got %d", res.StatusCode)
+	}
+	if res := app.do(http.MethodDelete, path, nil, couple); res.StatusCode != http.StatusNotFound {
+		t.Fatalf("second delete: got %d", res.StatusCode)
+	}
+}

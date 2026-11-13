@@ -157,6 +157,7 @@ func New(cfg configuration.Config, db *sql.DB) (*Server, error) {
 		api.Mount("/setup", userHandler.SetupRoutes(loginLimit))
 		api.Mount("/rsvp", rsvpHandler.PublicRoutes(rsvpLimit))
 		api.Get("/push/key", pushHandler.Key)
+		api.Get("/messages", pushHandler.Messages)
 		api.With(rsvpLimit).Post("/push/subscriptions", pushHandler.Subscribe)
 		api.With(rsvpLimit).Post("/push/status", pushHandler.Status)
 		api.Get("/content/public", contentHandler.PublicHandler)
@@ -180,6 +181,8 @@ func New(cfg configuration.Config, db *sql.DB) (*Server, error) {
 			protected.Mount("/responses", rsvpHandler.StaffRoutes(authService))
 			protected.With(authService.RequirePermission(auth.PermContentWrite)).
 				Post("/push/broadcast", pushHandler.Broadcast)
+			protected.With(authService.RequirePermission(auth.PermContentWrite)).
+				Delete("/messages/{id}", pushHandler.DeleteMessage)
 		})
 
 		api.NotFound(func(w http.ResponseWriter, r *http.Request) {
