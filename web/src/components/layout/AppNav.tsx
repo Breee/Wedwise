@@ -16,7 +16,10 @@ const coupleLinks = [
 ] as const
 
 const witnessLinks = [{ to: '/witness/dashboard', label: 'Beiträge' }] as const
-const adminLinks = [{ to: '/admin/users', label: 'Benutzer' }] as const
+const adminLinks = [
+  { to: '/admin/users', label: 'Benutzer' },
+  { to: '/admin/audit', label: 'Protokoll' },
+] as const
 
 const accountLinks = [{ to: '/account', label: 'Konto' }] as const
 

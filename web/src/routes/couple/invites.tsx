@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { copyText } from '@/lib/clipboard'
+import { copyText, reportLinkCopy } from '@/lib/clipboard'
 import { t } from '@/lib/i18n'
 import { createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQueryClient, useSuspenseQuery } from '@tanstack/react-query'
@@ -62,8 +62,14 @@ function InvitesPage() {
     onError,
   })
 
-  const share = (token: string) => navigator.share({ url: linkUrl(token) }).catch(() => {})
-  const copy = (token: string) => copyText(linkUrl(token), t('Link kopiert.'))
+  const share = (l: InviteLink) => {
+    reportLinkCopy('invite-link', l.id)
+    navigator.share({ url: linkUrl(l.token) }).catch(() => {})
+  }
+  const copy = (l: InviteLink) => {
+    reportLinkCopy('invite-link', l.id)
+    copyText(linkUrl(l.token), t('Link kopiert.'))
+  }
 
   return (
     <>
@@ -104,11 +110,11 @@ function InvitesPage() {
                     <Button type="button" variant="ghost" size="icon" className="size-10 shrink-0 sm:size-7" title={revealed === l.id ? t('Verbergen') : t('Anzeigen')} onClick={() => setRevealed(revealed === l.id ? null : l.id)}>
                       {revealed === l.id ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
                     </Button>
-                    <Button type="button" variant="ghost" size="icon" className="size-10 shrink-0 sm:size-7" title={t('Link kopieren')} aria-label={t('Link kopieren')} onClick={() => copy(l.token)}>
+                    <Button type="button" variant="ghost" size="icon" className="size-10 shrink-0 sm:size-7" title={t('Link kopieren')} aria-label={t('Link kopieren')} onClick={() => copy(l)}>
                       <Copy className="size-3.5" />
                     </Button>
                     {'share' in navigator && (
-                      <Button type="button" variant="ghost" size="icon" className="size-10 shrink-0 sm:size-7" title={t('Link teilen')} aria-label={t('Link teilen')} onClick={() => share(l.token)}>
+                      <Button type="button" variant="ghost" size="icon" className="size-10 shrink-0 sm:size-7" title={t('Link teilen')} aria-label={t('Link teilen')} onClick={() => share(l)}>
                         <Share2 className="size-3.5" />
                       </Button>
                     )}

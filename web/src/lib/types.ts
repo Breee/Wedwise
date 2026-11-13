@@ -301,3 +301,12 @@ export interface User {
   createdAt: string
   updatedAt: string
 }
+
+export interface AuditEntry {
+  id: number
+  at: string
+  userId: number
+  username: string
+  action: string
+  target: string
+}

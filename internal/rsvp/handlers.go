@@ -4,10 +4,12 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/Breee/Wedwise/internal/audit"
 	"github.com/Breee/Wedwise/internal/auth"
 	"github.com/Breee/Wedwise/internal/contributions"
 	"github.com/Breee/Wedwise/internal/httpx"
@@ -229,6 +231,11 @@ func (h *Handler) staffDeleteMany(w http.ResponseWriter, r *http.Request) {
 		h.writeError(w, err)
 		return
 	}
+	ids := make([]string, len(req.IDs))
+	for i, id := range req.IDs {
+		ids[i] = strconv.FormatInt(id, 10)
+	}
+	audit.SetTarget(r.Context(), "ids="+strings.Join(ids, ","))
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{"deleted": deleted})
 }
 

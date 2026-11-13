@@ -136,6 +136,8 @@ func (s *Store) Middleware(next http.Handler) http.Handler {
 			return
 		}
 		rec := &statusWriter{ResponseWriter: w}
+		var target string
+		r = r.WithContext(context.WithValue(r.Context(), targetKey{}, &target))
 		next.ServeHTTP(rec, r)
 		if rec.status >= http.StatusBadRequest {
 			return
@@ -148,8 +150,21 @@ func (s *Store) Middleware(next http.Handler) http.Handler {
 		if route == nil || route.RoutePattern() == eventsPattern {
 			return
 		}
-		s.Record(r.Context(), identity.ID, identity.Username, r.Method+" "+route.RoutePattern(), params(route))
+		if target == "" {
+			target = params(route)
+		}
+		s.Record(r.Context(), identity.ID, identity.Username, r.Method+" "+route.RoutePattern(), target)
 	})
+}
+
+type targetKey struct{}
+
+// SetTarget names the target of the current request for routes whose path
+// does not carry it, such as bulk actions.
+func SetTarget(ctx context.Context, target string) {
+	if holder, ok := ctx.Value(targetKey{}).(*string); ok {
+		*holder = target
+	}
 }
 
 func params(route *chi.Context) string {

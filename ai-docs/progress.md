@@ -51,3 +51,4 @@ Open work is tracked in GitHub issues and milestones (M1 Staff tools, M2 Accommo
 - 2026-11-13: #45 mandatory two-factor per role, session timeouts, session list with sign-out, hashed session ids, __Host- cookie.
 - 2026-11-13: #44 rate limits and login lockouts persisted in SQLite (hashed keys), account lockout with backoff, TRUST_PROXY_HEADERS mandatory in production.
 - 2026-11-13: #43 invite links: optional response cap, 20 new responses per 10 min per link, bulk delete of responses with link filter.
+- 2026-11-13: #46 append-only audit log (logins, staff changes, link copies, broadcasts) with admin view `/admin/audit`.

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { copyText } from '@/lib/clipboard'
+import { copyText, reportLinkCopy } from '@/lib/clipboard'
 import { t } from '@/lib/i18n'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link2, Pencil, Plus, Trash2, X } from 'lucide-react'
@@ -334,9 +334,10 @@ export function ResponsesTable({ responses: all }: { responses: ResponseWithAtte
                     className="size-10 sm:size-9"
                     aria-label={t('Bearbeitungslink von {name} kopieren', { name: r.contactName })}
                     title={t('Bearbeitungslink kopieren')}
-                    onClick={() =>
+                    onClick={() => {
+                      reportLinkCopy('response', r.id)
                       copyText(`${window.location.origin}/rsvp?token=${r.editToken}`, t('Bearbeitungslink kopiert.'))
-                    }
+                    }}
                   >
                     <Link2 className="size-4" />
                   </Button>}

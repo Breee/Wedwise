@@ -1,6 +1,7 @@
 import { queryOptions } from '@tanstack/react-query'
 import { api } from './api'
 import type {
+  AuditEntry,
   Content,
   Contribution,
   ContributionNote,
@@ -93,4 +94,9 @@ export interface FeedMessage {
 export const messagesQuery = queryOptions({
   queryKey: ['messages'],
   queryFn: async () => (await api.get<{ messages: FeedMessage[] }>('/messages')).messages ?? [],
+})
+
+export const auditLogQuery = queryOptions({
+  queryKey: ['audit-log'],
+  queryFn: () => api.get<{ entries: AuditEntry[] }>('/audit-log/?limit=200').then((r) => r.entries),
 })

@@ -335,6 +335,10 @@ overview can count them. Backups are encrypted as a whole with the same key.
 - Each invite link can carry a maximum number of responses and accepts at most
   20 new responses per 10 minutes. Staff can filter responses by link and
   delete several at once.
+- Every login, logout, failed login, copied link and change made by a
+  signed-in user goes into an append-only audit log (user, action, target,
+  time — never the content). Admins read it under **Protokoll**
+  (`GET /api/audit-log`); the table rejects updates and deletes.
 - Song search and route lookups are proxied by the backend, so guests'
   browsers do not contact those services and the routing key stays private.
   Map tiles are loaded from OpenFreeMap by the browser.
