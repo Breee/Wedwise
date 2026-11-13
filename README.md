@@ -140,6 +140,12 @@ app). The TOTP secret is stored AES-GCM encrypted with a key derived from
 codes are stored as hashes and shown once. Admins can reset a user's second
 factor in the user list.
 
+Passkeys and hardware tokens (WebAuthn, e.g. YubiKey) can be added there as
+well and are used as the second step after the password. Only the public key
+is stored. They are bound to the host in `BASE_URL` and need HTTPS (or
+`localhost`). Recovery codes exist only together with an authenticator app, so
+register two keys or add TOTP as a fallback.
+
 The first admin is created
 with the CLI inside the container (or via `USERS_PATH`):
 

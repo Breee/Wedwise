@@ -36,7 +36,11 @@ type Store struct {
 	aead   cipher.AEAD
 	issuer string
 	now    func() time.Time
+	keys   *Keys
 }
+
+// SetKeys adds passkeys and hardware tokens as a second factor.
+func (s *Store) SetKeys(keys *Keys) { s.keys = keys }
 
 // NewStore derives the encryption key for TOTP secrets from secret.
 func NewStore(db *sql.DB, secret, issuer string) (*Store, error) {
@@ -82,8 +86,26 @@ func normalizeRecovery(code string) string {
 	return strings.ToLower(strings.NewReplacer("-", "", " ", "").Replace(code))
 }
 
-// Enabled reports whether the user has confirmed two-factor login.
+// Enabled reports whether the user has any second factor.
 func (s *Store) Enabled(ctx context.Context, userID int64) (bool, error) {
+	totp, err := s.TOTPEnabled(ctx, userID)
+	if err != nil || totp || s.keys == nil {
+		return totp, err
+	}
+	n, err := s.keys.Count(ctx, userID)
+	return n > 0, err
+}
+
+// Challenge returns WebAuthn assertion options for the user's keys.
+func (s *Store) Challenge(ctx context.Context, userID int64) (any, error) {
+	if s.keys == nil {
+		return nil, ErrNoKeys
+	}
+	return s.keys.BeginLogin(ctx, userID)
+}
+
+// TOTPEnabled reports whether the user has a confirmed authenticator app.
+func (s *Store) TOTPEnabled(ctx context.Context, userID int64) (bool, error) {
 	var n int
 	err := s.db.QueryRowContext(ctx,
 		`SELECT COUNT(*) FROM user_totp WHERE user_id = ? AND confirmed_at != ''`, userID).Scan(&n)
@@ -197,10 +219,16 @@ func (s *Store) Confirm(ctx context.Context, userID int64, code string) ([]strin
 	return codes, tx.Commit()
 }
 
-// Verify accepts a current TOTP code or an unused recovery code, which is
-// consumed.
+// Verify accepts a current TOTP code, an unused recovery code (consumed) or
+// a WebAuthn assertion as JSON.
 func (s *Store) Verify(ctx context.Context, userID int64, code string) (bool, error) {
 	code = strings.TrimSpace(code)
+	if strings.HasPrefix(code, "{") {
+		if s.keys == nil {
+			return false, nil
+		}
+		return s.keys.FinishLogin(ctx, userID, []byte(code))
+	}
 	if len(code) == 6 {
 		return s.checkTOTP(ctx, userID, code, true)
 	}

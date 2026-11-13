@@ -1,6 +1,7 @@
 package twofactor
 
 import (
+	"encoding/json"
 	"errors"
 	"net/http"
 	"strconv"
@@ -30,12 +31,15 @@ func (h *Handler) Routes() http.Handler {
 	r.Post("/totp", h.begin)
 	r.Post("/totp/confirm", h.confirm)
 	r.Post("/disable", h.disable)
+	r.Post("/keys/begin", h.keyBegin)
+	r.Post("/keys", h.keyFinish)
+	r.Delete("/keys/{id}", h.keyDelete)
 	return r
 }
 
 func (h *Handler) status(w http.ResponseWriter, r *http.Request) {
 	identity, _ := auth.IdentityFrom(r.Context())
-	enabled, err := h.store.Enabled(r.Context(), identity.ID)
+	enabled, err := h.store.TOTPEnabled(r.Context(), identity.ID)
 	if err != nil {
 		httpx.Internal(w, err)
 		return
@@ -45,7 +49,72 @@ func (h *Handler) status(w http.ResponseWriter, r *http.Request) {
 		httpx.Internal(w, err)
 		return
 	}
-	httpx.WriteJSON(w, http.StatusOK, map[string]any{"totp": enabled, "recoveryCodes": left})
+	keys := []Key{}
+	if h.store.keys != nil {
+		if keys, err = h.store.keys.List(r.Context(), identity.ID); err != nil {
+			httpx.Internal(w, err)
+			return
+		}
+	}
+	httpx.WriteJSON(w, http.StatusOK, map[string]any{"totp": enabled, "recoveryCodes": left, "keys": keys})
+}
+
+func (h *Handler) keyBegin(w http.ResponseWriter, r *http.Request) {
+	identity, _ := auth.IdentityFrom(r.Context())
+	if h.store.keys == nil {
+		httpx.NotFound(w, "Security keys are not available.")
+		return
+	}
+	options, err := h.store.keys.BeginRegister(r.Context(), identity.ID, identity.Username)
+	if errors.Is(err, ErrAlreadyEnabled) {
+		httpx.WriteError(w, http.StatusConflict, httpx.CodeConflict, "Too many security keys.")
+		return
+	}
+	if err != nil {
+		httpx.Internal(w, err)
+		return
+	}
+	w.Header().Set("Cache-Control", "no-store")
+	httpx.WriteJSON(w, http.StatusOK, options)
+}
+
+func (h *Handler) keyFinish(w http.ResponseWriter, r *http.Request) {
+	identity, _ := auth.IdentityFrom(r.Context())
+	var req struct {
+		Name       string          `json:"name"`
+		Credential json.RawMessage `json:"credential"`
+	}
+	if !httpx.DecodeJSON(w, r, &req) {
+		return
+	}
+	if h.store.keys == nil {
+		httpx.NotFound(w, "Security keys are not available.")
+		return
+	}
+	err := h.store.keys.FinishRegister(r.Context(), identity.ID, identity.Username, req.Name, req.Credential)
+	if errors.Is(err, ErrInvalidCode) {
+		httpx.WriteError(w, http.StatusBadRequest, auth.CodeInvalidCode, "The security key could not be verified.")
+		return
+	}
+	if err != nil {
+		httpx.Internal(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *Handler) keyDelete(w http.ResponseWriter, r *http.Request) {
+	identity, _ := auth.IdentityFrom(r.Context())
+	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	if err != nil || h.store.keys == nil {
+		httpx.BadRequest(w, "Invalid key id.")
+		return
+	}
+	if err := h.store.keys.Delete(r.Context(), identity.ID, id); err != nil {
+		httpx.Internal(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (h *Handler) begin(w http.ResponseWriter, r *http.Request) {
@@ -114,6 +183,12 @@ func (h *Handler) Reset(w http.ResponseWriter, r *http.Request) {
 	if err := h.store.Disable(r.Context(), id); err != nil {
 		httpx.Internal(w, err)
 		return
+	}
+	if h.store.keys != nil {
+		if err := h.store.keys.DeleteAll(r.Context(), id); err != nil {
+			httpx.Internal(w, err)
+			return
+		}
 	}
 	w.WriteHeader(http.StatusNoContent)
 }

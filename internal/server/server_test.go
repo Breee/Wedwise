@@ -1559,3 +1559,64 @@ func TestPushSubscriptionTopicsByRole(t *testing.T) {
 		t.Fatalf("empty title: %d", resp.StatusCode)
 	}
 }
+
+func TestSecurityKeys(t *testing.T) {
+	app, _ := newTestAppWithUsers(t)
+	cookie, _ := app.login("couple_user", "TestPass123!")
+
+	resp := app.do(http.MethodPost, "/api/account/2fa/keys/begin", nil, nil)
+	if resp.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("anonymous begin: %d", resp.StatusCode)
+	}
+	resp.Body.Close()
+
+	resp = app.do(http.MethodPost, "/api/account/2fa/keys/begin", nil, cookie)
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("begin: %d", resp.StatusCode)
+	}
+	var options struct {
+		PublicKey struct {
+			Challenge string              `json:"challenge"`
+			RP        struct{ ID string } `json:"rp"`
+		} `json:"publicKey"`
+	}
+	json.NewDecoder(resp.Body).Decode(&options)
+	resp.Body.Close()
+	if options.PublicKey.Challenge == "" || options.PublicKey.RP.ID == "" {
+		t.Fatalf("incomplete options: %+v", options)
+	}
+
+	resp = app.do(http.MethodPost, "/api/account/2fa/keys",
+		map[string]any{"name": "Key", "credential": map[string]string{"id": "x"}}, cookie)
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Fatalf("forged credential: %d", resp.StatusCode)
+	}
+	resp.Body.Close()
+
+	resp = app.do(http.MethodGet, "/api/account/2fa/", nil, cookie)
+	var status struct{ Keys []any }
+	json.NewDecoder(resp.Body).Decode(&status)
+	resp.Body.Close()
+	if len(status.Keys) != 0 {
+		t.Fatalf("forged key was stored")
+	}
+
+	creds := map[string]string{"username": "couple_user", "password": "TestPass123!"}
+	resp = app.do(http.MethodPost, "/api/auth/webauthn/begin", creds, nil)
+	if resp.StatusCode != http.StatusNotFound {
+		t.Fatalf("login challenge without keys: %d", resp.StatusCode)
+	}
+	resp.Body.Close()
+
+	creds["password"] = "wrong"
+	resp = app.do(http.MethodPost, "/api/auth/webauthn/begin", creds, nil)
+	if resp.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("login challenge with wrong password: %d", resp.StatusCode)
+	}
+	resp.Body.Close()
+
+	// Without keys or TOTP the password alone is still enough.
+	if _, code := app.login("couple_user", "TestPass123!"); code != http.StatusOK {
+		t.Fatalf("login: %d", code)
+	}
+}

@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useForm } from '@tanstack/react-form'
 import { useState } from 'react'
 import { ApiError, api, errorMessage } from '@/lib/api'
+import { signWithKey, webauthnSupported } from '@/lib/webauthn'
 import { meQuery } from '@/lib/queries'
 import { dashboardFor } from '@/lib/auth'
 import type { Me } from '@/lib/types'
@@ -27,11 +28,19 @@ function LoginPage() {
   const queryClient = useQueryClient()
 
   const [needsCode, setNeedsCode] = useState(false)
+  const [hasKey, setHasKey] = useState(false)
 
   const login = useMutation({
-    mutationFn: (body: { username: string; password: string; code: string }) => api.post<Me>('/auth/login', body),
-    onError: (e) => {
-      if (e instanceof ApiError && e.code === 'two_factor_required') setNeedsCode(true)
+    mutationFn: (body: { username: string; password: string; code?: string; assertion?: unknown }) =>
+      api.post<Me>('/auth/login', body),
+    onError: (e, body) => {
+      if (!(e instanceof ApiError && e.code === 'two_factor_required')) return
+      setNeedsCode(true)
+      if (!webauthnSupported()) return
+      api
+        .post('/auth/webauthn/begin', { username: body.username, password: body.password })
+        .then(() => setHasKey(true))
+        .catch(() => setHasKey(false))
     },
     onSuccess: async () => {
       const me = await queryClient.fetchQuery({ ...meQuery, staleTime: 0 })
@@ -42,6 +51,15 @@ function LoginPage() {
   const form = useForm({
     defaultValues: { username: '', password: '', code: '' },
     onSubmit: ({ value }) => login.mutateAsync(value).catch(() => {}),
+  })
+
+  const withKey = useMutation({
+    mutationFn: async () => {
+      const { username, password } = form.state.values
+      const options = await api.post<{ publicKey: unknown }>('/auth/webauthn/begin', { username, password })
+      const assertion = await signWithKey(options)
+      return login.mutateAsync({ username, password, assertion })
+    },
   })
 
   return (
@@ -99,7 +117,7 @@ function LoginPage() {
                       autoFocus
                       value={field.state.value}
                       onChange={(e) => field.handleChange(e.target.value)}
-                      required
+                      required={!hasKey}
                     />
                     <p className="text-xs text-muted-foreground">
                       6-stelliger Code aus eurer Authenticator-App oder ein Wiederherstellungscode.
@@ -120,6 +138,17 @@ function LoginPage() {
             <Button type="submit" className="w-full" disabled={login.isPending}>
               {login.isPending ? 'Wird geprüft…' : 'Anmelden'}
             </Button>
+            {needsCode && hasKey && (
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full"
+                disabled={withKey.isPending || login.isPending}
+                onClick={() => withKey.mutate()}
+              >
+                Mit Passkey oder Sicherheitsschlüssel anmelden
+              </Button>
+            )}
           </form>
         </CardContent>
       </Card>

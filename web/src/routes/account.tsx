@@ -2,11 +2,12 @@ import { useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { QRCodeSVG } from 'qrcode.react'
-import { Bell, Copy, Megaphone, ShieldCheck } from 'lucide-react'
+import { Bell, Copy, KeyRound, Megaphone, ShieldCheck, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { ApiError, api, errorMessage } from '@/lib/api'
 import { requireRole } from '@/lib/auth'
 import { meQuery } from '@/lib/queries'
+import { createKey, webauthnSupported } from '@/lib/webauthn'
 import { pushSupported, type PushTopic } from '@/lib/push'
 import { toggled, usePushTopics } from '@/components/public/Notifications'
 import { Switch } from '@/components/ui/switch'
@@ -17,7 +18,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 
-type Status = { totp: boolean; recoveryCodes: number }
+type SecurityKey = { id: number; name: string; createdAt: string }
+type Status = { totp: boolean; recoveryCodes: number; keys: SecurityKey[] }
 type Enrolment = { secret: string; url: string }
 
 const statusKey = ['account', '2fa'] as const
@@ -158,6 +160,7 @@ function AccountPage() {
           )}
         </CardContent>
       </Card>
+      <SecurityKeys keys={status?.keys ?? []} />
       <StaffNotifications />
     </div>
   )
@@ -168,6 +171,91 @@ const TOPICS: { id: PushTopic; label: string; roles: string[] }[] = [
   { id: 'contributions', label: 'Neue Beiträge', roles: ['witness', 'admin'] },
   { id: 'broadcast', label: 'Nachrichten an alle Gäste', roles: ['couple', 'witness', 'admin'] },
 ]
+
+function SecurityKeys({ keys }: { keys: SecurityKey[] }) {
+  const queryClient = useQueryClient()
+  const [name, setName] = useState('')
+  const refresh = () => queryClient.invalidateQueries({ queryKey: statusKey })
+
+  const add = useMutation({
+    mutationFn: async () => {
+      const options = await api.post<{ publicKey: unknown }>('/account/2fa/keys/begin')
+      const credential = await createKey(options)
+      await api.post('/account/2fa/keys', { name, credential })
+    },
+    onSuccess: () => {
+      setName('')
+      refresh()
+      toast.success('Schlüssel hinzugefügt.')
+    },
+    onError: (e) => toast.error(errorMessage(e, 'Der Schlüssel konnte nicht hinzugefügt werden.')),
+  })
+  const remove = useMutation({
+    mutationFn: (id: number) => api.delete(`/account/2fa/keys/${id}`),
+    onSuccess: refresh,
+    onError: (e) => toast.error(errorMessage(e, 'Löschen fehlgeschlagen.')),
+  })
+
+  return (
+    <Card className="mt-6">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-2xl">
+          <KeyRound className="size-5 text-primary" />
+          Passkeys & Sicherheitsschlüssel
+        </CardTitle>
+        <CardDescription>
+          Fingerabdruck, Gesichtserkennung oder ein Hardware-Schlüssel (z. B. YubiKey) als zweiter Schritt bei der
+          Anmeldung. Gespeichert wird nur der öffentliche Schlüssel.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {keys.length > 0 && (
+          <ul className="divide-y rounded-md border">
+            {keys.map((k) => (
+              <li key={k.id} className="flex items-center justify-between gap-3 px-3 py-2 text-sm">
+                <span>{k.name || 'Schlüssel'}</span>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="size-10"
+                  aria-label={`${k.name || 'Schlüssel'} entfernen`}
+                  onClick={() => window.confirm('Diesen Schlüssel entfernen?') && remove.mutate(k.id)}
+                >
+                  <Trash2 className="size-4" />
+                </Button>
+              </li>
+            ))}
+          </ul>
+        )}
+        {webauthnSupported() ? (
+          <form
+            className="flex flex-col gap-3 sm:flex-row sm:items-end"
+            onSubmit={(e) => {
+              e.preventDefault()
+              add.mutate()
+            }}
+          >
+            <div className="flex-1 space-y-2">
+              <Label htmlFor="k-name">Name</Label>
+              <Input
+                id="k-name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="z. B. Handy oder YubiKey"
+                maxLength={60}
+              />
+            </div>
+            <Button type="submit" disabled={add.isPending}>
+              Schlüssel hinzufügen
+            </Button>
+          </form>
+        ) : (
+          <p className="text-sm text-muted-foreground">Dieser Browser unterstützt keine Sicherheitsschlüssel.</p>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
 
 function StaffNotifications() {
   const { data: me } = useQuery(meQuery)

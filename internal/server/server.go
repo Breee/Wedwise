@@ -61,6 +61,11 @@ func New(cfg configuration.Config, db *sql.DB) (*Server, error) {
 	if err != nil {
 		return nil, err
 	}
+	keys, err := twofactor.NewKeys(db, cfg.BaseURL, cfg.Event.Title)
+	if err != nil {
+		return nil, err
+	}
+	twoFactorStore.SetKeys(keys)
 	authService.SetSecondFactor(twoFactorStore)
 	twoFactorHandler := twofactor.NewHandler(twoFactorStore)
 

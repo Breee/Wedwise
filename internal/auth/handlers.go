@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"strings"
@@ -15,6 +16,8 @@ type loginRequest struct {
 	Username string `json:"username"`
 	Password string `json:"password"`
 	Code     string `json:"code"`
+	// Assertion is a WebAuthn response, used instead of Code.
+	Assertion json.RawMessage `json:"assertion"`
 }
 
 // Error codes of the second login step.
@@ -27,6 +30,12 @@ const (
 type SecondFactor interface {
 	Enabled(ctx context.Context, userID int64) (bool, error)
 	Verify(ctx context.Context, userID int64, code string) (bool, error)
+}
+
+// Challenger is implemented by second factors that need a challenge before
+// the login, such as security keys.
+type Challenger interface {
+	Challenge(ctx context.Context, userID int64) (any, error)
 }
 
 // SetSecondFactor enables the second login step.
@@ -48,8 +57,39 @@ func (s *Service) Routes(loginMiddlewares ...func(http.Handler) http.Handler) ht
 	r := chi.NewRouter()
 	r.Get("/me", s.HandleMe)
 	r.With(loginMiddlewares...).Post("/login", s.HandleLogin)
+	r.With(loginMiddlewares...).Post("/webauthn/begin", s.HandleWebAuthnBegin)
 	r.Post("/logout", s.HandleLogout)
 	return r
+}
+
+// HandleWebAuthnBegin checks the password and returns a challenge for the
+// user's security keys.
+func (s *Service) HandleWebAuthnBegin(w http.ResponseWriter, r *http.Request) {
+	var req loginRequest
+	if !httpx.DecodeJSON(w, r, &req) {
+		return
+	}
+	identity, err := s.authenticateCredentials(r.Context(), strings.TrimSpace(req.Username), req.Password)
+	if err != nil {
+		if errors.Is(err, ErrInvalidCredentials) {
+			httpx.WriteError(w, http.StatusUnauthorized, httpx.CodeUnauthorized, "Invalid username or password.")
+			return
+		}
+		httpx.Internal(w, err)
+		return
+	}
+	challenger, ok := s.secondFactor.(Challenger)
+	if !ok {
+		httpx.NotFound(w, "No security key registered.")
+		return
+	}
+	options, err := challenger.Challenge(r.Context(), identity.ID)
+	if err != nil {
+		httpx.NotFound(w, "No security key registered.")
+		return
+	}
+	w.Header().Set("Cache-Control", "no-store")
+	httpx.WriteJSON(w, http.StatusOK, options)
 }
 
 // HandleLogin authenticates a user and starts a session.
@@ -82,6 +122,9 @@ func (s *Service) HandleLogin(w http.ResponseWriter, r *http.Request) {
 		}
 		if enabled {
 			code := strings.TrimSpace(req.Code)
+			if len(req.Assertion) > 0 {
+				code = string(req.Assertion)
+			}
 			if code == "" {
 				httpx.WriteError(w, http.StatusUnauthorized, CodeTwoFactorRequired, "A login code is required.")
 				return
