@@ -38,6 +38,7 @@ function ContentPage() {
     onError: (e) => toast.error(errorMessage(e)),
   })
 
+  const dirty = JSON.stringify(draft) !== JSON.stringify(data)
   const set = <K extends keyof Content>(key: K, value: Content[K]) => setDraft((d) => ({ ...d, [key]: value }))
   const travel = draft.travel ?? { lat: 0, lng: 0, stops: [], lines: [] }
   const current = themes.find((t) => t.name === draft.theme) ?? themes[0]
@@ -95,6 +96,7 @@ function ContentPage() {
           <Card>
             <CardHeader>
               <CardTitle>Kopfbereich</CardTitle>
+              <p className="text-sm text-muted-foreground">Leere Felder übernehmen die Werte aus der Konfiguration.</p>
             </CardHeader>
             <CardContent className="grid gap-4 sm:grid-cols-2">
               <Field label="Kleine Überschrift" value={draft.hero.eyebrow} onChange={(v) => set('hero', { ...draft.hero, eyebrow: v })} />
@@ -253,6 +255,19 @@ function ContentPage() {
           />
         </TabsContent>
       </Tabs>
+      {dirty && (
+        <div className="sticky bottom-0 z-20 -mx-4 mt-6 flex items-center justify-between gap-3 border-t bg-background/95 px-4 py-3 backdrop-blur sm:mx-0 sm:rounded-lg sm:border">
+          <p className="text-sm text-muted-foreground">Ungespeicherte Änderungen</p>
+          <div className="flex gap-2">
+            <Button variant="ghost" onClick={() => setDraft(structuredClone(data))} disabled={save.isPending}>
+              Verwerfen
+            </Button>
+            <Button onClick={() => save.mutate()} disabled={save.isPending}>
+              {save.isPending ? 'Speichert…' : 'Speichern'}
+            </Button>
+          </div>
+        </div>
+      )}
     </>
   )
 }
