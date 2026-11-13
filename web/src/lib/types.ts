@@ -235,6 +235,7 @@ export interface GuestView extends Response {
 }
 
 export interface ResponseWithAttendees extends Response {
+  inviteLinkId?: number | null
   editToken?: string
   attendees: Attendee[]
 }
@@ -250,6 +251,7 @@ export interface InviteLink {
   hasPin: boolean
   active: boolean
   responses: number
+  maxResponses: number
   createdAt: string
   updatedAt: string
 }

@@ -3,7 +3,7 @@ import { copyText } from '@/lib/clipboard'
 import { t } from '@/lib/i18n'
 import { createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQueryClient, useSuspenseQuery } from '@tanstack/react-query'
-import { Copy, Eye, EyeOff, KeyRound, Plus, RefreshCw, Share2, Trash2 } from 'lucide-react'
+import { Copy, Eye, EyeOff, Gauge, KeyRound, Plus, RefreshCw, Share2, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { api, errorMessage } from '@/lib/api'
 import { inviteLinksQuery } from '@/lib/queries'
@@ -36,6 +36,7 @@ function InvitesPage() {
   const queryClient = useQueryClient()
   const { data: links } = useSuspenseQuery(inviteLinksQuery)
   const [pinTarget, setPinTarget] = useState<InviteLink | null>(null)
+  const [limitTarget, setLimitTarget] = useState<InviteLink | null>(null)
   const [revealed, setRevealed] = useState<number | null>(null)
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: inviteLinksQuery.queryKey })
@@ -117,7 +118,7 @@ function InvitesPage() {
                 )}
               </TableCell>
               <TableCell className="p-0 sm:p-2">{l.hasPin ? <Badge>PIN</Badge> : <span className="text-muted-foreground"><span className="sm:hidden">{t('Kein PIN')}</span><span className="hidden sm:inline">–</span></span>}</TableCell>
-              <TableCell className="p-0 sm:p-2">{l.responses}<span className="text-muted-foreground sm:hidden"> {t('Antworten')}</span></TableCell>
+              <TableCell className="p-0 sm:p-2">{l.responses}{l.maxResponses > 0 && ` / ${l.maxResponses}`}<span className="text-muted-foreground sm:hidden"> {t('Antworten')}</span></TableCell>
               <TableCell className="hidden text-muted-foreground sm:table-cell">{formatDateTime(l.createdAt)}</TableCell>
               <TableCell className="p-0 sm:p-2">
                 <Switch checked={l.active} onCheckedChange={(active) => setActive.mutate({ id: l.id, active })} aria-label={t('Aktiv')} />
@@ -127,6 +128,10 @@ function InvitesPage() {
                   <Button variant="ghost" size="icon" className="h-10 w-auto gap-1.5 px-2 sm:size-9 sm:px-0" title={l.hasPin ? t('PIN ändern') : t('PIN setzen')} onClick={() => setPinTarget(l)}>
                     <KeyRound className="size-4" />
                     <span className="text-xs sm:hidden">PIN</span>
+                  </Button>
+                  <Button variant="ghost" size="icon" className="h-10 w-auto gap-1.5 px-2 sm:size-9 sm:px-0" title={t('Antworten begrenzen')} onClick={() => setLimitTarget(l)}>
+                    <Gauge className="size-4" />
+                    <span className="text-xs sm:hidden">{t('Limit')}</span>
                   </Button>
                   <Button
                     variant="ghost"
@@ -155,6 +160,7 @@ function InvitesPage() {
         </TableBody>
       </Table>
       <PinDialog link={pinTarget} onClose={() => setPinTarget(null)} onSaved={refresh} />
+      {limitTarget && <LimitDialog key={limitTarget.id} link={limitTarget} onClose={() => setLimitTarget(null)} onSaved={refresh} />}
     </>
   )
 }
@@ -198,6 +204,46 @@ function PinDialog({ link, onClose, onSaved }: { link: InviteLink | null; onClos
               <span />
             )}
             <Button type="submit" disabled={save.isPending || pin.length < 4}>
+              {t('Speichern')}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function LimitDialog({ link, onClose, onSaved }: { link: InviteLink; onClose: () => void; onSaved: () => void }) {
+  const [limit, setLimit] = useState(link.maxResponses ? String(link.maxResponses) : '')
+  const save = useMutation({
+    mutationFn: (maxResponses: number) => api.put(`/invite-links/${link.id}/limit`, { maxResponses }),
+    onSuccess: () => {
+      onSaved()
+      onClose()
+    },
+    onError: (e) => toast.error(errorMessage(e)),
+  })
+
+  return (
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault()
+            save.mutate(Number(limit) || 0)
+          }}
+          className="space-y-4"
+        >
+          <DialogHeader>
+            <DialogTitle>{t('Antworten begrenzen')}</DialogTitle>
+            <DialogDescription>{t('Ist die Zahl erreicht, nimmt der Link keine neuen Antworten mehr an. Leer lassen für unbegrenzt.')}</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="limit">{t('Höchstzahl an Antworten')}</Label>
+            <Input id="limit" type="number" inputMode="numeric" min={0} max={10000} value={limit} onChange={(e) => setLimit(e.target.value)} autoFocus />
+          </div>
+          <DialogFooter>
+            <Button type="submit" disabled={save.isPending}>
               {t('Speichern')}
             </Button>
           </DialogFooter>

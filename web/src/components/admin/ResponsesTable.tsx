@@ -192,11 +192,75 @@ function EditForm({ initial, onClose }: { initial: ResponseWithAttendees; onClos
   )
 }
 
-export function ResponsesTable({ responses }: { responses: ResponseWithAttendees[] }) {
+const ALL_LINKS = 'all'
+
+export function ResponsesTable({ responses: all }: { responses: ResponseWithAttendees[] }) {
+  const queryClient = useQueryClient()
   const [editing, setEditing] = useState<ResponseWithAttendees | null>(null)
+  const [picked, setPicked] = useState<Set<number>>(new Set())
+  const [link, setLink] = useState(ALL_LINKS)
+
+  const links = [...new Set(all.map((r) => r.inviteLinkId).filter((id): id is number => id != null))].sort((a, b) => a - b)
+  const responses = link === ALL_LINKS ? all : all.filter((r) => String(r.inviteLinkId) === link)
+  const selected = responses.filter((r) => picked.has(r.id)).map((r) => r.id)
+  const allSelected = responses.length > 0 && selected.length === responses.length
+
+  const toggle = (id: number, on: boolean) =>
+    setPicked((prev) => {
+      const next = new Set(prev)
+      if (on) next.add(id)
+      else next.delete(id)
+      return next
+    })
+
+  const removeMany = useMutation({
+    mutationFn: (ids: number[]) => api.post<{ deleted: number }>('/responses/delete', { ids }),
+    onSuccess: ({ deleted }) => {
+      toast.success(t('{n} Rückmeldungen gelöscht.', { n: deleted }))
+      setPicked(new Set())
+      for (const key of ['responses', 'rsvp-summary', 'contributions', 'invite-links']) {
+        queryClient.invalidateQueries({ queryKey: [key] })
+      }
+    },
+    onError: (e) => toast.error(errorMessage(e)),
+  })
 
   return (
     <>
+      {all.length > 0 && (
+        <div className="mb-3 flex min-h-9 flex-wrap items-center gap-3 text-sm">
+          <label className="flex items-center gap-2">
+            <Checkbox checked={allSelected} onCheckedChange={(v) => setPicked(v === true ? new Set(responses.map((r) => r.id)) : new Set())} />
+            {t('Alle auswählen')}
+          </label>
+          {links.length > 1 && (
+            <Select value={link} onValueChange={setLink}>
+              <SelectTrigger aria-label={t('Einladungslink')} size="sm" className="w-auto">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL_LINKS}>{t('Alle Links')}</SelectItem>
+                {links.map((id) => (
+                  <SelectItem key={id} value={String(id)}>
+                    {t('Link {n}', { n: id })}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+          {selected.length > 0 && (
+            <Button
+              variant="destructive"
+              size="sm"
+              className="ml-auto"
+              disabled={removeMany.isPending}
+              onClick={() => confirm(t('{n} Rückmeldungen endgültig löschen?', { n: selected.length })) && removeMany.mutate(selected)}
+            >
+              <Trash2 className="size-4" /> {t('{n} löschen', { n: selected.length })}
+            </Button>
+          )}
+        </div>
+      )}
       <div className="rounded-lg border bg-card">
         <Table className="block sm:table">
           <TableHeader className="hidden sm:table-header-group">
@@ -221,10 +285,20 @@ export function ResponsesTable({ responses }: { responses: ResponseWithAttendees
             {responses.map((r) => (
               <TableRow key={r.id} className="relative flex flex-col gap-1 p-3 pr-24 whitespace-normal sm:table-row sm:p-0">
                 <TableCell className="p-0 whitespace-normal sm:p-2 align-top font-medium">
-                  {r.contactName}
-                  {(r.email || r.phone) && (
-                    <div className="text-xs font-normal text-muted-foreground">{[r.email, r.phone].filter(Boolean).join(' · ')}</div>
-                  )}
+                  <div className="flex items-start gap-2">
+                    <Checkbox
+                      className="mt-0.5"
+                      aria-label={t('{name} auswählen', { name: r.contactName })}
+                      checked={picked.has(r.id)}
+                      onCheckedChange={(v) => toggle(r.id, v === true)}
+                    />
+                    <div>
+                      {r.contactName}
+                      {(r.email || r.phone) && (
+                        <div className="text-xs font-normal text-muted-foreground">{[r.email, r.phone].filter(Boolean).join(' · ')}</div>
+                      )}
+                    </div>
+                  </div>
                 </TableCell>
                 <TableCell className="p-0 whitespace-normal sm:p-2 align-top">
                   <Badge variant={r.status === 'yes' ? 'default' : 'secondary'}>{RSVP_STATUS_LABEL[r.status] ?? r.status}</Badge>
@@ -249,7 +323,10 @@ export function ResponsesTable({ responses }: { responses: ResponseWithAttendees
                   {r.musicSong && <div className="text-foreground">♪ {r.musicSong}</div>}
                 </TableCell>
                 <TableCell className="p-0 sm:p-2 max-w-xs align-top text-sm whitespace-pre-line text-muted-foreground">{r.message}</TableCell>
-                <TableCell className="p-0 whitespace-normal sm:p-2 text-left align-top sm:text-right text-xs text-muted-foreground">{formatDateTime(r.submittedAt)}</TableCell>
+                <TableCell className="p-0 whitespace-normal sm:p-2 text-left align-top sm:text-right text-xs text-muted-foreground">
+                  {formatDateTime(r.submittedAt)}
+                  {links.length > 1 && r.inviteLinkId != null && <div>{t('Link {n}', { n: r.inviteLinkId })}</div>}
+                </TableCell>
                 <TableCell className="absolute top-2 right-2 flex p-0 sm:static sm:p-2 align-top">
                   {r.editToken && <Button
                     variant="ghost"

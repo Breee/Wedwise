@@ -332,6 +332,9 @@ overview can count them. Backups are encrypted as a whole with the same key.
   login clears it.
 - After 10 wrong PINs an invite link is locked for 15 minutes, whatever the
   client IP. Unknown or inactive links answer `404`.
+- Each invite link can carry a maximum number of responses and accepts at most
+  20 new responses per 10 minutes. Staff can filter responses by link and
+  delete several at once.
 - Song search and route lookups are proxied by the backend, so guests'
   browsers do not contact those services and the routing key stays private.
   Map tiles are loaded from OpenFreeMap by the browser.

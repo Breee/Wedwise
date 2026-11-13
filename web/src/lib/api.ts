@@ -26,6 +26,7 @@ const MESSAGES: Record<string, string> = {
   two_factor_required: 'Bitte gebt euren Anmeldecode ein.',
   invalid_code: 'Der Code stimmt nicht.',
   invalid_pin: 'Die PIN stimmt nicht.',
+  link_full: 'Über diesen Link sind keine weiteren Antworten möglich.',
 }
 
 const STATUS_CODES: Record<number, string> = {

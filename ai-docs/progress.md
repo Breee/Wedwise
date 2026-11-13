@@ -50,3 +50,4 @@ Open work is tracked in GitHub issues and milestones (M1 Staff tools, M2 Accommo
 - 2026-11-11: Work moved to GitHub issues #3–#18: staff editing of responses and contribution content, accommodation kind + price/type filters + Ferienwohnungen, marker spreading, mobile round 2 (card tables, scrolling tabs, tap targets, section mini-nav), `BASE_URL` via env in compose, optional OpenRouteService proxy `GET /api/route` (`ROUTING_API_KEY`).
 - 2026-11-13: #45 mandatory two-factor per role, session timeouts, session list with sign-out, hashed session ids, __Host- cookie.
 - 2026-11-13: #44 rate limits and login lockouts persisted in SQLite (hashed keys), account lockout with backoff, TRUST_PROXY_HEADERS mandatory in production.
+- 2026-11-13: #43 invite links: optional response cap, 20 new responses per 10 min per link, bulk delete of responses with link filter.
