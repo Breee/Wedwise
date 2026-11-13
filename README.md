@@ -117,7 +117,7 @@ Settings come from a YAML file (`CONFIG_PATH`, default
 | `CONTENT_PATH` | `contentPath` | — | Optional JSON content file (shape of `examples/content.json`). Applied at startup whenever the file changes; editor changes are kept until then. |
 | `USERS_PATH` | `usersPath` | — | Optional YAML list of users (`username`, `role`, `password`, optional `email`, `displayName`) created at startup. Existing users are kept; a changed password is applied. |
 | `IMAGES_PATH` | `imagesPath` | — | Optional directory served read-only under `/images/<name>`, e.g. for `location.image`. |
-| `UPLOADS_PATH` | `uploadsPath` | `uploads/` next to the database | Where images uploaded in the content editor are stored (JPEG, PNG, WebP, GIF, max 8 MB). Served under `/uploads/<name>`. |
+| `UPLOADS_PATH` | `uploadsPath` | `uploads/` next to the database | Where images uploaded in the content editor are stored (JPEG, PNG, WebP, GIF, max 8 MB). They are re-encoded on upload: EXIF data such as GPS position is removed and the longest side is capped at 2560 px. Served under `/uploads/<name>`. |
 
 Keep secrets in environment variables, not in the config file.
 
