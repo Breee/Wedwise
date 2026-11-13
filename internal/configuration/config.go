@@ -111,7 +111,7 @@ type Config struct {
 	Environment string `yaml:"environment" json:"environment"`
 	// TrustProxyHeaders enables X-Forwarded-For for client IP detection. Only
 	// enable when a reverse proxy in front of the app sets the header.
-	TrustProxyHeaders bool `yaml:"trustProxyHeaders" json:"trustProxyHeaders"`
+	TrustProxyHeaders *bool `yaml:"trustProxyHeaders" json:"trustProxyHeaders"`
 	// RoutingAPIKey is an optional OpenRouteService key for live route lookups.
 	RoutingAPIKey string `yaml:"routingApiKey" json:"-"`
 
@@ -235,12 +235,21 @@ func applyEnv(cfg *Config) {
 		}
 	}
 	if value, ok := os.LookupEnv("TRUST_PROXY_HEADERS"); ok {
-		cfg.TrustProxyHeaders = strings.EqualFold(value, "true") || value == "1"
+		trust := strings.EqualFold(value, "true") || value == "1"
+		cfg.TrustProxyHeaders = &trust
 	}
+}
+
+// TrustProxy reports whether X-Forwarded-For is honoured.
+func (c Config) TrustProxy() bool {
+	return c.TrustProxyHeaders != nil && *c.TrustProxyHeaders
 }
 
 // Validate checks that the configuration is usable.
 func (c Config) Validate() error {
+	if c.IsProduction() && c.TrustProxyHeaders == nil {
+		return errors.New("trustProxyHeaders must be set in production: true behind a reverse proxy, false when clients connect directly (env TRUST_PROXY_HEADERS)")
+	}
 	if c.ListenAddress == "" {
 		return errors.New("listenAddress must not be empty")
 	}

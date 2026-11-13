@@ -450,7 +450,8 @@ func TestLoginRateLimit(t *testing.T) {
 
 	var status int
 	for i := 0; i < 11; i++ {
-		_, status = app.login("couple_user", "wrong-password")
+		// A different name each time, so only the per-client limit counts.
+		_, status = app.login(fmt.Sprintf("nobody-%d", i), "wrong-password")
 		if i < 10 && status != http.StatusUnauthorized {
 			t.Fatalf("attempt %d: got %d, want 401", i+1, status)
 		}

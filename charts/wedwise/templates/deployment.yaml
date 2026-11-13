@@ -46,6 +46,8 @@ spec:
               value: ":8080"
             - name: ENVIRONMENT
               value: production
+            - name: TRUST_PROXY_HEADERS
+              value: {{ (ternary .Values.ingress.enabled .Values.trustProxyHeaders (kindIs "invalid" .Values.trustProxyHeaders)) | quote }}
             - name: DATABASE_PATH
               value: /data/wedding.db
             - name: CONFIG_PATH

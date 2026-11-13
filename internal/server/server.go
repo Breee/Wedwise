@@ -71,6 +71,7 @@ func New(cfg configuration.Config, db *sql.DB) (*Server, error) {
 	sessionStore.SetTimeouts(maxAge, idle)
 	authService := auth.NewService(sessionStore, userStore, cfg.IsProduction(), cfg.BaseURL)
 	authService.RequireTwoFactor(cfg.Auth.RequireTwoFactor)
+	authService.SetLockouts(auth.NewLockouts(db))
 
 	twoFactorStore, err := twofactor.NewStore(db, cfg.SessionSecret, "Wedwise")
 	if err != nil {
@@ -113,7 +114,8 @@ func New(cfg configuration.Config, db *sql.DB) (*Server, error) {
 
 	userHandler := users.NewHandler(userStore, authService, cfg.BaseURL)
 	userHandler.SetPasskeys(keys)
-	rsvpHandler := rsvp.NewHandler(rsvpStore, contributionStore, inviteStore, inviteGate)
+	rsvpHandler := rsvp.NewHandler(rsvpStore, contributionStore, inviteStore, inviteGate,
+		middleware.NewStoredLimiter(db, "pin", rsvp.PINFailureLimit, rsvp.PINFailureWindow))
 	pushService, err := push.NewService(context.Background(), db, cfg.BaseURL)
 	if err != nil {
 		return nil, err
@@ -166,9 +168,9 @@ func New(cfg configuration.Config, db *sql.DB) (*Server, error) {
 	}
 	contentHandler := content.NewHandler(contentStore, authService, cfg.Event, themes)
 
-	loginLimit := middleware.RateLimit(middleware.NewLimiter(loginRateLimit, time.Minute), cfg.TrustProxyHeaders)
-	rsvpLimit := middleware.RateLimit(middleware.NewLimiter(rsvpRateLimit, time.Minute), cfg.TrustProxyHeaders)
-	routeLimit := middleware.RateLimit(middleware.NewLimiter(routeRateLimit, time.Minute), cfg.TrustProxyHeaders)
+	loginLimit := middleware.RateLimit(middleware.NewStoredLimiter(db, "login", loginRateLimit, time.Minute), cfg.TrustProxy())
+	rsvpLimit := middleware.RateLimit(middleware.NewStoredLimiter(db, "rsvp", rsvpRateLimit, time.Minute), cfg.TrustProxy())
+	routeLimit := middleware.RateLimit(middleware.NewStoredLimiter(db, "route", routeRateLimit, time.Minute), cfg.TrustProxy())
 
 	spa, err := spaHandler()
 	if err != nil {

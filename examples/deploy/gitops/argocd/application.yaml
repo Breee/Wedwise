@@ -17,9 +17,6 @@ spec:
         baseUrl: https://wedding.example.com
         secret:
           existingSecret: wedwise
-        env:
-          - name: TRUST_PROXY_HEADERS
-            value: "true"
         ingress:
           enabled: true
           className: nginx

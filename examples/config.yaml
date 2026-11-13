@@ -9,7 +9,8 @@ configPath: "/config/config.yaml"
 # the bundled themes and selectable in the content editor. Env: THEME_PATH
 # themePath: "/config/theme.yaml"
 # Set to true only when a reverse proxy in front of Wedwise sets X-Forwarded-For;
-# used for rate limiting by client IP. Env: TRUST_PROXY_HEADERS=true
+# used for rate limiting by client IP. Must be set explicitly in production.
+# Env: TRUST_PROXY_HEADERS=true
 trustProxyHeaders: false
 
 # Optional login hardening.

@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/go-chi/chi/v5"
@@ -87,10 +89,14 @@ func (s *Service) HandleWebAuthnBegin(w http.ResponseWriter, r *http.Request) {
 	if !httpx.DecodeJSON(w, r, &req) {
 		return
 	}
-	identity, err := s.authenticateCredentials(r.Context(), strings.TrimSpace(req.Username), req.Password)
+	req.Username = strings.TrimSpace(req.Username)
+	if s.locked(w, r, req.Username) {
+		return
+	}
+	identity, err := s.authenticateCredentials(r.Context(), req.Username, req.Password)
 	if err != nil {
 		if errors.Is(err, ErrInvalidCredentials) {
-			httpx.WriteError(w, http.StatusUnauthorized, httpx.CodeUnauthorized, "Invalid username or password.")
+			s.loginFailed(w, r, req.Username, httpx.CodeUnauthorized, "Invalid username or password.")
 			return
 		}
 		httpx.Internal(w, err)
@@ -171,11 +177,14 @@ func (s *Service) HandleLogin(w http.ResponseWriter, r *http.Request) {
 		httpx.BadRequest(w, "Username and password are required.")
 		return
 	}
+	if s.locked(w, r, req.Username) {
+		return
+	}
 
 	identity, err := s.authenticateCredentials(r.Context(), req.Username, req.Password)
 	if err != nil {
 		if errors.Is(err, ErrInvalidCredentials) {
-			httpx.WriteError(w, http.StatusUnauthorized, httpx.CodeUnauthorized, "Invalid username or password.")
+			s.loginFailed(w, r, req.Username, httpx.CodeUnauthorized, "Invalid username or password.")
 			return
 		}
 		httpx.Internal(w, err)
@@ -203,7 +212,7 @@ func (s *Service) HandleLogin(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			if !ok {
-				httpx.WriteError(w, http.StatusUnauthorized, CodeInvalidCode, "The login code is not correct.")
+				s.loginFailed(w, r, req.Username, CodeInvalidCode, "The login code is not correct.")
 				return
 			}
 		}
@@ -224,7 +233,47 @@ func (s *Service) HandleLogout(w http.ResponseWriter, r *http.Request) {
 	httpx.WriteJSON(w, http.StatusOK, map[string]bool{"success": true})
 }
 
+// locked answers the request with 429 when the account is locked after too
+// many wrong logins.
+func (s *Service) locked(w http.ResponseWriter, r *http.Request, username string) bool {
+	if s.lockouts == nil {
+		return false
+	}
+	wait, err := s.lockouts.Locked(r.Context(), username)
+	if err != nil {
+		httpx.Internal(w, err)
+		return true
+	}
+	if wait <= 0 {
+		return false
+	}
+	w.Header().Set("Retry-After", strconv.Itoa(int(wait.Seconds())+1))
+	httpx.WriteError(w, http.StatusTooManyRequests, httpx.CodeTooManyRequests, "Too many failed logins. Please try again later.")
+	return true
+}
+
+// loginFailed counts a wrong login for the account and answers with 401.
+func (s *Service) loginFailed(w http.ResponseWriter, r *http.Request, username, code, message string) {
+	if s.lockouts != nil {
+		lock, err := s.lockouts.Fail(r.Context(), username)
+		if err != nil {
+			httpx.Internal(w, err)
+			return
+		}
+		if lock > 0 {
+			slog.Warn("account locked after failed logins", "seconds", int(lock.Seconds()))
+		}
+	}
+	httpx.WriteError(w, http.StatusUnauthorized, code, message)
+}
+
 func (s *Service) signIn(w http.ResponseWriter, r *http.Request, identity Identity) {
+	if s.lockouts != nil {
+		if err := s.lockouts.Reset(r.Context(), identity.Username); err != nil {
+			httpx.Internal(w, err)
+			return
+		}
+	}
 	missing, err := s.twoFactorMissing(r.Context(), identity)
 	if err != nil {
 		httpx.Internal(w, err)

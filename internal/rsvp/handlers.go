@@ -18,11 +18,11 @@ import (
 // CodeInvalidPIN is the error code for a wrong or missing invite PIN.
 const CodeInvalidPIN = "invalid_pin"
 
-// A link accepts at most pinFailureLimit wrong PINs per pinFailureWindow,
+// A link accepts at most PINFailureLimit wrong PINs per PINFailureWindow,
 // regardless of where the attempts come from.
 const (
-	pinFailureLimit  = 10
-	pinFailureWindow = 15 * time.Minute
+	PINFailureLimit  = 10
+	PINFailureWindow = 15 * time.Minute
 )
 
 // Handler exposes the public RSVP endpoints and the protected response
@@ -37,13 +37,13 @@ type Handler struct {
 }
 
 // NewHandler creates an RSVP handler.
-func NewHandler(store *Store, contributionStore *contributions.Store, links *invites.Store, gate *invites.Gate) *Handler {
+func NewHandler(store *Store, contributionStore *contributions.Store, links *invites.Store, gate *invites.Gate, pinFailures *middleware.Limiter) *Handler {
 	return &Handler{
 		store:         store,
 		contributions: contributionStore,
 		links:         links,
 		gate:          gate,
-		pinFailures:   middleware.NewLimiter(pinFailureLimit, pinFailureWindow),
+		pinFailures:   pinFailures,
 	}
 }
 

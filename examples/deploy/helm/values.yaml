@@ -19,10 +19,6 @@ config:
       - name: Alex
       - name: Sam
 
-env:
-  - name: TRUST_PROXY_HEADERS
-    value: "true"
-
 persistence:
   enabled: true
   size: 1Gi

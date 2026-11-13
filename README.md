@@ -114,7 +114,7 @@ Settings come from a YAML file (`CONFIG_PATH`, default
 | `LISTEN_ADDRESS` | `listenAddress` | `:8080` | Bind address. |
 | `DATABASE_PATH` | `databasePath` | `/data/wedding.db` | SQLite file. |
 | `CONFIG_PATH` | `configPath` | `/config/config.yaml` | This file. |
-| `TRUST_PROXY_HEADERS` | `trustProxyHeaders` | `false` | Set `true` only behind a reverse proxy, so rate limits use `X-Forwarded-For`. |
+| `TRUST_PROXY_HEADERS` | `trustProxyHeaders` | – | Required in production. `true` behind a reverse proxy, so rate limits use `X-Forwarded-For`; `false` when clients connect directly. |
 | `REQUIRE_TWO_FACTOR` | `auth.requireTwoFactor` | — | Roles that must use two-factor login, e.g. `admin,witness` (`admin`, `couple`, `witness`). |
 | `SESSION_MAX_AGE` | `auth.sessionMaxAge` | `24h` | A login ends after this time, whatever happens. |
 | `SESSION_IDLE_TIMEOUT` | `auth.sessionIdleTimeout` | `2h` | A login ends after this time without activity. |
@@ -214,8 +214,9 @@ docker run -d --name wedwise -p 8080:8080 \
 docker exec -it wedwise /app/wedding user create --username admin --role admin --email you@example.com
 ```
 
-Put a TLS-terminating reverse proxy (Caddy, Traefik, nginx) in front. Leave
-out `TRUST_PROXY_HEADERS` if there is no proxy.
+Put a TLS-terminating reverse proxy (Caddy, Traefik, nginx) in front. Set
+`TRUST_PROXY_HEADERS=false` if there is no proxy; in production Wedwise does
+not start without an explicit choice.
 
 ### Kubernetes (Helm)
 
@@ -324,6 +325,11 @@ overview can count them. Backups are encrypted as a whole with the same key.
   backups made before that still contain them in plain text.
 - Rate limits per client IP and minute: login 10, public RSVP endpoints 30,
   route and song lookups 60. Over the limit returns `429` with `Retry-After`.
+  Counters live in the database with hashed keys, so they survive restarts
+  and no IP address is stored.
+- After 5 wrong logins an account is locked for 1 minute, doubling with every
+  further failure up to 15 minutes, whatever the client IP. A successful
+  login clears it.
 - After 10 wrong PINs an invite link is locked for 15 minutes, whatever the
   client IP. Unknown or inactive links answer `404`.
 - Song search and route lookups are proxied by the backend, so guests'

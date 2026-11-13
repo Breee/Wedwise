@@ -51,10 +51,15 @@ secret:
   # Optional OpenRouteService key for walking, cycling and driving routes.
   routingApiKey: ""
 
-# Extra environment variables, e.g. TRUST_PROXY_HEADERS behind an ingress.
+# Whether a reverse proxy in front of the app sets X-Forwarded-For (used for
+# rate limits). Leave empty to follow ingress.enabled; set true when another
+# proxy or gateway is in front, false when clients connect directly.
+trustProxyHeaders:
+
+# Extra environment variables.
 env: []
-#  - name: TRUST_PROXY_HEADERS
-#    value: "true"
+#  - name: REQUIRE_TWO_FACTOR
+#    value: "admin"
 
 # SQLite lives on this volume. The app runs as a single replica.
 persistence:

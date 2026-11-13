@@ -297,6 +297,8 @@ func TestRequireTwoFactor(t *testing.T) {
 func TestProductionSessionCookie(t *testing.T) {
 	app, _ := newTestAppWithOptions(t, func(cfg *configuration.Config) {
 		cfg.Environment = "production"
+		direct := false
+		cfg.TrustProxyHeaders = &direct
 	})
 	resp := app.do(http.MethodPost, "/api/auth/login",
 		map[string]string{"username": "couple_user", "password": "TestPass123!"}, nil)

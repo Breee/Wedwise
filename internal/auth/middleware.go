@@ -34,7 +34,11 @@ type Service struct {
 
 	secondFactor     SecondFactor
 	requireTwoFactor map[string]bool
+	lockouts         *Lockouts
 }
+
+// SetLockouts enables the per-account lockout after repeated wrong logins.
+func (s *Service) SetLockouts(l *Lockouts) { s.lockouts = l }
 
 // RequireTwoFactor makes a second factor mandatory for the given roles.
 func (s *Service) RequireTwoFactor(roles []string) {
