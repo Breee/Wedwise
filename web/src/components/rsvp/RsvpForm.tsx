@@ -21,6 +21,7 @@ import { GENRES, NEEDS_OPTIONS, SongSearch, formatNeeds, joinList, parseNeeds, s
 import { MESSENGERS, MessengerIcon } from '@/lib/contact'
 import { rememberToken } from '@/lib/remember'
 import { InstallApp } from '@/components/public/InstallApp'
+import { GuestNotifications } from '@/components/public/Notifications'
 
 const MAX_ATTENDEES = 10
 
@@ -441,6 +442,7 @@ export function Done({ view, onEdit }: { view: GuestView; onEdit: () => void }) 
             </div>
           </div>
           <InstallApp />
+          <GuestNotifications />
           <div className="flex flex-col items-center gap-3 pt-2">
             <Button asChild size="lg">
               <Link to="/">Alle Infos zur Hochzeit ansehen</Link>

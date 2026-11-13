@@ -7,6 +7,7 @@ import { publicContentQuery } from '@/lib/queries'
 import { formatDate } from '@/lib/format'
 import { icsUrl } from '@/lib/ics'
 import { InstallApp } from '@/components/public/InstallApp'
+import { GuestNotifications } from '@/components/public/Notifications'
 import { rememberedToken } from '@/lib/remember'
 import type { DirectionsMode } from '@/lib/geo'
 import { DirectionsLinks } from '@/components/public/DirectionsLinks'
@@ -103,8 +104,9 @@ function HomePage() {
             )}
           </div>
           {rememberedToken() && (
-            <div className="mx-auto mt-6 max-w-sm">
+            <div className="mx-auto mt-6 max-w-sm space-y-3">
               <InstallApp />
+              <GuestNotifications />
             </div>
           )}
           {schedule.length > 0 && (

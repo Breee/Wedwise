@@ -2,10 +2,15 @@ import { useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { QRCodeSVG } from 'qrcode.react'
-import { Copy, ShieldCheck } from 'lucide-react'
+import { Bell, Copy, Megaphone, ShieldCheck } from 'lucide-react'
 import { toast } from 'sonner'
 import { ApiError, api, errorMessage } from '@/lib/api'
 import { requireRole } from '@/lib/auth'
+import { meQuery } from '@/lib/queries'
+import { pushSupported, type PushTopic } from '@/lib/push'
+import { toggled, usePushTopics } from '@/components/public/Notifications'
+import { Switch } from '@/components/ui/switch'
+import { Textarea } from '@/components/ui/textarea'
 import { PageHeader } from '@/components/admin/PageHeader'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -153,6 +158,94 @@ function AccountPage() {
           )}
         </CardContent>
       </Card>
+      <StaffNotifications />
     </div>
+  )
+}
+
+const TOPICS: { id: PushTopic; label: string; roles: string[] }[] = [
+  { id: 'responses', label: 'Neue Rückmeldungen', roles: ['couple', 'witness', 'admin'] },
+  { id: 'contributions', label: 'Neue Beiträge', roles: ['witness', 'admin'] },
+  { id: 'broadcast', label: 'Nachrichten an alle Gäste', roles: ['couple', 'witness', 'admin'] },
+]
+
+function StaffNotifications() {
+  const { data: me } = useQuery(meQuery)
+  const { topics, ready, save } = usePushTopics()
+  const [title, setTitle] = useState('')
+  const [body, setBody] = useState('')
+  const role = me?.role ?? ''
+  const canBroadcast = role === 'couple' || role === 'admin'
+
+  const broadcast = useMutation({
+    mutationFn: () => api.post<{ sent: number }>('/push/broadcast', { title, body, url: '/' }),
+    onSuccess: (r) => {
+      setTitle('')
+      setBody('')
+      toast.success(`An ${r.sent} Geräte gesendet.`)
+    },
+    onError: (e) => toast.error(errorMessage(e)),
+  })
+
+  return (
+    <>
+      <Card className="mt-6">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-2xl">
+            <Bell className="size-5 text-primary" /> Benachrichtigungen
+          </CardTitle>
+          <CardDescription>Gilt für dieses Gerät. Auf dem iPhone nur in der installierten App.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {!pushSupported() ? (
+            <p className="text-sm text-muted-foreground">Dieser Browser unterstützt keine Benachrichtigungen.</p>
+          ) : (
+            TOPICS.filter((t) => t.roles.includes(role)).map((t) => (
+              <div key={t.id} className="flex min-h-10 items-center justify-between gap-4">
+                <Label htmlFor={`n-${t.id}`}>{t.label}</Label>
+                <Switch
+                  id={`n-${t.id}`}
+                  checked={topics.includes(t.id)}
+                  disabled={!ready || save.isPending}
+                  onCheckedChange={(on) => save.mutate(toggled(topics, t.id, on))}
+                />
+              </div>
+            ))
+          )}
+        </CardContent>
+      </Card>
+
+      {canBroadcast && (
+        <Card className="mt-6">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-2xl">
+              <Megaphone className="size-5 text-primary" /> Nachricht an alle
+            </CardTitle>
+            <CardDescription>Geht an alle Gäste, die Benachrichtigungen aktiviert haben.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form
+              className="space-y-4"
+              onSubmit={(e) => {
+                e.preventDefault()
+                if (window.confirm('Nachricht jetzt an alle senden?')) broadcast.mutate()
+              }}
+            >
+              <div className="space-y-2">
+                <Label htmlFor="b-title">Titel</Label>
+                <Input id="b-title" value={title} onChange={(e) => setTitle(e.target.value)} maxLength={100} required />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="b-body">Text</Label>
+                <Textarea id="b-body" value={body} onChange={(e) => setBody(e.target.value)} maxLength={500} required />
+              </div>
+              <Button type="submit" disabled={broadcast.isPending}>
+                Senden
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+      )}
+    </>
   )
 }
