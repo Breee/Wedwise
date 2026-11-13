@@ -45,6 +45,8 @@ type EventConfig struct {
 	Date   string        `yaml:"date" json:"date"`
 	Venue  VenueConfig   `yaml:"venue" json:"venue"`
 	Hero   HeroConfig    `yaml:"hero" json:"hero"`
+	// Language is the UI language: "de" or "en".
+	Language string `yaml:"language" json:"language"`
 	// Timezone is the IANA zone of the event, used for calendar entries.
 	Timezone string `yaml:"timezone" json:"timezone"`
 	// ContributionMinutes is the time limit suggested to guests for a contribution.
@@ -109,6 +111,7 @@ func Default() Config {
 		Environment:   "development",
 		Event: EventConfig{
 			Title:               "Wedwise",
+			Language:            "de",
 			Timezone:            "Europe/Berlin",
 			ContributionMinutes: 15,
 			MusicGenres:         []string{"Pop", "Rock", "Hip-Hop", "Schlager", "80er", "90er", "2000er", "House / Electro", "Latin", "Soul / Funk", "Indie"},
@@ -195,6 +198,9 @@ func (c Config) Validate() error {
 	}
 	if len(c.SessionSecret) < 16 {
 		return errors.New("sessionSecret must be at least 16 characters")
+	}
+	if c.Event.Language != "de" && c.Event.Language != "en" {
+		return errors.New("event.language must be de or en")
 	}
 	return nil
 }

@@ -146,6 +146,7 @@ export interface Content {
 
 export interface EventInfo {
   title: string
+  language?: string
   couple: { name: string; role: string }[]
   date: string
   venue: {

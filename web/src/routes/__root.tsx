@@ -1,3 +1,4 @@
+import { setLanguage } from '@/lib/i18n'
 import type { QueryClient } from '@tanstack/react-query'
 import { Outlet, createRootRouteWithContext, useMatchRoute } from '@tanstack/react-router'
 import { MotionConfig } from 'motion/react'
@@ -8,7 +9,11 @@ import { ThemeApplier } from '@/components/layout/ThemeApplier'
 import { publicContentQuery } from '@/lib/queries'
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
-  loader: ({ context }) => context.queryClient.ensureQueryData(publicContentQuery),
+  loader: async ({ context }) => {
+    const data = await context.queryClient.ensureQueryData(publicContentQuery)
+    setLanguage(data.event.language)
+    return data
+  },
   component: RootLayout,
   notFoundComponent: NotFound,
 })
