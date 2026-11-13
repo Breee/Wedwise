@@ -229,6 +229,9 @@ func (s *Service) HandleLogout(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	if identity, ok := IdentityFrom(r.Context()); ok {
+		s.record(r.Context(), identity.ID, identity.Username, "logout")
+	}
 	s.clearSessionCookie(w)
 	httpx.WriteJSON(w, http.StatusOK, map[string]bool{"success": true})
 }
@@ -264,6 +267,7 @@ func (s *Service) loginFailed(w http.ResponseWriter, r *http.Request, username, 
 			slog.Warn("account locked after failed logins", "seconds", int(lock.Seconds()))
 		}
 	}
+	s.record(r.Context(), 0, username, "login.failed")
 	httpx.WriteError(w, http.StatusUnauthorized, code, message)
 }
 
@@ -284,6 +288,7 @@ func (s *Service) signIn(w http.ResponseWriter, r *http.Request, identity Identi
 		httpx.Internal(w, err)
 		return
 	}
+	s.record(r.Context(), identity.ID, identity.Username, "login")
 	httpx.WriteJSON(w, http.StatusOK, newIdentityResponse(identity))
 }
 

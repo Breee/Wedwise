@@ -17,6 +17,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/Breee/Wedwise/internal/audit"
 	"github.com/Breee/Wedwise/internal/auth"
 	"github.com/Breee/Wedwise/internal/configuration"
 	"github.com/Breee/Wedwise/internal/content"
@@ -169,6 +170,10 @@ func New(cfg configuration.Config, db *sql.DB) (*Server, error) {
 	}
 	contentHandler := content.NewHandler(contentStore, authService, cfg.Event, themes)
 
+	auditStore := audit.NewStore(db)
+	authService.SetRecorder(auditStore)
+	auditHandler := audit.NewHandler(auditStore, authService)
+
 	loginLimit := middleware.RateLimit(middleware.NewStoredLimiter(db, "login", loginRateLimit, time.Minute), cfg.TrustProxy())
 	rsvpLimit := middleware.RateLimit(middleware.NewStoredLimiter(db, "rsvp", rsvpRateLimit, time.Minute), cfg.TrustProxy())
 	routeLimit := middleware.RateLimit(middleware.NewStoredLimiter(db, "route", routeRateLimit, time.Minute), cfg.TrustProxy())
@@ -206,6 +211,8 @@ func New(cfg configuration.Config, db *sql.DB) (*Server, error) {
 
 		api.Group(func(protected chi.Router) {
 			protected.Use(authService.RequireAuth)
+			protected.Use(auditStore.Middleware)
+			protected.Mount("/audit-log", auditHandler.Routes())
 			protected.Mount("/contributions", contributionHandler.Routes())
 			protected.Mount("/content", contentHandler.Routes())
 			protected.Mount("/users", userHandler.Routes())

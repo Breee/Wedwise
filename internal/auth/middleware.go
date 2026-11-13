@@ -35,6 +35,21 @@ type Service struct {
 	secondFactor     SecondFactor
 	requireTwoFactor map[string]bool
 	lockouts         *Lockouts
+	recorder         Recorder
+}
+
+// Recorder receives login events for the audit log.
+type Recorder interface {
+	Record(ctx context.Context, userID int64, username, action, target string)
+}
+
+// SetRecorder enables recording of logins and logouts.
+func (s *Service) SetRecorder(r Recorder) { s.recorder = r }
+
+func (s *Service) record(ctx context.Context, userID int64, username, action string) {
+	if s.recorder != nil {
+		s.recorder.Record(ctx, userID, username, action, "")
+	}
 }
 
 // SetLockouts enables the per-account lockout after repeated wrong logins.
