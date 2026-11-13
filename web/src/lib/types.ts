@@ -8,6 +8,7 @@ export interface Me {
   displayName?: string
   role?: Role
   permissions: string[]
+  twoFactorSetupRequired?: boolean
 }
 
 export interface Hero {

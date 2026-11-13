@@ -13,6 +13,7 @@ services:
       SESSION_SECRET: "${SESSION_SECRET:-local-dev-secret-change-me-32-bytes!!}"
       DATA_KEY: "${DATA_KEY:-local-dev-data-key-change-me-32-bytes}"
       DATA_KEY_PREVIOUS: "${DATA_KEY_PREVIOUS:-}"
+      REQUIRE_TWO_FACTOR: "${REQUIRE_TWO_FACTOR:-}"
       ROUTING_API_KEY: "${ROUTING_API_KEY:-}"
     volumes:
       - wedwise-data:/data

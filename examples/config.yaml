@@ -11,6 +11,12 @@ configPath: "/config/config.yaml"
 # Set to true only when a reverse proxy in front of Wedwise sets X-Forwarded-For;
 # used for rate limiting by client IP. Env: TRUST_PROXY_HEADERS=true
 trustProxyHeaders: false
+
+# Optional login hardening.
+# auth:
+#   requireTwoFactor: [admin, witness]
+#   sessionMaxAge: 24h
+#   sessionIdleTimeout: 2h
 # Optional OpenRouteService key for live walking/bike/car routes.
 # routingApiKey: ""
 

@@ -3,9 +3,10 @@ import type { QueryClient } from '@tanstack/react-query'
 import { meQuery } from './queries'
 import type { Me, Role } from './types'
 
-export async function requireRole(queryClient: QueryClient, roles: Role[]): Promise<Me> {
+export async function requireRole(queryClient: QueryClient, roles: Role[], duringSetup = false): Promise<Me> {
   const me = await queryClient.ensureQueryData(meQuery)
   if (!me.authenticated) throw redirect({ to: '/login', search: { redirect: location.pathname } })
+  if (me.twoFactorSetupRequired && !duringSetup) throw redirect({ to: '/account' })
   if (me.role === 'admin' || (me.role && roles.includes(me.role))) return me
   throw redirect({ to: '/dashboard' })
 }

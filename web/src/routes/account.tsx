@@ -2,12 +2,13 @@ import { useState } from 'react'
 import { copyText } from '@/lib/clipboard'
 import { t } from '@/lib/i18n'
 import { createFileRoute } from '@tanstack/react-router'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query'
 import { QRCodeSVG } from 'qrcode.react'
-import { Bell, Copy, KeyRound, ShieldCheck, Trash2 } from 'lucide-react'
+import { Bell, Copy, KeyRound, MonitorSmartphone, ShieldCheck, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { ApiError, api, errorMessage } from '@/lib/api'
 import { requireRole } from '@/lib/auth'
+import { formatDateTime } from '@/lib/format'
 import { meQuery } from '@/lib/queries'
 import { createKey, webauthnSupported } from '@/lib/webauthn'
 import { pushSupported, type PushTopic } from '@/lib/push'
@@ -23,10 +24,13 @@ type SecurityKey = { id: number; name: string; createdAt: string }
 type Status = { totp: boolean; recoveryCodes: number; keys: SecurityKey[] }
 type Enrolment = { secret: string; url: string }
 
+type Session = { id: string; userAgent: string; lastSeenAt: string; current: boolean }
+
 const statusKey = ['account', '2fa'] as const
+const sessionsKey = ['account', 'sessions'] as const
 
 export const Route = createFileRoute('/account')({
-  beforeLoad: ({ context }) => requireRole(context.queryClient, ['couple', 'witness', 'admin']),
+  beforeLoad: ({ context }) => requireRole(context.queryClient, ['couple', 'witness', 'admin'], true),
   component: AccountPage,
 })
 
@@ -41,7 +45,8 @@ function AccountPage() {
   const [recovery, setRecovery] = useState<string[] | null>(null)
   const [code, setCode] = useState('')
 
-  const refresh = () => queryClient.invalidateQueries({ queryKey: statusKey })
+  const { data: me } = useQuery(meQuery)
+  const refresh = () => refreshSecurity(queryClient)
   const begin = useMutation({
     mutationFn: () => api.post<Enrolment>('/account/2fa/totp'),
     onSuccess: setEnrolment,
@@ -72,9 +77,15 @@ function AccountPage() {
     <div className="mx-auto max-w-2xl px-6 py-10">
       <PageHeader title={t('Konto')} description={t('Anmeldung absichern und Benachrichtigungen für dieses Gerät.')} />
       <h2 className="mb-1 text-2xl">{t('Anmeldung & Sicherheit')}</h2>
-      <p className="mb-4 text-sm text-muted-foreground">
-        {t('Beides ist freiwillig. Am einfachsten ist ein Passkey – der Code aus einer App ist die Alternative.')}
-      </p>
+      {me?.twoFactorSetupRequired ? (
+        <p role="alert" className="mb-4 rounded-lg border border-primary/30 bg-secondary/40 p-4 text-sm">
+          {t('Für euer Konto ist ein zweiter Anmeldeschritt Pflicht. Richtet einen Passkey oder einen Code aus einer App ein, um weiterzumachen.')}
+        </p>
+      ) : (
+        <p className="mb-4 text-sm text-muted-foreground">
+          {t('Beides ist freiwillig. Am einfachsten ist ein Passkey – der Code aus einer App ist die Alternative.')}
+        </p>
+      )}
       <SecurityKeys keys={status?.keys ?? []} />
       <Card className="mt-6">
         <CardHeader>
@@ -166,6 +177,7 @@ function AccountPage() {
           )}
         </CardContent>
       </Card>
+      <Sessions />
       <h2 className="mt-10 mb-4 text-2xl">{t('Benachrichtigungen')}</h2>
       <StaffNotifications />
     </div>
@@ -178,10 +190,101 @@ const TOPICS: { id: PushTopic; label: string; roles: string[] }[] = [
   { id: 'broadcast', label: 'Nachrichten an alle Gäste', roles: ['couple', 'witness', 'admin'] },
 ]
 
+function refreshSecurity(queryClient: QueryClient) {
+  queryClient.invalidateQueries({ queryKey: statusKey })
+  queryClient.invalidateQueries({ queryKey: sessionsKey })
+  queryClient.invalidateQueries({ queryKey: meQuery.queryKey })
+}
+
+function Sessions() {
+  const queryClient = useQueryClient()
+  const { data } = useQuery({
+    queryKey: sessionsKey,
+    queryFn: () => api.get<{ sessions: Session[] }>('/auth/sessions'),
+  })
+  const sessions = data?.sessions ?? []
+  const refresh = () => queryClient.invalidateQueries({ queryKey: sessionsKey })
+  const end = useMutation({
+    mutationFn: (s: Session) => api.delete(`/auth/sessions/${s.id}`),
+    onSuccess: (_, s) => (s.current ? window.location.assign('/login') : refresh()),
+    onError: (e) => toast.error(errorMessage(e)),
+  })
+  const endOthers = useMutation({
+    mutationFn: () => api.delete('/auth/sessions'),
+    onSuccess: () => {
+      refresh()
+      toast.success(t('Alle anderen Geräte wurden abgemeldet.'))
+    },
+    onError: (e) => toast.error(errorMessage(e)),
+  })
+
+  return (
+    <Card className="mt-6">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-2xl">
+          <MonitorSmartphone className="size-5 text-primary" /> {t('Angemeldete Geräte')}
+        </CardTitle>
+        <CardDescription>
+          {t('Hier seid ihr gerade angemeldet. Meldet Geräte ab, die ihr nicht mehr nutzt oder nicht erkennt.')}
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <ul className="divide-y rounded-md border">
+          {sessions.map((s) => (
+            <li key={s.id} className="flex items-center justify-between gap-3 px-3 py-2 text-sm">
+              <div className="min-w-0">
+                <p className="truncate">
+                  {deviceName(s.userAgent)}
+                  {s.current && <span className="ml-2 text-xs text-primary">{t('Dieses Gerät')}</span>}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {t('Zuletzt aktiv: {when}', { when: formatDateTime(s.lastSeenAt) })}
+                </p>
+              </div>
+              <Button variant="outline" size="sm" disabled={end.isPending} onClick={() => end.mutate(s)}>
+                {t('Abmelden')}
+              </Button>
+            </li>
+          ))}
+        </ul>
+        {sessions.length > 1 && (
+          <Button variant="outline" disabled={endOthers.isPending} onClick={() => endOthers.mutate()}>
+            {t('Überall sonst abmelden')}
+          </Button>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
+function deviceName(userAgent: string) {
+  const browser = /Edg\//.test(userAgent)
+    ? 'Edge'
+    : /Firefox\//.test(userAgent)
+      ? 'Firefox'
+      : /Chrome\//.test(userAgent)
+        ? 'Chrome'
+        : /Safari\//.test(userAgent)
+          ? 'Safari'
+          : ''
+  const system = /iPhone|iPad/.test(userAgent)
+    ? 'iOS'
+    : /Android/.test(userAgent)
+      ? 'Android'
+      : /Mac OS X/.test(userAgent)
+        ? 'macOS'
+        : /Windows/.test(userAgent)
+          ? 'Windows'
+          : /Linux/.test(userAgent)
+            ? 'Linux'
+            : ''
+  return [browser, system].filter(Boolean).join(' · ') || t('Unbekanntes Gerät')
+}
+
 function SecurityKeys({ keys }: { keys: SecurityKey[] }) {
   const queryClient = useQueryClient()
   const [name, setName] = useState('')
-  const refresh = () => queryClient.invalidateQueries({ queryKey: statusKey })
+  const refresh = () => refreshSecurity(queryClient)
 
   const add = useMutation({
     mutationFn: async () => {

@@ -115,6 +115,9 @@ Settings come from a YAML file (`CONFIG_PATH`, default
 | `DATABASE_PATH` | `databasePath` | `/data/wedding.db` | SQLite file. |
 | `CONFIG_PATH` | `configPath` | `/config/config.yaml` | This file. |
 | `TRUST_PROXY_HEADERS` | `trustProxyHeaders` | `false` | Set `true` only behind a reverse proxy, so rate limits use `X-Forwarded-For`. |
+| `REQUIRE_TWO_FACTOR` | `auth.requireTwoFactor` | — | Roles that must use two-factor login, e.g. `admin,witness` (`admin`, `couple`, `witness`). |
+| `SESSION_MAX_AGE` | `auth.sessionMaxAge` | `24h` | A login ends after this time, whatever happens. |
+| `SESSION_IDLE_TIMEOUT` | `auth.sessionIdleTimeout` | `2h` | A login ends after this time without activity. |
 | `ROUTING_API_KEY` | `routingApiKey` | — | Optional OpenRouteService key. |
 | `THEME_PATH` | `themePath` | — | Optional custom theme file. |
 | `CONTENT_PATH` | `contentPath` | — | Optional JSON content file (shape of `examples/content.json`). Applied at startup whenever the file changes; editor changes are kept until then. |
@@ -145,7 +148,13 @@ Every user can switch on two-factor login under "Konto" (TOTP authenticator
 app). The TOTP secret is stored AES-GCM encrypted with a key derived from
 `SESSION_SECRET` (changing that secret invalidates enrolments), recovery
 codes are stored as hashes and shown once. Admins can reset a user's second
-factor in the user list.
+factor in the user list. Set `REQUIRE_TWO_FACTOR` to make it mandatory per
+role: those users can only reach "Konto" until they have set up a passkey or
+an authenticator app.
+
+"Konto" also lists the devices that are signed in, with a button to sign out
+one of them or all others. Changing the password or the second factor ends
+every other session and gives the current device a fresh one.
 
 Passkeys and hardware tokens (WebAuthn, e.g. YubiKey) can be added there as
 well and are used as the second step after the password. Only the public key
@@ -299,7 +308,10 @@ overview can count them. Backups are encrypted as a whole with the same key.
 
 ## Security
 
-- Sessions are HttpOnly, SameSite=Lax cookies (Secure in production).
+- Sessions are HttpOnly cookies; in production they are Secure, SameSite=Strict
+  and carry the `__Host-` prefix (SameSite=Lax otherwise). Only a hash of the
+  session id is stored. Sessions end after `SESSION_MAX_AGE` or
+  `SESSION_IDLE_TIMEOUT` without activity.
   State-changing requests are checked against the `Origin`/`Referer` header.
 - Passwords and invite PINs are stored as argon2id hashes.
 - Sensitive guest data and backups are encrypted with a dedicated key, see
