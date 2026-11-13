@@ -126,6 +126,7 @@ func (h *Handler) PublicRoutes(middlewares ...func(http.Handler) http.Handler) h
 	r.Post("/links/{link}", h.create)
 	r.Get("/{token}", h.get)
 	r.Put("/{token}", h.update)
+	r.Delete("/{token}", h.remove)
 	return r
 }
 
@@ -351,6 +352,19 @@ func (h *Handler) update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.writeGuestView(w, r, http.StatusOK, response, token)
+}
+
+// remove lets guests delete their own response, including its contribution.
+func (h *Handler) remove(w http.ResponseWriter, r *http.Request) {
+	response, err := h.store.GetByToken(r.Context(), chi.URLParam(r, "token"))
+	if err == nil {
+		err = h.store.Delete(r.Context(), response.ID)
+	}
+	if err != nil {
+		h.writeError(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (h *Handler) writeGuestView(w http.ResponseWriter, r *http.Request, status int, response Response, token string) {

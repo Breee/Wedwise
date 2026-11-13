@@ -548,6 +548,36 @@ func contributionID(t *testing.T, app *testApp) int64 {
 	return body.Contributions[0].ID
 }
 
+func TestRSVP_GuestDeletesResponse(t *testing.T) {
+	app, _ := newTestAppWithUsers(t)
+	created := submitResponse(t, app, withContribution(validResponse()))
+	other := submitResponse(t, app, validResponse())
+
+	if resp := app.do("DELETE", "/api/rsvp/unknown-token", nil, nil); resp.StatusCode != http.StatusNotFound {
+		t.Fatalf("delete unknown token: got %d", resp.StatusCode)
+	}
+	if resp := app.do("DELETE", "/api/rsvp/"+created.EditToken, nil, nil); resp.StatusCode != http.StatusNoContent {
+		t.Fatalf("delete: got %d", resp.StatusCode)
+	}
+	if resp := app.do("GET", "/api/rsvp/"+created.EditToken, nil, nil); resp.StatusCode != http.StatusNotFound {
+		t.Fatalf("deleted response still readable: got %d", resp.StatusCode)
+	}
+	if resp := app.do("GET", "/api/rsvp/"+other.EditToken, nil, nil); resp.StatusCode != http.StatusOK {
+		t.Fatalf("other response must survive: got %d", resp.StatusCode)
+	}
+
+	witness, _ := app.login("witness_user", "TestPass123!")
+	list := app.do("GET", "/api/contributions", nil, witness)
+	defer list.Body.Close()
+	var contributions struct {
+		Contributions []any `json:"contributions"`
+	}
+	_ = json.NewDecoder(list.Body).Decode(&contributions)
+	if len(contributions.Contributions) != 0 {
+		t.Fatalf("contribution must be deleted with the response, got %d", len(contributions.Contributions))
+	}
+}
+
 func TestRSVP_CreateGetUpdate(t *testing.T) {
 	app, _ := newTestAppWithUsers(t)
 	created := submitResponse(t, app, withContribution(validResponse()))
