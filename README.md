@@ -103,6 +103,9 @@ Settings come from a YAML file (`CONFIG_PATH`, default
 |---------|----------|---------|---------|
 | `SESSION_SECRET` | `sessionSecret` | — | **Required**, at least 16 characters. Signs PIN cookies. Generate with `openssl rand -hex 32`. |
 | `BASE_URL` | `baseUrl` | `http://localhost:8080` | The address people open. Logins from any other origin are rejected. |
+| – | `event.timezone` | `Europe/Berlin` | Time zone of the calendar entry. |
+| – | `event.contributionMinutes` | `15` | Time limit suggested for guest contributions. |
+| – | `event.musicGenres` | Pop, Rock, … | Genres guests can pick in their response. |
 | `ENVIRONMENT` | `environment` | `development` | Set to `production` behind HTTPS: cookies become `Secure`. |
 | `LISTEN_ADDRESS` | `listenAddress` | `:8080` | Bind address. |
 | `DATABASE_PATH` | `databasePath` | `/data/wedding.db` | SQLite file. |

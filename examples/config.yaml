@@ -15,6 +15,10 @@ trustProxyHeaders: false
 # routingApiKey: ""
 
 event:
+  # Optional, shown with their defaults:
+  # timezone: Europe/Berlin          # used for the calendar entry
+  # contributionMinutes: 15          # time limit suggested for guest contributions
+  # musicGenres: [Pop, Rock, Hip-Hop, Schlager, 80er, 90er, 2000er, House / Electro, Latin, Soul / Funk, Indie]
   title: "Alex & Sam's Wedding"
   couple:
     - name: "Alex"

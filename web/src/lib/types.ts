@@ -159,6 +159,9 @@ export interface EventInfo {
     parking: string
   }
   hero: Hero
+  timezone?: string
+  contributionMinutes?: number
+  musicGenres?: string[]
 }
 
 export interface PublicContent {

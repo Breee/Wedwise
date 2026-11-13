@@ -5,12 +5,14 @@ export function icsUrl({
   location,
   url,
   schedule = [],
+  timezone = 'Europe/Berlin',
 }: {
   title: string
   date: string
   location: string
   url: string
   schedule?: { time: string; title: string }[]
+  timezone?: string
 }): string {
   const day = date.replaceAll('-', '')
   const times = schedule.map((s) => s.time.match(/(\d{1,2})[:.](\d{2})/)).filter((m): m is RegExpMatchArray => m !== null)
@@ -26,7 +28,7 @@ export function icsUrl({
     next.setUTCDate(next.getUTCDate() + 1)
     const nextDay = next.toISOString().slice(0, 10).replaceAll('-', '')
     const end = lastHour >= 22 ? `${nextDay}T020000` : `${nextDay}T000000`
-    when = [`DTSTART;TZID=Europe/Berlin:${stamp(times[0])}`, `DTEND;TZID=Europe/Berlin:${end}`]
+    when = [`DTSTART;TZID=${timezone}:${stamp(times[0])}`, `DTEND;TZID=${timezone}:${end}`]
   } else {
     const next = new Date(`${date}T00:00:00Z`)
     next.setUTCDate(next.getUTCDate() + 1)

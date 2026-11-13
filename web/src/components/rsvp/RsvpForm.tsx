@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from '@tanstack/react-router'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { motion, AnimatePresence } from 'motion/react'
 import { CheckCircle2, Clock, Copy, Minus, Plus, Share2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { api, errorMessage } from '@/lib/api'
-import { rsvpQuery } from '@/lib/queries'
+import { publicContentQuery, rsvpQuery } from '@/lib/queries'
 import { DIET_OPTIONS } from '@/lib/format'
 import type { Attendee, ContributionRequest, GuestView, RsvpStatus, RsvpSubmit } from '@/lib/types'
 import { Button } from '@/components/ui/button'
@@ -49,6 +49,9 @@ const emptyContribution: ContributionRequest = { title: '', description: '', nee
 export function RsvpForm({ initial, link, onDone }: FormProps) {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const { data: site } = useQuery(publicContentQuery)
+  const genreOptions: readonly string[] = site?.event.musicGenres?.length ? site.event.musicGenres : GENRES
+  const minutes = site?.event.contributionMinutes || 15
 
   const [contactName, setContactName] = useState(initial?.contactName ?? '')
   const [status, setStatus] = useState<RsvpStatus>(initial?.status ?? 'yes')
@@ -255,7 +258,7 @@ export function RsvpForm({ initial, link, onDone }: FormProps) {
                 <div className="space-y-4">
                   <p className="flex items-start gap-2 rounded-md bg-accent/50 px-3 py-2 text-sm">
                     <Clock className="mt-0.5 size-4 shrink-0 text-primary" />
-                    Bitte plant maximal ca. 15 Minuten ein, damit alle Beiträge Platz finden.
+                    Bitte plant maximal ca. {minutes} Minuten ein, damit alle Beiträge Platz finden.
                   </p>
                   <div className="space-y-2">
                     <Label htmlFor="c-title">Was habt ihr vor?</Label>
@@ -354,7 +357,7 @@ export function RsvpForm({ initial, link, onDone }: FormProps) {
             </CardHeader>
             <CardContent className="space-y-5">
               <div className="flex flex-wrap gap-2">
-                {GENRES.map((g) => {
+                {genreOptions.map((g) => {
                   const on = genres.includes(g)
                   return (
                     <Button

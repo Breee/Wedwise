@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Pencil } from 'lucide-react'
-import { contributionQuery } from '@/lib/queries'
+import { contributionQuery, publicContentQuery } from '@/lib/queries'
 import { CONTRIBUTION_STATUS_LABEL, formatDateTime } from '@/lib/format'
 import type { ContributionStatus } from '@/lib/types'
 import { Button } from '@/components/ui/button'
@@ -176,6 +176,7 @@ function ScheduleForm({
 }) {
   const [time, setTime] = useState(slotTime)
   const [duration, setDuration] = useState(durationMinutes ? String(durationMinutes) : '')
+  const limit = useQuery(publicContentQuery).data?.event.contributionMinutes || 15
   const dirty = time !== slotTime || (Number(duration) || 0) !== durationMinutes
 
   return (
@@ -207,7 +208,7 @@ function ScheduleForm({
         <Button type="submit" variant="secondary" disabled={!dirty || pending}>
           Speichern
         </Button>
-        {Number(duration) > 15 && <p className="text-xs text-amber-700">Länger als die empfohlenen 15 Minuten.</p>}
+        {Number(duration) > limit && <p className="text-xs text-amber-700">Länger als die empfohlenen {limit} Minuten.</p>}
       </div>
     </form>
   )

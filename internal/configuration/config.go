@@ -45,6 +45,12 @@ type EventConfig struct {
 	Date   string        `yaml:"date" json:"date"`
 	Venue  VenueConfig   `yaml:"venue" json:"venue"`
 	Hero   HeroConfig    `yaml:"hero" json:"hero"`
+	// Timezone is the IANA zone of the event, used for calendar entries.
+	Timezone string `yaml:"timezone" json:"timezone"`
+	// ContributionMinutes is the time limit suggested to guests for a contribution.
+	ContributionMinutes int `yaml:"contributionMinutes" json:"contributionMinutes"`
+	// MusicGenres are the genres guests can pick in their response.
+	MusicGenres []string `yaml:"musicGenres" json:"musicGenres"`
 }
 
 // Config is the top level application configuration.
@@ -102,7 +108,10 @@ func Default() Config {
 		ThemePath:     "",
 		Environment:   "development",
 		Event: EventConfig{
-			Title: "Wedwise",
+			Title:               "Wedwise",
+			Timezone:            "Europe/Berlin",
+			ContributionMinutes: 15,
+			MusicGenres:         []string{"Pop", "Rock", "Hip-Hop", "Schlager", "80er", "90er", "2000er", "House / Electro", "Latin", "Soul / Funk", "Indie"},
 		},
 	}
 }

@@ -51,7 +51,7 @@ function HomePage() {
   const travel = content.travel
   const hasMap = !!travel && (travel.lat !== 0 || travel.lng !== 0)
   const hotels = content.accommodation?.hotels ?? []
-  const city = event.venue.city || 'Freiburg im Breisgau'
+  const city = event.venue.city || event.venue.name
   const [mode, setMode] = useState<TravelMode>('transit')
   const ARRIVAL: { mode: TravelMode; label: string; short: string; Icon: typeof Car; text: string; directions: DirectionsMode }[] = [
     { mode: 'transit', label: 'Mit der Tram', short: 'Tram', Icon: TramFront, text: location.transport, directions: 'transit' },
@@ -65,6 +65,7 @@ function HomePage() {
     location: [location.name, address].filter(Boolean).join(', '),
     url: window.location.origin,
     schedule,
+    timezone: event.timezone,
   })
 
   return (
