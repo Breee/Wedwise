@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQueryClient, useSuspenseQuery } from '@tanstack/react-query'
-import { Copy, Eye, EyeOff, KeyRound, Plus, RefreshCw, Trash2 } from 'lucide-react'
+import { Copy, Eye, EyeOff, KeyRound, Plus, RefreshCw, Share2, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { api, errorMessage } from '@/lib/api'
 import { inviteLinksQuery } from '@/lib/queries'
@@ -59,6 +59,7 @@ function InvitesPage() {
     onError,
   })
 
+  const share = (token: string) => navigator.share({ url: linkUrl(token) }).catch(() => {})
   const copy = (token: string) => navigator.clipboard.writeText(linkUrl(token)).then(() => toast.success('Link kopiert.'))
 
   return (
@@ -99,12 +100,17 @@ function InvitesPage() {
                   <Button type="button" variant="ghost" size="icon" className="size-10 shrink-0 sm:size-7" title={revealed === l.id ? 'Verbergen' : 'Anzeigen'} onClick={() => setRevealed(revealed === l.id ? null : l.id)}>
                     {revealed === l.id ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
                   </Button>
-                  <Button type="button" variant="ghost" size="icon" className="size-10 shrink-0 sm:size-7" title="Link kopieren" onClick={() => copy(l.token)}>
+                  <Button type="button" variant="ghost" size="icon" className="size-10 shrink-0 sm:size-7" title="Link kopieren" aria-label="Link kopieren" onClick={() => copy(l.token)}>
                     <Copy className="size-3.5" />
                   </Button>
+                  {'share' in navigator && (
+                    <Button type="button" variant="ghost" size="icon" className="size-10 shrink-0 sm:size-7" title="Link teilen" aria-label="Link teilen" onClick={() => share(l.token)}>
+                      <Share2 className="size-3.5" />
+                    </Button>
+                  )}
                 </div>
               </TableCell>
-              <TableCell className="p-0 sm:p-2">{l.hasPin ? <Badge>PIN</Badge> : <span className="text-muted-foreground">–</span>}</TableCell>
+              <TableCell className="p-0 sm:p-2">{l.hasPin ? <Badge>PIN</Badge> : <span className="text-muted-foreground"><span className="sm:hidden">Kein PIN</span><span className="hidden sm:inline">–</span></span>}</TableCell>
               <TableCell className="p-0 sm:p-2">{l.responses}<span className="text-muted-foreground sm:hidden"> Antworten</span></TableCell>
               <TableCell className="hidden text-muted-foreground sm:table-cell">{formatDateTime(l.createdAt)}</TableCell>
               <TableCell className="p-0 sm:p-2">
@@ -112,26 +118,29 @@ function InvitesPage() {
               </TableCell>
               <TableCell className="ml-auto p-0 text-right sm:p-2">
                 <div className="flex justify-end gap-1">
-                  <Button variant="ghost" size="icon" className="size-10 sm:size-9" title={l.hasPin ? 'PIN ändern' : 'PIN setzen'} onClick={() => setPinTarget(l)}>
+                  <Button variant="ghost" size="icon" className="h-10 w-auto gap-1.5 px-2 sm:size-9 sm:px-0" title={l.hasPin ? 'PIN ändern' : 'PIN setzen'} onClick={() => setPinTarget(l)}>
                     <KeyRound className="size-4" />
+                    <span className="text-xs sm:hidden">PIN</span>
                   </Button>
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="size-10 sm:size-9"
+                    className="h-10 w-auto gap-1.5 px-2 sm:size-9 sm:px-0"
                     title="Neuen Link erzeugen"
                     onClick={() => confirm('Der bisherige Link funktioniert danach nicht mehr. Fortfahren?') && regenerate.mutate(l.id)}
                   >
                     <RefreshCw className="size-4" />
+                    <span className="text-xs sm:hidden">Neu</span>
                   </Button>
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="size-10 sm:size-9"
+                    className="h-10 w-auto gap-1.5 px-2 sm:size-9 sm:px-0"
                     title="Löschen"
                     onClick={() => confirm('Link löschen? Bereits abgegebene Antworten bleiben erhalten.') && remove.mutate(l.id)}
                   >
                     <Trash2 className="size-4 text-destructive" />
+                    <span className="text-xs text-destructive sm:hidden">Löschen</span>
                   </Button>
                 </div>
               </TableCell>

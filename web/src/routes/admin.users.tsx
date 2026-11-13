@@ -91,27 +91,32 @@ function UsersPage() {
                   onCheckedChange={(active) => setActive.mutate({ id: u.id, active })}
                   aria-label={`${u.username} aktiv`}
                 />
+                {u.id === me.id && <span className="ml-2 text-xs text-muted-foreground">Das seid ihr</span>}
               </TableCell>
               <TableCell className="ml-auto p-0 text-right sm:p-2">
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="size-10 sm:size-9"
+                  className="h-10 w-auto gap-1.5 px-2 sm:size-9 sm:px-0"
                   onClick={() => newLink.mutate(u)}
+                  title="Neuen Einrichtungslink erzeugen"
                   aria-label={`Einrichtungslink für ${u.username} erzeugen`}
                 >
                   <KeyRound className="size-4" />
+                  <span className="text-xs sm:hidden">Neuer Link</span>
                 </Button>
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="size-10 sm:size-9"
+                  className="h-10 w-auto gap-1.5 px-2 sm:size-9 sm:px-0"
                   onClick={() => {
                     if (window.confirm(`Zwei-Faktor-Anmeldung von ${u.username} zurücksetzen?`)) resetTwoFactor.mutate(u)
                   }}
+                  title="Zwei-Faktor-Anmeldung zurücksetzen"
                   aria-label={`Zwei-Faktor-Anmeldung von ${u.username} zurücksetzen`}
                 >
                   <ShieldOff className="size-4" />
+                  <span className="text-xs sm:hidden">2FA zurücksetzen</span>
                 </Button>
               </TableCell>
             </TableRow>
