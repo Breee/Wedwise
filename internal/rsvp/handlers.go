@@ -211,14 +211,9 @@ func (h *Handler) writeCoupleView(w http.ResponseWriter, r *http.Request, respon
 	httpx.WriteJSON(w, http.StatusOK, coupleView{Response: response, EditToken: tokens[response.ID], Attendees: attendees})
 }
 
-// editTokens returns the edit links only for staff who may see contributions:
-// the guest view behind an edit link shows the contribution, which the couple
-// must never see.
+// editTokens returns the edit links so staff can hand them back to guests who
+// lost theirs. Note that the page behind a link shows the guest's contribution.
 func (h *Handler) editTokens(r *http.Request) (map[int64]string, error) {
-	identity, ok := auth.IdentityFrom(r.Context())
-	if !ok || !auth.RoleHasPermission(identity.Role, auth.PermContributionRead) {
-		return map[int64]string{}, nil
-	}
 	return h.store.EditTokens(r.Context())
 }
 
