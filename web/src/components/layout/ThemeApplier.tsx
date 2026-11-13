@@ -22,7 +22,6 @@ const COLOR_VARS: Record<keyof Theme['colors'], string[]> = {
   blush: ['--blush'],
 }
 
-const FONT_LINK_ID = 'theme-fonts'
 
 const CACHE_KEY = 'wedwise:theme-vars'
 
@@ -44,15 +43,6 @@ export function applyTheme(theme: Theme) {
   } catch {
     /* storage unavailable */
   }
-
-  let link = document.getElementById(FONT_LINK_ID) as HTMLLinkElement | null
-  if (!link) {
-    link = document.createElement('link')
-    link.id = FONT_LINK_ID
-    link.rel = 'stylesheet'
-    document.head.appendChild(link)
-  }
-  if (link.href !== theme.fonts.googleFonts) link.href = theme.fonts.googleFonts
 }
 
 export function ThemeApplier() {

@@ -105,12 +105,12 @@ func Recoverer(next http.Handler) http.Handler {
 }
 
 // contentSecurityPolicy allows the app itself plus the map tiles, the public
-// router fallback and Google Fonts. Images may come from any https origin
+// router fallback. Fonts are self-hosted. Images may come from any https origin
 // because content can reference external photos.
 const contentSecurityPolicy = "default-src 'self'; " +
 	"script-src 'self'; " +
-	"style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
-	"font-src 'self' https://fonts.gstatic.com; " +
+	"style-src 'self' 'unsafe-inline'; " +
+	"font-src 'self'; " +
 	"img-src 'self' data: blob: https:; " +
 	"connect-src 'self' https://tiles.openfreemap.org https://routing.openstreetmap.de; " +
 	"worker-src 'self' blob:; " +

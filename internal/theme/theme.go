@@ -46,12 +46,11 @@ type Colors struct {
 	Blush               string `yaml:"blush" json:"blush"`
 }
 
-// Fonts are CSS font-family stacks plus an optional Google Fonts stylesheet.
+// Fonts are CSS font-family stacks The bundled fonts are served by the app itself.
 type Fonts struct {
-	Display     string `yaml:"display" json:"display"`
-	Script      string `yaml:"script" json:"script"`
-	Body        string `yaml:"body" json:"body"`
-	GoogleFonts string `yaml:"googleFonts" json:"googleFonts"`
+	Display string `yaml:"display" json:"display"`
+	Script  string `yaml:"script" json:"script"`
+	Body    string `yaml:"body" json:"body"`
 }
 
 // Registry holds all available themes.
@@ -163,9 +162,6 @@ func (t *Theme) validate() error {
 		if strings.TrimSpace(v) == "" || strings.ContainsAny(v, ";{}<>") {
 			return fmt.Errorf("font %s is empty or contains invalid characters", name)
 		}
-	}
-	if g := t.Fonts.GoogleFonts; g != "" && !strings.HasPrefix(g, "https://fonts.googleapis.com/") {
-		return fmt.Errorf("googleFonts must be a fonts.googleapis.com URL")
 	}
 	return nil
 }

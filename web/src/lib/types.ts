@@ -129,7 +129,7 @@ export interface Theme {
   label: string
   decoration: 'none' | 'botanical' | 'dusk' | 'forest' | 'night'
   colors: ThemeColors
-  fonts: { display: string; script: string; body: string; googleFonts: string }
+  fonts: { display: string; script: string; body: string }
 }
 
 export interface Content {
