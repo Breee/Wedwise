@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { t } from '@/lib/i18n'
 import { cn } from '@/lib/utils'
 
 const SECTIONS = [
@@ -32,7 +33,7 @@ export function SectionNav() {
 
   return (
     <nav
-      aria-label="Abschnitte"
+      aria-label={t('Abschnitte')}
       className="sticky top-16 z-30 border-b border-border/60 bg-background/85 backdrop-blur-md"
     >
       <ul className="mx-auto flex max-w-5xl justify-start gap-1 overflow-x-auto px-3 [scrollbar-width:none] sm:justify-center">
@@ -46,7 +47,7 @@ export function SectionNav() {
                 active === s.id && 'border-primary font-medium text-primary',
               )}
             >
-              {s.label}
+              {t(s.label)}
             </a>
           </li>
         ))}

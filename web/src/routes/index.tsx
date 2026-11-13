@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
+import { t } from '@/lib/i18n'
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { motion } from 'motion/react'
 import { Bike, CalendarPlus, PencilLine, Car, ChevronDown, MapPin, Navigation, TramFront } from 'lucide-react'
@@ -54,13 +55,13 @@ function HomePage() {
   const city = event.venue.city || event.venue.name
   const [mode, setMode] = useState<TravelMode>('transit')
   const ARRIVAL: { mode: TravelMode; label: string; short: string; Icon: typeof Car; text: string; directions: DirectionsMode }[] = [
-    { mode: 'transit', label: 'Mit der Tram', short: 'Tram', Icon: TramFront, text: location.transport, directions: 'transit' },
-    { mode: 'bike', label: 'Mit dem Rad', short: 'Rad', Icon: Bike, text: location.bike ?? '', directions: 'bicycling' },
-    { mode: 'car', label: 'Mit dem Auto', short: 'Auto', Icon: Car, text: location.parking, directions: 'driving' },
+    { mode: 'transit', label: t('Mit der Tram'), short: t('Tram'), Icon: TramFront, text: location.transport, directions: 'transit' },
+    { mode: 'bike', label: t('Mit dem Rad'), short: t('Rad'), Icon: Bike, text: location.bike ?? '', directions: 'bicycling' },
+    { mode: 'car', label: t('Mit dem Auto'), short: t('Auto'), Icon: Car, text: location.parking, directions: 'driving' },
   ]
   const address = [location.address, 'city' in location && location.city ? location.city : ''].filter(Boolean).join(', ')
   const calendar = icsUrl({
-    title: coupleNames.length ? `Hochzeit ${coupleNames.join(' & ')}` : event.title,
+    title: coupleNames.length ? t('Hochzeit {names}', { names: coupleNames.join(' & ') }) : event.title,
     date: event.date,
     location: [location.name, address].filter(Boolean).join(', '),
     url: window.location.origin,
@@ -92,14 +93,14 @@ function HomePage() {
           {hero.note && <p className="mt-6 text-sm text-muted-foreground italic">{hero.note}</p>}
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
             <Button asChild variant="outline" size="sm">
-              <a href={calendar} download="hochzeit.ics">
-                <CalendarPlus className="size-4" /> Zum Kalender hinzufügen
+              <a href={calendar} download={t('hochzeit.ics')}>
+                <CalendarPlus className="size-4" /> {t('Zum Kalender hinzufügen')}
               </a>
             </Button>
             {rememberedToken() && (
               <Button asChild variant="outline" size="sm">
                 <Link to="/rsvp">
-                  <PencilLine className="size-4" /> Eure Antwort bearbeiten
+                  <PencilLine className="size-4" /> {t('Eure Antwort bearbeiten')}
                 </Link>
               </Button>
             )}
@@ -112,7 +113,7 @@ function HomePage() {
           )}
           {schedule.length > 0 && (
             <a href="#ablauf" className="mt-10 inline-flex flex-col items-center gap-1 text-xs tracking-widest text-muted-foreground uppercase transition-colors hover:text-primary">
-              Zum Ablauf <ChevronDown className="size-4 animate-bounce" />
+              {t('Zum Ablauf')} <ChevronDown className="size-4 animate-bounce" />
             </a>
           )}
         </motion.div>
@@ -121,7 +122,7 @@ function HomePage() {
       <SectionNav />
 
       {content.introduction?.text && (
-        <Section eyebrow="Willkommen" title="Schön, dass ihr da seid">
+        <Section eyebrow={t('Willkommen')} title={t('Schön, dass ihr da seid')}>
           <div className="mx-auto max-w-2xl space-y-4 text-center text-lg leading-relaxed text-foreground/85">
             <Paragraphs text={content.introduction.text} />
           </div>
@@ -129,7 +130,7 @@ function HomePage() {
       )}
 
       {schedule.length > 0 && (
-        <Section id="ablauf" eyebrow="Der Tag" title="Ablauf" className="bg-card/50">
+        <Section id="ablauf" eyebrow={t('Der Tag')} title={t('Ablauf')} className="bg-card/50">
           <ol className="relative mx-auto max-w-2xl border-l border-gold/60 pl-8">
             {schedule.map((entry, i) => (
               <motion.li
@@ -152,7 +153,7 @@ function HomePage() {
         </Section>
       )}
 
-      <Section id="ort" eyebrow="Die Location" title={location.name || 'Ort'}>
+      <Section id="ort" eyebrow={t('Die Location')} title={location.name || t('Ort')}>
         <div className="mx-auto max-w-5xl space-y-6 sm:space-y-10">
           {location.image && (
             <motion.figure
@@ -183,7 +184,7 @@ function HomePage() {
             {location.navigationUrl && (
               <Button asChild>
                 <a href={location.navigationUrl} target="_blank" rel="noreferrer">
-                  <Navigation className="size-4" /> Route planen
+                  <Navigation className="size-4" /> {t('Route planen')}
                 </a>
               </Button>
             )}
@@ -192,7 +193,7 @@ function HomePage() {
       </Section>
 
       {(location.transport || location.parking || location.bike || hasMap) && (
-        <Section id="anreise" eyebrow="Anreise" title="So kommt ihr hin" className="bg-card/50">
+        <Section id="anreise" eyebrow={t('Anreise')} title={t('So kommt ihr hin')} className="bg-card/50">
           <Tabs value={mode} onValueChange={(v) => setMode(v as TravelMode)} className="space-y-8">
             <TabsList className="mx-auto grid w-full max-w-md grid-cols-3 sm:flex sm:w-fit">
               {ARRIVAL.map(({ mode: m, label, short, Icon }) => (
@@ -209,7 +210,7 @@ function HomePage() {
                     {text && <div className="space-y-2 text-muted-foreground"><Paragraphs text={text} /></div>}
                     {hasMap && m === 'bike' && (
                       <div className="flex flex-wrap items-center gap-2 pt-1 text-sm text-muted-foreground">
-                        <span>Route zur Location:</span>
+                        <span>{t('Route zur Location:')}</span>
                         <DirectionsLinks to={[travel.lng, travel.lat]} name={location.name || 'Location'} mode={directions} />
                       </div>
                     )}
@@ -227,7 +228,7 @@ function HomePage() {
       )}
 
       {hotels.length > 0 && travel && (
-        <Section id="unterkunft" eyebrow="Übernachten" title="Unterkünfte">
+        <Section id="unterkunft" eyebrow={t('Übernachten')} title={t('Unterkünfte')}>
           <Suspense fallback={<Skeleton className="h-[380px] rounded-3xl" />}>
             <StayMap accommodation={content.accommodation} travel={travel} city={city} />
           </Suspense>
@@ -235,7 +236,7 @@ function HomePage() {
       )}
 
       {faq.length > 0 && (
-        <Section id="faq" eyebrow="Gut zu wissen" title="Fragen & Antworten" className="bg-card/50">
+        <Section id="faq" eyebrow={t('Gut zu wissen')} title={t('Fragen & Antworten')} className="bg-card/50">
           <div className="mx-auto grid max-w-3xl gap-4">
             {faq.map((entry, i) => (
               <Card key={entry.id ?? i}>

@@ -1,4 +1,5 @@
 import { useEffect, type ReactNode } from 'react'
+import { t } from '@/lib/i18n'
 import { useQuery } from '@tanstack/react-query'
 import { motion } from 'motion/react'
 import { ChevronDown } from 'lucide-react'
@@ -39,7 +40,7 @@ export function InviteStory({ target }: { target: string }) {
         <Page id="invite-title" next="invite-schedule">
           <Title />
         </Page>
-        <Page id="invite-schedule" next={target} label="Zur Rückmeldung">
+        <Page id="invite-schedule" next={target} label={t('Zur Rückmeldung')}>
           <Schedule />
         </Page>
       </div>
@@ -56,7 +57,7 @@ function Page({ id, next, label, children }: { id: string; next: string; label?:
       <div className="flex flex-1 flex-col justify-center">{children}</div>
       <button
         type="button"
-        aria-label={label ?? 'Weiter'}
+        aria-label={label ?? t('Weiter')}
         onClick={() => document.getElementById(next)?.scrollIntoView({ behavior: 'smooth' })}
         className="mx-auto mt-6 flex min-h-12 flex-col items-center justify-center gap-1 px-6 text-[#d9c9a3]"
       >
@@ -99,7 +100,7 @@ function Title() {
   const names = data?.event.couple?.map((c) => c.name).join(' & ') || data?.event.title
   return (
     <div className="text-center [text-shadow:0_1px_3px_rgba(0,0,0,0.9),0_2px_22px_rgba(0,0,0,0.75)]">
-      <Eyebrow>Ihr seid eingeladen</Eyebrow>
+      <Eyebrow>{t('Ihr seid eingeladen')}</Eyebrow>
       <motion.h1 className="mt-6 font-display text-5xl leading-tight text-balance md:text-7xl" {...rise(0.4)}>
         {names}
       </motion.h1>
@@ -123,9 +124,9 @@ function Schedule() {
   const schedule = [...(data?.content.schedule ?? [])].sort((a, b) => a.order - b.order)
   return (
     <div className="[text-shadow:0_1px_3px_rgba(0,0,0,0.9),0_2px_22px_rgba(0,0,0,0.75)]">
-      <Eyebrow>Unser Tag</Eyebrow>
+      <Eyebrow>{t('Unser Tag')}</Eyebrow>
       <motion.h2 className="mt-5 text-center font-display text-4xl leading-tight sm:text-5xl md:text-6xl" {...rise(0.3)}>
-        So feiern wir
+        {t('So feiern wir')}
       </motion.h2>
       <GoldLine delay={0.7} />
       <ol className="relative mx-auto mt-2 max-w-sm space-y-4 pl-8">
