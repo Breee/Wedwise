@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/Breee/Wedwise/internal/sealed"
 
@@ -57,6 +58,35 @@ type EventConfig struct {
 	MusicGenres []string `yaml:"musicGenres" json:"musicGenres"`
 }
 
+// AuthConfig tightens how staff sign in.
+type AuthConfig struct {
+	// RequireTwoFactor lists the roles that must use a second factor.
+	RequireTwoFactor []string `yaml:"requireTwoFactor" json:"requireTwoFactor"`
+	// SessionMaxAge ends a session this long after the login (e.g. "24h").
+	SessionMaxAge string `yaml:"sessionMaxAge" json:"sessionMaxAge"`
+	// SessionIdleTimeout ends a session after this time without activity.
+	SessionIdleTimeout string `yaml:"sessionIdleTimeout" json:"sessionIdleTimeout"`
+}
+
+// Timeouts returns the configured session lifetimes; zero means default.
+func (a AuthConfig) Timeouts() (maxAge, idle time.Duration, err error) {
+	parse := func(name, value string) (time.Duration, error) {
+		if value == "" {
+			return 0, nil
+		}
+		d, err := time.ParseDuration(value)
+		if err != nil || d < time.Minute {
+			return 0, fmt.Errorf("auth.%s must be a duration of at least one minute, like 2h", name)
+		}
+		return d, nil
+	}
+	if maxAge, err = parse("sessionMaxAge", a.SessionMaxAge); err != nil {
+		return 0, 0, err
+	}
+	idle, err = parse("sessionIdleTimeout", a.SessionIdleTimeout)
+	return maxAge, idle, err
+}
+
 // Config is the top level application configuration.
 type Config struct {
 	ListenAddress string `yaml:"listenAddress" json:"listenAddress"`
@@ -84,6 +114,8 @@ type Config struct {
 	TrustProxyHeaders bool `yaml:"trustProxyHeaders" json:"trustProxyHeaders"`
 	// RoutingAPIKey is an optional OpenRouteService key for live route lookups.
 	RoutingAPIKey string `yaml:"routingApiKey" json:"-"`
+
+	Auth AuthConfig `yaml:"auth" json:"auth"`
 
 	Event EventConfig `yaml:"event" json:"event"`
 
@@ -185,10 +217,21 @@ func applyEnv(cfg *Config) {
 		"UPLOADS_PATH":      &cfg.UploadsPath,
 		"ENVIRONMENT":       &cfg.Environment,
 		"ROUTING_API_KEY":   &cfg.RoutingAPIKey,
+
+		"SESSION_MAX_AGE":      &cfg.Auth.SessionMaxAge,
+		"SESSION_IDLE_TIMEOUT": &cfg.Auth.SessionIdleTimeout,
 	}
 	for key, target := range overrides {
 		if value, ok := os.LookupEnv(key); ok && value != "" {
 			*target = value
+		}
+	}
+	if value, ok := os.LookupEnv("REQUIRE_TWO_FACTOR"); ok && value != "" {
+		cfg.Auth.RequireTwoFactor = nil
+		for _, role := range strings.Split(value, ",") {
+			if role = strings.TrimSpace(role); role != "" {
+				cfg.Auth.RequireTwoFactor = append(cfg.Auth.RequireTwoFactor, role)
+			}
 		}
 	}
 	if value, ok := os.LookupEnv("TRUST_PROXY_HEADERS"); ok {
@@ -215,6 +258,14 @@ func (c Config) Validate() error {
 	}
 	if c.DataKeyPrevious != "" && len(c.DataKeyPrevious) < sealed.MinKeyLength {
 		return fmt.Errorf("dataKeyPrevious must be at least %d characters", sealed.MinKeyLength)
+	}
+	for _, role := range c.Auth.RequireTwoFactor {
+		if role != "admin" && role != "couple" && role != "witness" {
+			return fmt.Errorf("auth.requireTwoFactor: unknown role %q (use admin, couple, witness)", role)
+		}
+	}
+	if _, _, err := c.Auth.Timeouts(); err != nil {
+		return err
 	}
 	if c.Event.Language != "de" && c.Event.Language != "en" {
 		return errors.New("event.language must be de or en")

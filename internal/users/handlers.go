@@ -297,6 +297,17 @@ func (h *Handler) setPassword(w http.ResponseWriter, r *http.Request) {
 		httpx.Internal(w, err)
 		return
 	}
+	// A new password ends every existing session of that user.
+	var err error
+	if identity, ok := auth.IdentityFrom(r.Context()); ok && identity.ID == user.ID {
+		err = h.auth.RenewSession(w, r)
+	} else {
+		err = h.auth.EndSessions(r.Context(), user.ID)
+	}
+	if err != nil {
+		httpx.Internal(w, err)
+		return
+	}
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -319,6 +330,12 @@ func (h *Handler) setActive(w http.ResponseWriter, r *http.Request) {
 	if err := h.store.SetActive(r.Context(), user.Username, req.Active); err != nil {
 		httpx.Internal(w, err)
 		return
+	}
+	if !req.Active {
+		if err := h.auth.EndSessions(r.Context(), user.ID); err != nil {
+			httpx.Internal(w, err)
+			return
+		}
 	}
 	w.WriteHeader(http.StatusNoContent)
 }

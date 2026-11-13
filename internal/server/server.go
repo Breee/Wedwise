@@ -64,7 +64,13 @@ func New(cfg configuration.Config, db *sql.DB) (*Server, error) {
 	}
 	userStore := users.NewStore(db)
 	sessionStore := auth.NewSessionStore(db)
+	maxAge, idle, err := cfg.Auth.Timeouts()
+	if err != nil {
+		return nil, err
+	}
+	sessionStore.SetTimeouts(maxAge, idle)
 	authService := auth.NewService(sessionStore, userStore, cfg.IsProduction(), cfg.BaseURL)
+	authService.RequireTwoFactor(cfg.Auth.RequireTwoFactor)
 
 	twoFactorStore, err := twofactor.NewStore(db, cfg.SessionSecret, "Wedwise")
 	if err != nil {
@@ -76,7 +82,7 @@ func New(cfg configuration.Config, db *sql.DB) (*Server, error) {
 	}
 	twoFactorStore.SetKeys(keys)
 	authService.SetSecondFactor(twoFactorStore)
-	twoFactorHandler := twofactor.NewHandler(twoFactorStore)
+	twoFactorHandler := twofactor.NewHandler(twoFactorStore, authService)
 
 	box, err := sealed.New(cfg.DataKey, cfg.DataKeyPrevious)
 	if err != nil {

@@ -15,10 +15,23 @@ import (
 // Handler exposes two-factor management for the signed-in user.
 type Handler struct {
 	store *Store
+	auth  *auth.Service
 }
 
 // NewHandler creates the handler.
-func NewHandler(store *Store) *Handler { return &Handler{store: store} }
+func NewHandler(store *Store, authService *auth.Service) *Handler {
+	return &Handler{store: store, auth: authService}
+}
+
+// renewed replaces the user's sessions after their login changed and
+// reports whether the request may continue.
+func (h *Handler) renewed(w http.ResponseWriter, r *http.Request) bool {
+	if err := h.auth.RenewSession(w, r); err != nil {
+		httpx.Internal(w, err)
+		return false
+	}
+	return true
+}
 
 type codeRequest struct {
 	Code string `json:"code"`
@@ -100,6 +113,9 @@ func (h *Handler) keyFinish(w http.ResponseWriter, r *http.Request) {
 		httpx.Internal(w, err)
 		return
 	}
+	if !h.renewed(w, r) {
+		return
+	}
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -112,6 +128,9 @@ func (h *Handler) keyDelete(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := h.store.keys.Delete(r.Context(), identity.ID, id); err != nil {
 		httpx.Internal(w, err)
+		return
+	}
+	if !h.renewed(w, r) {
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -147,6 +166,9 @@ func (h *Handler) confirm(w http.ResponseWriter, r *http.Request) {
 		httpx.Internal(w, err)
 		return
 	}
+	if !h.renewed(w, r) {
+		return
+	}
 	w.Header().Set("Cache-Control", "no-store")
 	httpx.WriteJSON(w, http.StatusOK, map[string][]string{"recoveryCodes": codes})
 }
@@ -170,6 +192,9 @@ func (h *Handler) disable(w http.ResponseWriter, r *http.Request) {
 		httpx.Internal(w, err)
 		return
 	}
+	if !h.renewed(w, r) {
+		return
+	}
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -189,6 +214,10 @@ func (h *Handler) Reset(w http.ResponseWriter, r *http.Request) {
 			httpx.Internal(w, err)
 			return
 		}
+	}
+	if err := h.auth.EndSessions(r.Context(), id); err != nil {
+		httpx.Internal(w, err)
+		return
 	}
 	w.WriteHeader(http.StatusNoContent)
 }

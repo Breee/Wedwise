@@ -56,6 +56,9 @@ type identityResponse struct {
 	DisplayName   string   `json:"displayName,omitempty"`
 	Role          string   `json:"role,omitempty"`
 	Permissions   []string `json:"permissions"`
+	// TwoFactorSetupRequired tells the client to send the user to the
+	// account page before anything else.
+	TwoFactorSetupRequired bool `json:"twoFactorSetupRequired,omitempty"`
 }
 
 // Routes returns the authentication routes. loginMiddlewares are applied to
@@ -68,6 +71,12 @@ func (s *Service) Routes(loginMiddlewares ...func(http.Handler) http.Handler) ht
 	r.With(loginMiddlewares...).Post("/passkey/begin", s.HandlePasskeyBegin)
 	r.With(loginMiddlewares...).Post("/passkey", s.HandlePasskeyLogin)
 	r.Post("/logout", s.HandleLogout)
+	r.Group(func(r chi.Router) {
+		r.Use(s.requireSession)
+		r.Get("/sessions", s.HandleSessions)
+		r.Delete("/sessions", s.HandleEndOtherSessions)
+		r.Delete("/sessions/{id}", s.HandleEndSession)
+	})
 	return r
 }
 
@@ -148,13 +157,7 @@ func (s *Service) HandlePasskeyLogin(w http.ResponseWriter, r *http.Request) {
 		denied()
 		return
 	}
-	session, err := s.sessions.Create(r.Context(), identity.ID, SessionDuration)
-	if err != nil {
-		httpx.Internal(w, err)
-		return
-	}
-	s.setSessionCookie(w, session)
-	httpx.WriteJSON(w, http.StatusOK, newIdentityResponse(identity))
+	s.signIn(w, r, identity)
 }
 
 // HandleLogin authenticates a user and starts a session.
@@ -206,18 +209,12 @@ func (s *Service) HandleLogin(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	session, err := s.sessions.Create(r.Context(), identity.ID, SessionDuration)
-	if err != nil {
-		httpx.Internal(w, err)
-		return
-	}
-	s.setSessionCookie(w, session)
-	httpx.WriteJSON(w, http.StatusOK, newIdentityResponse(identity))
+	s.signIn(w, r, identity)
 }
 
 // HandleLogout ends the current session.
 func (s *Service) HandleLogout(w http.ResponseWriter, r *http.Request) {
-	if cookie, err := r.Cookie(SessionCookieName); err == nil && cookie.Value != "" {
+	if cookie, err := r.Cookie(s.cookieName()); err == nil && cookie.Value != "" {
 		if err := s.sessions.Delete(r.Context(), cookie.Value); err != nil {
 			httpx.Internal(w, err)
 			return
@@ -225,6 +222,74 @@ func (s *Service) HandleLogout(w http.ResponseWriter, r *http.Request) {
 	}
 	s.clearSessionCookie(w)
 	httpx.WriteJSON(w, http.StatusOK, map[string]bool{"success": true})
+}
+
+func (s *Service) signIn(w http.ResponseWriter, r *http.Request, identity Identity) {
+	missing, err := s.twoFactorMissing(r.Context(), identity)
+	if err != nil {
+		httpx.Internal(w, err)
+		return
+	}
+	identity.TwoFactorSetupRequired = missing
+	if err := s.StartSession(w, r, identity.ID); err != nil {
+		httpx.Internal(w, err)
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, newIdentityResponse(identity))
+}
+
+func (s *Service) requireSession(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if _, ok := SessionFrom(r.Context()); !ok {
+			httpx.Unauthorized(w)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+type sessionResponse struct {
+	Session
+	Current bool `json:"current"`
+}
+
+// HandleSessions lists where the user is signed in.
+func (s *Service) HandleSessions(w http.ResponseWriter, r *http.Request) {
+	current, _ := SessionFrom(r.Context())
+	sessions, err := s.sessions.List(r.Context(), current.UserID)
+	if err != nil {
+		httpx.Internal(w, err)
+		return
+	}
+	out := make([]sessionResponse, 0, len(sessions))
+	for _, session := range sessions {
+		out = append(out, sessionResponse{Session: session, Current: session.Key == current.Key})
+	}
+	httpx.WriteJSON(w, http.StatusOK, map[string]any{"sessions": out})
+}
+
+// HandleEndSession signs one of the user's devices out.
+func (s *Service) HandleEndSession(w http.ResponseWriter, r *http.Request) {
+	current, _ := SessionFrom(r.Context())
+	key := chi.URLParam(r, "id")
+	if err := s.sessions.DeleteKey(r.Context(), current.UserID, key); err != nil {
+		httpx.Internal(w, err)
+		return
+	}
+	if key == current.Key {
+		s.clearSessionCookie(w)
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// HandleEndOtherSessions signs the user out everywhere but here.
+func (s *Service) HandleEndOtherSessions(w http.ResponseWriter, r *http.Request) {
+	current, _ := SessionFrom(r.Context())
+	if err := s.sessions.DeleteOthers(r.Context(), current.UserID, current.Key); err != nil {
+		httpx.Internal(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // HandleMe returns information about the current session.
@@ -246,5 +311,7 @@ func newIdentityResponse(identity Identity) identityResponse {
 		DisplayName:   identity.DisplayName,
 		Role:          identity.Role,
 		Permissions:   PermissionsForRole(identity.Role),
+
+		TwoFactorSetupRequired: identity.TwoFactorSetupRequired,
 	}
 }
