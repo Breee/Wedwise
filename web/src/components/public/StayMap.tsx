@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { locale, t } from '@/lib/i18n'
 import { useQueries, useQuery } from '@tanstack/react-query'
 import * as maplibregl from 'maplibre-gl'
 import type { Map as MapLibreMap } from 'maplibre-gl'
@@ -207,10 +208,10 @@ export function StayMap({ accommodation, travel, city }: { accommodation: Accomm
   return (
     <div className="space-y-8">
       <div className="space-y-2 text-center text-sm text-muted-foreground">
-        <p>Sortiert nach Weg zur Location – zu Fuß oder mit der Tram.</p>
+        <p>{t('Sortiert nach Weg zur Location – zu Fuß oder mit der Tram.')}</p>
         {arrivalDays.length > 1 && (
-          <div className="flex flex-wrap items-center justify-center gap-2" role="radiogroup" aria-label="Anreisetag">
-            <span className="flex items-center gap-1.5"><CalendarDays className="size-4 text-primary" /> Anreise am</span>
+          <div className="flex flex-wrap items-center justify-center gap-2" role="radiogroup" aria-label={t('Anreisetag')}>
+            <span className="flex items-center gap-1.5"><CalendarDays className="size-4 text-primary" /> {t('Anreise am')}</span>
             {arrivalDays.map((d) => (
               <button
                 key={d}
@@ -229,22 +230,22 @@ export function StayMap({ accommodation, travel, city }: { accommodation: Accomm
           </div>
         )}
         <div className="flex flex-wrap items-center justify-center gap-2" role="group" aria-label="Filter">
-          {([1, 2, 3] as const).map((t) => (
-            <FilterChip key={t} pressed={tiers.includes(t)} onClick={() => toggleTier(t)}>
-              {TIER[t].label} <span className="text-xs opacity-80">{TIER[t].hint}</span>
+          {([1, 2, 3] as const).map((n) => (
+            <FilterChip key={n} pressed={tiers.includes(n)} onClick={() => toggleTier(n)}>
+              {TIER[n].label} <span className="text-xs opacity-80">{t(TIER[n].hint)}</span>
             </FilterChip>
           ))}
           {hasApartments && (
             <>
               <span className="mx-1 h-4 w-px bg-border" aria-hidden />
               <FilterChip pressed={kind === 'hotel'} onClick={() => setKind(kind === 'hotel' ? null : 'hotel')}>Hotel</FilterChip>
-              <FilterChip pressed={kind === 'apartment'} onClick={() => setKind(kind === 'apartment' ? null : 'apartment')}>Ferienwohnung</FilterChip>
+              <FilterChip pressed={kind === 'apartment'} onClick={() => setKind(kind === 'apartment' ? null : 'apartment')}>{t('Ferienwohnung')}</FilterChip>
             </>
           )}
         </div>
         {stay && (
           <p>
-            Alle Links sind für <strong className="whitespace-nowrap text-foreground">{stay}</strong> vorausgefüllt.
+            {t('Alle Links sind für')} <strong className="whitespace-nowrap text-foreground">{stay}</strong> {t('vorausgefüllt.')}
           </p>
         )}
       </div>
@@ -252,19 +253,19 @@ export function StayMap({ accommodation, travel, city }: { accommodation: Accomm
         <BaseMap onReady={setMap} className="h-[50svh] max-h-[640px] min-h-[300px] lg:sticky lg:top-24 lg:col-span-3 lg:h-[640px]">
           {selectedIndex < 0 ? (
             <div className="pointer-events-none absolute top-3 left-3 rounded-full bg-background/90 px-3 py-1.5 text-xs text-muted-foreground shadow backdrop-blur sm:text-sm">
-              Unterkunft auswählen, um den Weg zu sehen
+              {t('Unterkunft auswählen, um den Weg zu sehen')}
             </div>
           ) : (
-            <div className="pointer-events-none absolute top-3 left-3 flex items-center gap-3 rounded-full bg-background/90 px-3 py-1.5 text-xs shadow backdrop-blur" aria-label="Legende">
+            <div className="pointer-events-none absolute top-3 left-3 flex items-center gap-3 rounded-full bg-background/90 px-3 py-1.5 text-xs shadow backdrop-blur" aria-label={t('Legende')}>
               <span className="flex items-center gap-1.5"><span className="inline-block h-1 w-5 rounded-full" style={{ background: KIND.tram.color }} /><TramFront className="size-3.5" /> Tram</span>
-              <span className="flex items-center gap-1.5"><span className="inline-block h-1 w-5 rounded-full" style={{ background: FOOT_COLOR }} /><Footprints className="size-3.5" /> zu Fuß</span>
+              <span className="flex items-center gap-1.5"><span className="inline-block h-1 w-5 rounded-full" style={{ background: FOOT_COLOR }} /><Footprints className="size-3.5" /> {t('zu Fuß')}</span>
             </div>
           )}
         </BaseMap>
         <ol className="space-y-3 lg:col-span-2">
           {hotels.length === 0 && (
             <li className="rounded-2xl border border-dashed p-6 text-center text-sm text-muted-foreground">
-              Keine Unterkunft passt zu diesem Filter.
+              {t('Keine Unterkunft passt zu diesem Filter.')}
             </li>
           )}
           {visible.map((h, i) => (
@@ -286,7 +287,7 @@ export function StayMap({ accommodation, travel, city }: { accommodation: Accomm
           {!showAll && hotels.length > INITIAL_VISIBLE && (
             <li>
               <Button variant="outline" className="w-full" onClick={() => setShowAll(true)}>
-                Alle {hotels.length} anzeigen <ChevronDown className="size-4" />
+                {t('Alle {count} anzeigen', { count: hotels.length })} <ChevronDown className="size-4" />
               </Button>
             </li>
           )}
@@ -296,9 +297,9 @@ export function StayMap({ accommodation, travel, city }: { accommodation: Accomm
         <div className="flex items-start gap-3">
           <Home className="mt-1 size-5 shrink-0 text-sage" />
           <div>
-            <h3 className="text-xl">Lieber eine Ferienwohnung oder ein anderes Hotel?</h3>
+            <h3 className="text-xl">{t('Lieber eine Ferienwohnung oder ein anderes Hotel?')}</h3>
             <p className="mt-1 text-sm text-muted-foreground">
-              Rund um die Location und in der Wiehre gibt es viele Wohnungen und weitere Hotels. Die Suchen sind mit den Daten vorausgefüllt.
+              {t('Rund um die Location und in der Wiehre gibt es viele Wohnungen und weitere Hotels. Die Suchen sind mit den Daten vorausgefüllt.')}
             </p>
           </div>
         </div>
@@ -378,7 +379,7 @@ function HotelCard({
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-3">
             <h3 className="text-xl leading-tight">{hotel.name}</h3>
-            <span className="shrink-0 rounded-full bg-gold/20 px-2.5 py-0.5 text-xs font-semibold tracking-wider text-foreground/80" title={tier.hint}>
+            <span className="shrink-0 rounded-full bg-gold/20 px-2.5 py-0.5 text-xs font-semibold tracking-wider text-foreground/80" title={t(tier.hint)}>
               {tier.label}
             </span>
           </div>
@@ -392,7 +393,7 @@ function HotelCard({
           <div className="mt-3 flex flex-wrap gap-2" onClick={(e) => e.stopPropagation()}>
             <Button asChild size="sm">
               <a href={hotelBookingUrl(hotel, city, checkIn, checkOut)} target="_blank" rel="noreferrer">
-                Verfügbarkeit prüfen
+                {t('Verfügbarkeit prüfen')}
               </a>
             </Button>
             {hotel.url && (
@@ -412,14 +413,14 @@ function HotelCard({
 function TravelTimes({ hotel, venue }: { hotel: Ranked; venue: LngLat }) {
   const here: LngLat = [hotel.lng, hotel.lat]
   const primary = hotel.walk
-    ? { Icon: Footprints, text: `${hotel.foot?.minutes} Min zu Fuß zur Location` }
+    ? { Icon: Footprints, text: t('{n} Min zu Fuß zur Location', { n: hotel.foot?.minutes ?? '' }) }
     : hotel.transit
-      ? { Icon: TramFront, text: `ca. ${hotel.transit.totalMinutes} Min mit der Tram`, href: googleDirectionsUrl(venue, 'transit', here) }
+      ? { Icon: TramFront, text: t('ca. {n} Min mit der Tram', { n: hotel.transit.totalMinutes }), href: googleDirectionsUrl(venue, 'transit', here) }
       : null
   const others: { Icon: typeof Car; minutes?: number; label: string }[] = [
-    ...(!hotel.walk && hotel.foot ? [{ Icon: Footprints, minutes: hotel.foot.minutes, label: 'zu Fuß' }] : []),
-    { Icon: Bike, minutes: hotel.bike?.minutes, label: 'Rad' },
-    ...(hotel.car ? [{ Icon: Car, minutes: hotel.car.minutes, label: 'Auto' }] : []),
+    ...(!hotel.walk && hotel.foot ? [{ Icon: Footprints, minutes: hotel.foot.minutes, label: t('zu Fuß') }] : []),
+    { Icon: Bike, minutes: hotel.bike?.minutes, label: t('Rad') },
+    ...(hotel.car ? [{ Icon: Car, minutes: hotel.car.minutes, label: t('Auto') }] : []),
   ].filter((t) => t.minutes !== undefined)
   return (
     <div className="mt-3 space-y-1.5 text-sm">
@@ -439,7 +440,7 @@ function TravelTimes({ hotel, venue }: { hotel: Ranked; venue: LngLat }) {
         <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
           {others.map(({ Icon, minutes, label }) => (
             <span key={label} className="flex items-center gap-1">
-              <Icon className="size-3.5" /> {minutes} Min {label}
+              <Icon className="size-3.5" /> {minutes} {t('Min')} {label}
             </span>
           ))}
         </p>
@@ -460,7 +461,7 @@ function datesBetween(from: string, to: string): string[] {
 }
 
 function formatDay(iso: string): string {
-  return new Date(iso).toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit' })
+  return new Date(iso).toLocaleDateString(locale(), { weekday: 'short', day: '2-digit', month: '2-digit' })
 }
 
 function FilterChip({ pressed, onClick, children }: { pressed: boolean; onClick: () => void; children: React.ReactNode }) {

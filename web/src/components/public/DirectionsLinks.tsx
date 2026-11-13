@@ -1,4 +1,5 @@
 import { appleDirectionsUrl, googleDirectionsUrl, type DirectionsMode, type LngLat } from '@/lib/geo'
+import { t } from '@/lib/i18n'
 import { cn } from '@/lib/utils'
 
 export function DirectionsLinks({
@@ -21,7 +22,7 @@ export function DirectionsLinks({
         Google Maps ↗
       </a>
       <a href={appleDirectionsUrl(to, name, mode, from)} target="_blank" rel="noreferrer" className={chip}>
-        Apple Karten ↗
+        {t('Apple Karten')} ↗
       </a>
     </span>
   )

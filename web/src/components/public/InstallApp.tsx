@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { t } from '@/lib/i18n'
 import { Share, Smartphone } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
@@ -37,19 +38,19 @@ export function InstallApp() {
   return (
     <div className="mx-auto max-w-md space-y-2 rounded-lg border bg-secondary/40 p-4 text-left">
       <p className="flex items-center gap-2 font-medium">
-        <Smartphone className="size-4 text-primary" /> Als App aufs Handy
+        <Smartphone className="size-4 text-primary" /> {t('Als App aufs Handy')}
       </p>
       <p className="text-sm text-muted-foreground">
-        So habt ihr alle Infos immer dabei und könnt eure Antwort jederzeit ändern – ganz ohne Link.
+        {t('So habt ihr alle Infos immer dabei und könnt eure Antwort jederzeit ändern – ganz ohne Link.')}
       </p>
       {prompt ? (
         <Button type="button" variant="outline" onClick={() => prompt.prompt().then(() => setPrompt(null))}>
-          App installieren
+          {t('App installieren')}
         </Button>
       ) : (
         <p className="text-sm">
-          Tippt in Safari auf <Share className="inline size-4 align-[-2px]" /> <span className="font-medium">Teilen</span> und dann auf{' '}
-          <span className="font-medium">„Zum Home-Bildschirm“</span>.
+          {t('Tippt in Safari auf')} <Share className="inline size-4 align-[-2px]" /> <span className="font-medium">{t('Teilen')}</span> {t('und dann auf')}{' '}
+          <span className="font-medium">{t('„Zum Home-Bildschirm“')}</span>.
         </p>
       )}
     </div>

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { t } from '@/lib/i18n'
 import { useQueries } from '@tanstack/react-query'
 import * as maplibregl from 'maplibre-gl'
 import type { Map as MapLibreMap, ExpressionSpecification } from 'maplibre-gl'
@@ -121,7 +122,7 @@ export function TravelMap({ travel, venueName, mode = 'transit' }: { travel: Tra
       <BaseMap onReady={setMap} className="h-[60svh] max-h-[520px] min-h-[320px]">
         <div className="pointer-events-none absolute top-3 left-3 max-w-[calc(100%-5rem)] truncate rounded-full bg-background/90 px-3 py-1.5 text-xs shadow backdrop-blur sm:text-sm">
           <span className="font-display text-base text-primary sm:text-lg">{venueName}</span>
-          <span className="ml-2 hidden text-muted-foreground sm:inline">{HEADER[mode]}</span>
+          <span className="ml-2 hidden text-muted-foreground sm:inline">{t(HEADER[mode])}</span>
         </div>
       </BaseMap>
       {stops.length > 0 && (
@@ -181,17 +182,17 @@ function StopCard({
       </span>
       <span className="min-w-0 flex-1">
         <span className="flex items-center gap-2 text-xs tracking-wider text-muted-foreground uppercase">
-          {label}
+          {t(label)}
           {stop.line && <span className="rounded px-1.5 py-0.5 font-semibold text-white" style={{ background: color }}>{stop.line}</span>}
         </span>
         <span className="mt-0.5 block truncate font-medium">{stop.name}</span>
         {!hasLeg(stop.kind) ? (
-          <span className="mt-1 block text-sm text-muted-foreground">direkt an der Location</span>
+          <span className="mt-1 block text-sm text-muted-foreground">{t('direkt an der Location')}</span>
         ) : loading ? (
-          <span className="mt-1 block text-sm text-muted-foreground">Route wird berechnet…</span>
+          <span className="mt-1 block text-sm text-muted-foreground">{t('Route wird berechnet…')}</span>
         ) : route ? (
           <span className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground">
-            <Footprints className="size-3.5" /> {route.estimated ? 'ca. ' : ''}{route.minutes} Min · {formatKm(route.meters)}
+            <Footprints className="size-3.5" /> {route.estimated ? t('ca.') + ' ' : ''}{route.minutes} {t('Min')} · {formatKm(route.meters)}
           </span>
         ) : null}
         <DirectionsLinks to={to} name={stop.name} mode={travelMode} className="mt-3" />
