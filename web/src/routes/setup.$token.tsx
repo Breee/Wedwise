@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { t } from '@/lib/i18n'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { useMutation } from '@tanstack/react-query'
 import { api, errorMessage } from '@/lib/api'
@@ -14,7 +15,7 @@ export const Route = createFileRoute('/setup/$token')({
   loader: ({ params }) => api.get<{ username: string; displayName: string }>(`/setup/${params.token}`),
   component: SetupPage,
   errorComponent: () => (
-    <Shell title="Link ungültig" description="Dieser Einrichtungslink ist abgelaufen oder wurde schon benutzt. Bittet um einen neuen." />
+    <Shell title={t('Link ungültig')} description={t('Dieser Einrichtungslink ist abgelaufen oder wurde schon benutzt. Bittet um einen neuen.')} />
   ),
 })
 
@@ -50,15 +51,15 @@ function SetupPage() {
   if (save.isSuccess || passkey.isSuccess) {
     return (
       <Shell
-        title="Geschafft"
+        title={t('Geschafft')}
         description={
           passkey.isSuccess
-            ? 'Euer Passkey ist eingerichtet. Ihr könnt euch jetzt damit anmelden.'
-            : 'Euer Passwort ist gesetzt. Ihr könnt euch jetzt anmelden.'
+            ? t('Euer Passkey ist eingerichtet. Ihr könnt euch jetzt damit anmelden.')
+            : t('Euer Passwort ist gesetzt. Ihr könnt euch jetzt anmelden.')
         }
       >
         <Button asChild className="w-full">
-          <Link to="/login">Zur Anmeldung</Link>
+          <Link to="/login">{t('Zur Anmeldung')}</Link>
         </Button>
       </Shell>
     )
@@ -66,22 +67,22 @@ function SetupPage() {
 
   return (
     <Shell
-      title={`Hallo ${user.displayName || user.username}`}
-      description={`Richtet den Zugang für das Konto „${user.username}“ ein.`}
+      title={t('Hallo {name}', { name: user.displayName || user.username })}
+      description={t('Richtet den Zugang für das Konto „{user}“ ein.', { user: user.username })}
     >
       {webauthnSupported() && (
         <div className="mb-6 space-y-3">
           <Button className="w-full" disabled={passkey.isPending} onClick={() => passkey.mutate()}>
-            Mit Passkey einrichten
+            {t('Mit Passkey einrichten')}
           </Button>
           <p className="text-xs text-muted-foreground">
-            Anmelden per Face ID, Fingerabdruck oder Geräte-PIN – ganz ohne Passwort.
+            {t('Anmelden per Face ID, Fingerabdruck oder Geräte-PIN – ganz ohne Passwort.')}
           </p>
           {passkey.isError && (
-            <p className="text-sm text-destructive">Der Passkey konnte nicht eingerichtet werden.</p>
+            <p className="text-sm text-destructive">{t('Der Passkey konnte nicht eingerichtet werden.')}</p>
           )}
           <p className="pt-2 text-center text-xs tracking-widest text-muted-foreground uppercase">
-            oder Passwort festlegen
+            {t('oder Passwort festlegen')}
           </p>
         </div>
       )}
@@ -93,7 +94,7 @@ function SetupPage() {
         }}
       >
         <div className="space-y-2">
-          <Label htmlFor="s-password">Passwort (mind. {MIN_PASSWORD} Zeichen)</Label>
+          <Label htmlFor="s-password">{t('Passwort (mind. {n} Zeichen)', { n: MIN_PASSWORD })}</Label>
           <Input
             id="s-password"
             type="password"
@@ -106,7 +107,7 @@ function SetupPage() {
           />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="s-repeat">Passwort wiederholen</Label>
+          <Label htmlFor="s-repeat">{t('Passwort wiederholen')}</Label>
           <Input
             id="s-repeat"
             type="password"
@@ -116,7 +117,7 @@ function SetupPage() {
             autoComplete="new-password"
             aria-invalid={mismatch}
           />
-          {mismatch && <p className="text-sm text-destructive">Die Passwörter stimmen nicht überein.</p>}
+          {mismatch && <p className="text-sm text-destructive">{t('Die Passwörter stimmen nicht überein.')}</p>}
         </div>
         {save.isError && <p className="text-sm text-destructive">{errorMessage(save.error)}</p>}
         <Button
@@ -125,7 +126,7 @@ function SetupPage() {
           className="w-full"
           disabled={save.isPending || mismatch}
         >
-          Passwort speichern
+          {t('Passwort speichern')}
         </Button>
       </form>
     </Shell>

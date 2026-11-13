@@ -1,4 +1,5 @@
 import { Link, useNavigate, useRouterState } from '@tanstack/react-router'
+import { t } from '@/lib/i18n'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Heart, LogOut, Menu } from 'lucide-react'
 import { api } from '@/lib/api'
@@ -62,13 +63,13 @@ export function AppNav() {
           {names.length === 2 ? (
             <>
               {names[0]}
-              <Heart aria-label="und" className="size-4 fill-primary/20 text-primary" />
+              <Heart aria-label={t('und')} className="size-4 fill-primary/20 text-primary" />
               {names[1]}
             </>
           ) : (
             <>
               <Heart className="size-5 fill-primary/20 text-primary" />
-              {content?.event.title ?? 'Unsere Hochzeit'}
+              {content?.event.title ?? t('Unsere Hochzeit')}
             </>
           )}
         </Link>
@@ -82,17 +83,17 @@ export function AppNav() {
                     to={l.to}
                     className="rounded-md px-3 py-2 text-muted-foreground transition-colors hover:text-foreground data-[status=active]:bg-accent data-[status=active]:text-accent-foreground"
                   >
-                    {l.label}
+                    {t(l.label)}
                   </Link>
                 ))}
                 <Button variant="ghost" size="sm" onClick={() => logout.mutate()} disabled={logout.isPending}>
                   <LogOut className="size-4" />
-                  Abmelden
+                  {t('Abmelden')}
                 </Button>
               </div>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="md:hidden" aria-label="Menü">
+                  <Button variant="ghost" size="icon" className="md:hidden" aria-label={t('Menü')}>
                     <Menu className="size-5" />
                   </Button>
                 </DropdownMenuTrigger>
@@ -100,13 +101,13 @@ export function AppNav() {
                   {links.map((l) => (
                     <DropdownMenuItem key={l.to} asChild>
                       <Link to={l.to} className="data-[status=active]:bg-accent">
-                        {l.label}
+                        {t(l.label)}
                       </Link>
                     </DropdownMenuItem>
                   ))}
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onSelect={() => logout.mutate()} disabled={logout.isPending}>
-                    <LogOut className="size-4" /> Abmelden
+                    <LogOut className="size-4" /> {t('Abmelden')}
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -115,7 +116,7 @@ export function AppNav() {
           {!authed && (
             !isPublic && pathname !== '/login' && (
               <Link to="/login" className="px-3 py-2 text-muted-foreground hover:text-foreground">
-                Anmelden
+                {t('Anmelden')}
               </Link>
             )
           )}

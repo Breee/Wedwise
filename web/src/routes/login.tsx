@@ -1,4 +1,5 @@
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
+import { t } from '@/lib/i18n'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useForm } from '@tanstack/react-form'
 import { useState } from 'react'
@@ -76,8 +77,8 @@ function LoginPage() {
     <section className="mx-auto flex max-w-md flex-col px-6 py-24">
       <Card>
         <CardHeader className="text-center">
-          <CardTitle className="text-3xl">Anmelden</CardTitle>
-          <CardDescription>Bereich für Brautpaar und Trauzeugen.</CardDescription>
+          <CardTitle className="text-3xl">{t('Anmelden')}</CardTitle>
+          <CardDescription>{t('Bereich für Brautpaar und Trauzeugen.')}</CardDescription>
         </CardHeader>
         <CardContent>
           <form
@@ -90,7 +91,7 @@ function LoginPage() {
             <form.Field name="username">
               {(field) => (
                 <div className="space-y-2">
-                  <Label htmlFor={field.name}>Benutzername</Label>
+                  <Label htmlFor={field.name}>{t('Benutzername')}</Label>
                   <Input
                     id={field.name}
                     autoComplete="username"
@@ -104,7 +105,7 @@ function LoginPage() {
             <form.Field name="password">
               {(field) => (
                 <div className="space-y-2">
-                  <Label htmlFor={field.name}>Passwort</Label>
+                  <Label htmlFor={field.name}>{t('Passwort')}</Label>
                   <Input
                     id={field.name}
                     type="password"
@@ -120,7 +121,7 @@ function LoginPage() {
               <form.Field name="code">
                 {(field) => (
                   <div className="space-y-2">
-                    <Label htmlFor={field.name}>Code</Label>
+                    <Label htmlFor={field.name}>{t('Code')}</Label>
                     <Input
                       id={field.name}
                       autoComplete="one-time-code"
@@ -130,7 +131,7 @@ function LoginPage() {
                       required={!hasKey}
                     />
                     <p className="text-xs text-muted-foreground">
-                      6-stelliger Code aus eurer Authenticator-App oder ein Wiederherstellungscode.
+                      {t('6-stelliger Code aus eurer Authenticator-App oder ein Wiederherstellungscode.')}
                     </p>
                   </div>
                 )}
@@ -139,14 +140,14 @@ function LoginPage() {
             {login.isError && !(login.error instanceof ApiError && login.error.code === 'two_factor_required') && (
               <p className="text-sm text-destructive" role="alert">
                 {login.error instanceof ApiError && login.error.code === 'invalid_code'
-                  ? 'Der Code stimmt nicht.'
+                  ? t('Der Code stimmt nicht.')
                   : login.error instanceof ApiError && login.error.status === 401
-                    ? 'Benutzername oder Passwort stimmt nicht.'
-                    : errorMessage(login.error, 'Anmeldung fehlgeschlagen.')}
+                    ? t('Benutzername oder Passwort stimmt nicht.')
+                    : errorMessage(login.error, t('Anmeldung fehlgeschlagen.'))}
               </p>
             )}
             <Button type="submit" className="w-full" disabled={login.isPending}>
-              {login.isPending ? 'Wird geprüft…' : 'Anmelden'}
+              {login.isPending ? t('Wird geprüft…') : t('Anmelden')}
             </Button>
             {needsCode && hasKey && (
               <Button
@@ -156,7 +157,7 @@ function LoginPage() {
                 disabled={withKey.isPending || login.isPending}
                 onClick={() => withKey.mutate()}
               >
-                Mit Passkey oder Sicherheitsschlüssel anmelden
+                {t('Mit Passkey oder Sicherheitsschlüssel anmelden')}
               </Button>
             )}
           </form>
@@ -169,11 +170,11 @@ function LoginPage() {
                 disabled={passkey.isPending}
                 onClick={() => passkey.mutate()}
               >
-                Mit Passkey anmelden
+                {t('Mit Passkey anmelden')}
               </Button>
               {passkey.isError && (
                 <p className="text-sm text-destructive" role="alert">
-                  Die Anmeldung mit Passkey hat nicht geklappt.
+                  {t('Die Anmeldung mit Passkey hat nicht geklappt.')}
                 </p>
               )}
             </div>
