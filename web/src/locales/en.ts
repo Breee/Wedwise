@@ -428,4 +428,7 @@ export const en: Record<string, string> = {
   ' · {n} Min.': ' · {n} min',
   '{n} geplant · {total} Min. gesamt · Ende {end}': '{n} planned · {total} min total · ends {end}',
   'Kopieren hat nicht geklappt. Bitte markiert den Text und kopiert ihn von Hand.': 'Copying did not work. Please select the text and copy it by hand.',
+  'Öffnet das Browser-Menü': 'Open the browser menu',
+  'und tippt auf': 'and tap',
+  '„Zum Startbildschirm hinzufügen“': '“Add to Home screen”',
 }

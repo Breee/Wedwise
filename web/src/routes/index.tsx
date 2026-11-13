@@ -105,12 +105,10 @@ function HomePage() {
               </Button>
             )}
           </div>
-          {rememberedToken() && (
-            <div className="mx-auto mt-6 max-w-sm space-y-3">
-              <InstallApp />
-              <GuestNotifications />
-            </div>
-          )}
+          <div className="mx-auto mt-6 max-w-sm space-y-3">
+            <InstallApp />
+            {rememberedToken() && <GuestNotifications />}
+          </div>
           {schedule.length > 0 && (
             <a href="#ablauf" className="mt-10 inline-flex flex-col items-center gap-1 text-xs tracking-widest text-muted-foreground uppercase transition-colors hover:text-primary">
               {t('Zum Ablauf')} <ChevronDown className="size-4 animate-bounce" />

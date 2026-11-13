@@ -11,6 +11,10 @@ function isStandalone() {
   return window.matchMedia('(display-mode: standalone)').matches || (navigator as { standalone?: boolean }).standalone === true
 }
 
+function isAndroid() {
+  return /android/i.test(navigator.userAgent)
+}
+
 function isIos() {
   return /iphone|ipad|ipod/i.test(navigator.userAgent)
 }
@@ -33,7 +37,7 @@ export function InstallApp() {
     }
   }, [])
 
-  if (installed || (!prompt && !isIos())) return null
+  if (installed || (!prompt && !isIos() && !isAndroid())) return null
 
   return (
     <div className="mx-auto max-w-md space-y-2 rounded-lg border bg-secondary/40 p-4 text-left">
@@ -47,6 +51,11 @@ export function InstallApp() {
         <Button type="button" variant="outline" onClick={() => prompt.prompt().then(() => setPrompt(null))}>
           {t('App installieren')}
         </Button>
+      ) : isAndroid() ? (
+        <p className="text-sm">
+          {t('Öffnet das Browser-Menü')} <span className="font-medium">⋮</span> {t('und tippt auf')}{' '}
+          <span className="font-medium">{t('„Zum Startbildschirm hinzufügen“')}</span>.
+        </p>
       ) : (
         <p className="text-sm">
           {t('Tippt in Safari auf')} <Share className="inline size-4 align-[-2px]" /> <span className="font-medium">{t('Teilen')}</span> {t('und dann auf')}{' '}
