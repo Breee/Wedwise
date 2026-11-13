@@ -97,20 +97,24 @@ function InvitesPage() {
           {links.map((l) => (
             <TableRow key={l.id} className={`mb-3 flex flex-wrap items-center gap-x-4 gap-y-1 rounded-lg border bg-card p-3 sm:mb-0 sm:table-row sm:rounded-none sm:bg-transparent sm:p-0 ${l.active ? '' : 'opacity-60'}`}>
               <TableCell className="w-full min-w-0 p-0 sm:w-auto sm:p-2">
-                <div className="flex items-center gap-1 font-mono text-xs">
-                  <span className="truncate">{revealed === l.id ? linkUrl(l.token) : `${window.location.origin}/rsvp/••••••••••••`}</span>
-                  <Button type="button" variant="ghost" size="icon" className="size-10 shrink-0 sm:size-7" title={revealed === l.id ? t('Verbergen') : t('Anzeigen')} onClick={() => setRevealed(revealed === l.id ? null : l.id)}>
-                    {revealed === l.id ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
-                  </Button>
-                  <Button type="button" variant="ghost" size="icon" className="size-10 shrink-0 sm:size-7" title={t('Link kopieren')} aria-label={t('Link kopieren')} onClick={() => copy(l.token)}>
-                    <Copy className="size-3.5" />
-                  </Button>
-                  {'share' in navigator && (
-                    <Button type="button" variant="ghost" size="icon" className="size-10 shrink-0 sm:size-7" title={t('Link teilen')} aria-label={t('Link teilen')} onClick={() => share(l.token)}>
-                      <Share2 className="size-3.5" />
+                {l.token ? (
+                  <div className="flex items-center gap-1 font-mono text-xs">
+                    <span className="truncate">{revealed === l.id ? linkUrl(l.token) : `${window.location.origin}/rsvp/••••••••••••`}</span>
+                    <Button type="button" variant="ghost" size="icon" className="size-10 shrink-0 sm:size-7" title={revealed === l.id ? t('Verbergen') : t('Anzeigen')} onClick={() => setRevealed(revealed === l.id ? null : l.id)}>
+                      {revealed === l.id ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
                     </Button>
-                  )}
-                </div>
+                    <Button type="button" variant="ghost" size="icon" className="size-10 shrink-0 sm:size-7" title={t('Link kopieren')} aria-label={t('Link kopieren')} onClick={() => copy(l.token)}>
+                      <Copy className="size-3.5" />
+                    </Button>
+                    {'share' in navigator && (
+                      <Button type="button" variant="ghost" size="icon" className="size-10 shrink-0 sm:size-7" title={t('Link teilen')} aria-label={t('Link teilen')} onClick={() => share(l.token)}>
+                        <Share2 className="size-3.5" />
+                      </Button>
+                    )}
+                  </div>
+                ) : (
+                  <span className="text-xs text-muted-foreground">{t('Link nicht mehr lesbar – bitte neu erzeugen.')}</span>
+                )}
               </TableCell>
               <TableCell className="p-0 sm:p-2">{l.hasPin ? <Badge>PIN</Badge> : <span className="text-muted-foreground"><span className="sm:hidden">{t('Kein PIN')}</span><span className="hidden sm:inline">–</span></span>}</TableCell>
               <TableCell className="p-0 sm:p-2">{l.responses}<span className="text-muted-foreground sm:hidden"> {t('Antworten')}</span></TableCell>

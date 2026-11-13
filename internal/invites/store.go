@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/Breee/Wedwise/internal/auth"
+	"github.com/Breee/Wedwise/internal/tokens"
 )
 
 // ErrNotFound is returned when no link matches.
@@ -42,13 +43,20 @@ type Link struct {
 
 // Store persists invite links in SQLite.
 type Store struct {
-	db *sql.DB
+	db    *sql.DB
+	vault *tokens.Vault
 }
 
-// NewStore creates an invite link store.
-func NewStore(db *sql.DB) *Store { return &Store{db: db} }
+// NewStore creates an invite link store. Tokens are stored hashed, with a copy
+// encrypted by vault so staff can copy the link again.
+func NewStore(db *sql.DB, vault *tokens.Vault) *Store { return &Store{db: db, vault: vault} }
 
-const columns = `l.id, l.token, l.pin_hash, l.active, l.created_at, l.updated_at,
+// ProtectTokens converts tokens that are still stored in plain text.
+func (s *Store) ProtectTokens(ctx context.Context) error {
+	return tokens.Protect(ctx, s.db, s.vault, "invite_links", "token_hash", "token_enc")
+}
+
+const columns = `l.id, l.token_enc, l.pin_hash, l.active, l.created_at, l.updated_at,
 	(SELECT COUNT(*) FROM responses r WHERE r.invite_link_id = l.id)`
 
 // Create inserts a new active link without PIN.
@@ -57,9 +65,14 @@ func (s *Store) Create(ctx context.Context) (Link, error) {
 	if err != nil {
 		return Link{}, err
 	}
+	sealed, err := s.vault.Seal(token)
+	if err != nil {
+		return Link{}, fmt.Errorf("seal invite token: %w", err)
+	}
 	now := time.Now().UTC()
 	res, err := s.db.ExecContext(ctx,
-		"INSERT INTO invite_links (token, created_at, updated_at) VALUES (?, ?, ?)", token, now, now)
+		"INSERT INTO invite_links (token_hash, token_enc, created_at, updated_at) VALUES (?, ?, ?, ?)",
+		tokens.Hash(token), sealed, now, now)
 	if err != nil {
 		return Link{}, fmt.Errorf("insert invite link: %w", err)
 	}
@@ -80,7 +93,7 @@ func (s *Store) List(ctx context.Context) ([]Link, error) {
 
 	result := make([]Link, 0)
 	for rows.Next() {
-		link, err := scan(rows)
+		link, err := s.scan(rows)
 		if err != nil {
 			return nil, fmt.Errorf("scan invite link: %w", err)
 		}
@@ -102,7 +115,7 @@ func (s *Store) GetByToken(ctx context.Context, token string) (Link, error) {
 	if token == "" {
 		return Link{}, ErrNotFound
 	}
-	return s.queryOne(ctx, "SELECT "+columns+" FROM invite_links l WHERE l.token = ?", token)
+	return s.queryOne(ctx, "SELECT "+columns+" FROM invite_links l WHERE l.token_hash = ?", tokens.Hash(token))
 }
 
 // SetPIN sets or, with an empty pin, removes the PIN of a link.
@@ -132,7 +145,11 @@ func (s *Store) Regenerate(ctx context.Context, id int64) (Link, error) {
 	if err != nil {
 		return Link{}, err
 	}
-	return s.update(ctx, id, "token = ?", token)
+	sealed, err := s.vault.Seal(token)
+	if err != nil {
+		return Link{}, fmt.Errorf("seal invite token: %w", err)
+	}
+	return s.update(ctx, id, "token_hash = ?, token_enc = ?", tokens.Hash(token), sealed)
 }
 
 // Delete removes a link. Responses submitted through it are kept.
@@ -159,9 +176,9 @@ func (l Link) VerifyPIN(pin string) bool {
 // PINHash exposes the stored hash so access proofs can be bound to it.
 func (l Link) PINHash() string { return l.pinHash }
 
-func (s *Store) update(ctx context.Context, id int64, set string, value any) (Link, error) {
+func (s *Store) update(ctx context.Context, id int64, set string, values ...any) (Link, error) {
 	res, err := s.db.ExecContext(ctx,
-		"UPDATE invite_links SET "+set+", updated_at = ? WHERE id = ?", value, time.Now().UTC(), id)
+		"UPDATE invite_links SET "+set+", updated_at = ? WHERE id = ?", append(values, time.Now().UTC(), id)...)
 	if err != nil {
 		return Link{}, fmt.Errorf("update invite link: %w", err)
 	}
@@ -172,7 +189,7 @@ func (s *Store) update(ctx context.Context, id int64, set string, value any) (Li
 }
 
 func (s *Store) queryOne(ctx context.Context, query string, args ...any) (Link, error) {
-	link, err := scan(s.db.QueryRowContext(ctx, query, args...))
+	link, err := s.scan(s.db.QueryRowContext(ctx, query, args...))
 	if errors.Is(err, sql.ErrNoRows) {
 		return Link{}, ErrNotFound
 	}
@@ -186,9 +203,13 @@ type scanner interface {
 	Scan(dest ...any) error
 }
 
-func scan(row scanner) (Link, error) {
+func (s *Store) scan(row scanner) (Link, error) {
 	var l Link
-	err := row.Scan(&l.ID, &l.Token, &l.pinHash, &l.Active, &l.CreatedAt, &l.UpdatedAt, &l.Responses)
+	var sealed string
+	err := row.Scan(&l.ID, &sealed, &l.pinHash, &l.Active, &l.CreatedAt, &l.UpdatedAt, &l.Responses)
+	// Empty when the session secret changed: the link still works, but staff
+	// have to regenerate it to see the URL again.
+	l.Token = s.vault.OpenOrEmpty(sealed)
 	l.HasPIN = l.pinHash != ""
 	return l, err
 }

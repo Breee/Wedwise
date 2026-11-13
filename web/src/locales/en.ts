@@ -105,6 +105,7 @@ export const en: Record<string, string> = {
   'Ablauf, Anreise und Unterkünfte findet ihr dort jederzeit wieder.': 'Schedule, travel and places to stay are always there for you.',
   'Antwort bearbeiten': 'Edit answer',
   'Antwort löschen': 'Delete response',
+  'Link nicht mehr lesbar – bitte neu erzeugen.': 'Link can no longer be read – please regenerate it.',
   'Eure Angaben sehen nur wir und unsere Trauzeugen.': 'Only we and our witnesses see your answers.',
   'Datenschutz': 'Privacy',
   'Datenschutzhinweis': 'Privacy note',

@@ -101,7 +101,7 @@ Settings come from a YAML file (`CONFIG_PATH`, default
 
 | Env var | YAML key | Default | Purpose |
 |---------|----------|---------|---------|
-| `SESSION_SECRET` | `sessionSecret` | — | **Required**, at least 16 characters. Signs PIN cookies. Generate with `openssl rand -hex 32`. |
+| `SESSION_SECRET` | `sessionSecret` | — | **Required**, at least 16 characters. Signs PIN cookies and encrypts stored secrets and link tokens. Generate with `openssl rand -hex 32`. |
 | `BASE_URL` | `baseUrl` | `http://localhost:8080` | The address people open. Logins from any other origin are rejected. |
 | – | `event.language` | `de` | UI language: `de` or `en`. Your own content is not translated. |
 | – | `event.timezone` | `Europe/Berlin` | Time zone of the calendar entry. |
@@ -266,6 +266,12 @@ Uploaded images live in `/data/uploads`; copy that directory as well.
 - Sessions are HttpOnly, SameSite=Lax cookies (Secure in production).
   State-changing requests are checked against the `Origin`/`Referer` header.
 - Passwords and invite PINs are stored as argon2id hashes.
+- Invite and edit tokens are stored as SHA-256 hashes, so a leaked database
+  or backup opens no response. A copy encrypted with AES-256-GCM (key derived
+  from `SESSION_SECRET`) lets staff copy a link again; after changing the
+  secret the links keep working, but invite links must be regenerated to be
+  shown again. Tokens from older versions are converted on the first start;
+  backups made before that still contain them in plain text.
 - Rate limits per client IP and minute: login 10, public RSVP endpoints 30,
   route and song lookups 60. Over the limit returns `429` with `Retry-After`.
 - After 10 wrong PINs an invite link is locked for 15 minutes, whatever the

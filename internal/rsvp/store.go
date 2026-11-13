@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/Breee/Wedwise/internal/contributions"
+	"github.com/Breee/Wedwise/internal/tokens"
 )
 
 // ErrNotFound is returned when no response matches.
@@ -27,11 +28,18 @@ const (
 type Store struct {
 	db            *sql.DB
 	contributions *contributions.Store
+	vault         *tokens.Vault
 }
 
-// NewStore creates a response store backed by db.
-func NewStore(db *sql.DB, contributionStore *contributions.Store) *Store {
-	return &Store{db: db, contributions: contributionStore}
+// NewStore creates a response store backed by db. Edit tokens are stored
+// hashed, with a copy encrypted by vault for staff who help guests.
+func NewStore(db *sql.DB, contributionStore *contributions.Store, vault *tokens.Vault) *Store {
+	return &Store{db: db, contributions: contributionStore, vault: vault}
+}
+
+// ProtectTokens converts edit tokens that are still stored in plain text.
+func (s *Store) ProtectTokens(ctx context.Context) error {
+	return tokens.Protect(ctx, s.db, s.vault, "responses", "edit_token_hash", "edit_token_enc")
 }
 
 // AttendeeInput describes a single attendee of a submission.
@@ -134,6 +142,11 @@ func (s *Store) Create(ctx context.Context, inviteLinkID int64, params SubmitPar
 		return Response{}, "", err
 	}
 
+	sealed, err := s.vault.Seal(token)
+	if err != nil {
+		return Response{}, "", fmt.Errorf("seal edit token: %w", err)
+	}
+
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return Response{}, "", fmt.Errorf("begin response transaction: %w", err)
@@ -142,9 +155,9 @@ func (s *Store) Create(ctx context.Context, inviteLinkID int64, params SubmitPar
 
 	now := time.Now().UTC()
 	res, err := tx.ExecContext(ctx,
-		`INSERT INTO responses (invite_link_id, edit_token, contact_name, email, phone, status, message, music_genres, music_song, submitted_at, updated_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		inviteLinkID, token, params.ContactName, params.Email, params.Phone, params.Status, params.Message, params.MusicGenres, params.MusicSong, now, now)
+		`INSERT INTO responses (invite_link_id, edit_token_hash, edit_token_enc, contact_name, email, phone, status, message, music_genres, music_song, submitted_at, updated_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		inviteLinkID, tokens.Hash(token), sealed, params.ContactName, params.Email, params.Phone, params.Status, params.Message, params.MusicGenres, params.MusicSong, now, now)
 	if err != nil {
 		return Response{}, "", fmt.Errorf("insert response: %w", err)
 	}
@@ -252,7 +265,7 @@ func (s *Store) GetByToken(ctx context.Context, token string) (Response, error) 
 	if token == "" {
 		return Response{}, ErrNotFound
 	}
-	return s.queryOne(ctx, "SELECT "+responseColumns+" FROM responses WHERE edit_token = ?", token)
+	return s.queryOne(ctx, "SELECT "+responseColumns+" FROM responses WHERE edit_token_hash = ?", tokens.Hash(token))
 }
 
 func (s *Store) queryOne(ctx context.Context, query string, args ...any) (Response, error) {
@@ -383,19 +396,19 @@ func scanResponse(row scanner) (Response, error) {
 // EditTokens returns the edit token of every response, for staff who help
 // guests that lost their link.
 func (s *Store) EditTokens(ctx context.Context) (map[int64]string, error) {
-	rows, err := s.db.QueryContext(ctx, "SELECT id, edit_token FROM responses")
+	rows, err := s.db.QueryContext(ctx, "SELECT id, edit_token_enc FROM responses")
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	tokens := map[int64]string{}
+	result := map[int64]string{}
 	for rows.Next() {
 		var id int64
-		var token string
-		if err := rows.Scan(&id, &token); err != nil {
+		var sealed string
+		if err := rows.Scan(&id, &sealed); err != nil {
 			return nil, err
 		}
-		tokens[id] = token
+		result[id] = s.vault.OpenOrEmpty(sealed)
 	}
-	return tokens, rows.Err()
+	return result, rows.Err()
 }

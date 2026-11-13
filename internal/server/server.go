@@ -4,6 +4,7 @@ package server
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"io/fs"
 	"log/slog"
 	"net/http"
@@ -26,6 +27,7 @@ import (
 	"github.com/Breee/Wedwise/internal/rsvp"
 	"github.com/Breee/Wedwise/internal/songs"
 	"github.com/Breee/Wedwise/internal/theme"
+	"github.com/Breee/Wedwise/internal/tokens"
 	"github.com/Breee/Wedwise/internal/twofactor"
 	"github.com/Breee/Wedwise/internal/uploads"
 	"github.com/Breee/Wedwise/internal/users"
@@ -70,9 +72,23 @@ func New(cfg configuration.Config, db *sql.DB) (*Server, error) {
 	twoFactorHandler := twofactor.NewHandler(twoFactorStore)
 
 	contributionStore := contributions.NewStore(db)
-	rsvpStore := rsvp.NewStore(db, contributionStore)
+	inviteVault, err := tokens.NewVault(cfg.SessionSecret, "invite-token")
+	if err != nil {
+		return nil, err
+	}
+	editVault, err := tokens.NewVault(cfg.SessionSecret, "edit-token")
+	if err != nil {
+		return nil, err
+	}
+	rsvpStore := rsvp.NewStore(db, contributionStore, editVault)
 	contentStore := content.NewStore(db)
-	inviteStore := invites.NewStore(db)
+	inviteStore := invites.NewStore(db, inviteVault)
+	if err := inviteStore.ProtectTokens(context.Background()); err != nil {
+		return nil, fmt.Errorf("protect invite tokens: %w", err)
+	}
+	if err := rsvpStore.ProtectTokens(context.Background()); err != nil {
+		return nil, fmt.Errorf("protect edit tokens: %w", err)
+	}
 	inviteGate := invites.NewGate(cfg.SessionSecret, cfg.IsProduction())
 
 	userHandler := users.NewHandler(userStore, authService, cfg.BaseURL)
