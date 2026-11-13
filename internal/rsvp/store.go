@@ -279,7 +279,7 @@ func (s *Store) writeDetails(ctx context.Context, tx *sql.Tx, responseID int64, 
 	return s.contributions.Upsert(ctx, tx, responseID, *params.Contribution)
 }
 
-const responseColumns = "id, contact_name, email, phone, status, message, music_genres, music_song, submitted_at, updated_at"
+const responseColumns = "id, invite_link_id, contact_name, email, phone, status, message, music_genres, music_song, submitted_at, updated_at"
 
 // GetByID returns a response by id.
 func (s *Store) GetByID(ctx context.Context, id int64) (Response, error) {
@@ -418,13 +418,41 @@ func (s *Store) Summarize(ctx context.Context) (Summary, error) {
 	return summary, nil
 }
 
+// MaxBulkDelete caps the responses removed by one DeleteMany call.
+const MaxBulkDelete = 500
+
+// DeleteMany removes several responses at once and returns how many existed.
+func (s *Store) DeleteMany(ctx context.Context, ids []int64) (int, error) {
+	if len(ids) == 0 || len(ids) > MaxBulkDelete {
+		return 0, fmt.Errorf("%w: between 1 and %d ids are required", ErrValidation, MaxBulkDelete)
+	}
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return 0, fmt.Errorf("begin delete responses: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+	deleted := 0
+	for _, id := range ids {
+		res, err := tx.ExecContext(ctx, "DELETE FROM responses WHERE id = ?", id)
+		if err != nil {
+			return 0, fmt.Errorf("delete response: %w", err)
+		}
+		n, _ := res.RowsAffected()
+		deleted += int(n)
+	}
+	if err := tx.Commit(); err != nil {
+		return 0, fmt.Errorf("commit delete responses: %w", err)
+	}
+	return deleted, nil
+}
+
 type scanner interface {
 	Scan(dest ...any) error
 }
 
 func (s *Store) scanResponse(row scanner) (Response, error) {
 	var r Response
-	if err := row.Scan(&r.ID, &r.ContactName, &r.Email, &r.Phone, &r.Status, &r.Message, &r.MusicGenres, &r.MusicSong, &r.SubmittedAt, &r.UpdatedAt); err != nil {
+	if err := row.Scan(&r.ID, &r.InviteLinkID, &r.ContactName, &r.Email, &r.Phone, &r.Status, &r.Message, &r.MusicGenres, &r.MusicSong, &r.SubmittedAt, &r.UpdatedAt); err != nil {
 		return r, err
 	}
 	return r, s.box.OpenAll(&r.Email, &r.Phone, &r.Message)

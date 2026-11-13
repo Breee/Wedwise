@@ -38,6 +38,10 @@ type Response struct {
 	MusicSong   string    `json:"musicSong"`
 	SubmittedAt time.Time `json:"submittedAt"`
 	UpdatedAt   time.Time `json:"updatedAt"`
+
+	// InviteLinkID is the link the response came through; nil once that link
+	// was deleted. Only staff see it.
+	InviteLinkID *int64 `json:"-"`
 }
 
 // Attendee is a person covered by a response.

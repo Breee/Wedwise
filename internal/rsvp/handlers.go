@@ -18,6 +18,16 @@ import (
 // CodeInvalidPIN is the error code for a wrong or missing invite PIN.
 const CodeInvalidPIN = "invalid_pin"
 
+// CodeLinkFull is the error code for a link that reached its response cap.
+const CodeLinkFull = "link_full"
+
+// A link accepts at most LinkSubmitLimit new responses per LinkSubmitWindow,
+// which slows down spam through a leaked link.
+const (
+	LinkSubmitLimit  = 20
+	LinkSubmitWindow = 10 * time.Minute
+)
+
 // A link accepts at most PINFailureLimit wrong PINs per PINFailureWindow,
 // regardless of where the attempts come from.
 const (
@@ -33,17 +43,19 @@ type Handler struct {
 	links         *invites.Store
 	gate          *invites.Gate
 	pinFailures   *middleware.Limiter
+	submissions   *middleware.Limiter
 	notify        func(response Response, withContribution bool)
 }
 
 // NewHandler creates an RSVP handler.
-func NewHandler(store *Store, contributionStore *contributions.Store, links *invites.Store, gate *invites.Gate, pinFailures *middleware.Limiter) *Handler {
+func NewHandler(store *Store, contributionStore *contributions.Store, links *invites.Store, gate *invites.Gate, pinFailures, submissions *middleware.Limiter) *Handler {
 	return &Handler{
 		store:         store,
 		contributions: contributionStore,
 		links:         links,
 		gate:          gate,
 		pinFailures:   pinFailures,
+		submissions:   submissions,
 	}
 }
 
@@ -110,8 +122,17 @@ type guestView struct {
 
 type coupleView struct {
 	Response
-	EditToken string     `json:"editToken,omitempty"`
-	Attendees []Attendee `json:"attendees"`
+	InviteLinkID *int64     `json:"inviteLinkId"`
+	EditToken    string     `json:"editToken,omitempty"`
+	Attendees    []Attendee `json:"attendees"`
+}
+
+func newCoupleView(response Response, editToken string, attendees []Attendee) coupleView {
+	return coupleView{Response: response, InviteLinkID: response.InviteLinkID, EditToken: editToken, Attendees: attendees}
+}
+
+type bulkDeleteRequest struct {
+	IDs []int64 `json:"ids"`
 }
 
 // PublicRoutes returns the guest facing routes. Guests open the form through
@@ -148,6 +169,7 @@ func (h *Handler) StaffRoutes(authService *auth.Service) http.Handler {
 	r.With(authService.RequirePermission(auth.PermRSVPRead)).Get("/{id}", h.staffGet)
 	r.With(authService.RequirePermission(auth.PermRSVPManage)).Put("/{id}", h.staffUpdate)
 	r.With(authService.RequirePermission(auth.PermRSVPManage)).Delete("/{id}", h.staffDelete)
+	r.With(authService.RequirePermission(auth.PermRSVPManage)).Post("/delete", h.staffDeleteMany)
 	return r
 }
 
@@ -196,6 +218,20 @@ func (h *Handler) staffDelete(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// staffDeleteMany removes several responses at once, e.g. spam.
+func (h *Handler) staffDeleteMany(w http.ResponseWriter, r *http.Request) {
+	var req bulkDeleteRequest
+	if !httpx.DecodeJSON(w, r, &req) {
+		return
+	}
+	deleted, err := h.store.DeleteMany(r.Context(), req.IDs)
+	if err != nil {
+		h.writeError(w, err)
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, map[string]any{"deleted": deleted})
+}
+
 func (h *Handler) writeCoupleView(w http.ResponseWriter, r *http.Request, response Response) {
 	attendees, err := h.store.Attendees(r.Context(), response.ID)
 	if err != nil {
@@ -210,7 +246,7 @@ func (h *Handler) writeCoupleView(w http.ResponseWriter, r *http.Request, respon
 		httpx.Internal(w, err)
 		return
 	}
-	httpx.WriteJSON(w, http.StatusOK, coupleView{Response: response, EditToken: tokens[response.ID], Attendees: attendees})
+	httpx.WriteJSON(w, http.StatusOK, newCoupleView(response, tokens[response.ID], attendees))
 }
 
 // editTokens returns the edit links so staff can hand them back to guests who
@@ -246,7 +282,7 @@ func (h *Handler) ListHandler(w http.ResponseWriter, r *http.Request) {
 		if list == nil {
 			list = []Attendee{}
 		}
-		views = append(views, coupleView{Response: response, EditToken: tokens[response.ID], Attendees: list})
+		views = append(views, newCoupleView(response, tokens[response.ID], list))
 	}
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{"responses": views})
 }
@@ -315,6 +351,16 @@ func (h *Handler) create(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, http.StatusUnauthorized, CodeInvalidPIN, "Please enter the PIN first.")
 		return
 	}
+	if link.Full() {
+		httpx.WriteError(w, http.StatusForbidden, CodeLinkFull, "This invite link does not accept more responses.")
+		return
+	}
+	key := strconv.FormatInt(link.ID, 10)
+	if blocked, retryAfter := h.submissions.Blocked(key); blocked {
+		w.Header().Set("Retry-After", strconv.Itoa(int(retryAfter.Seconds())+1))
+		httpx.WriteError(w, http.StatusTooManyRequests, httpx.CodeTooManyRequests, "Too many responses at once. Please try again later.")
+		return
+	}
 	var req submitRequest
 	if !httpx.DecodeJSON(w, r, &req) {
 		return
@@ -324,6 +370,7 @@ func (h *Handler) create(w http.ResponseWriter, r *http.Request) {
 		h.writeError(w, err)
 		return
 	}
+	h.submissions.Allow(key)
 	if h.notify != nil {
 		h.notify(response, req.Contribution != nil && response.Status == StatusYes)
 	}

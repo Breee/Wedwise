@@ -26,17 +26,22 @@ const (
 	minPINLen = 4
 	maxPINLen = 64
 	tokenLen  = 16
+
+	// MaxResponseLimit is the highest cap that can be set on a link.
+	MaxResponseLimit = 10000
 )
 
 // Link is a shareable invite link.
 type Link struct {
-	ID        int64     `json:"id"`
-	Token     string    `json:"token"`
-	HasPIN    bool      `json:"hasPin"`
-	Active    bool      `json:"active"`
-	Responses int       `json:"responses"`
-	CreatedAt time.Time `json:"createdAt"`
-	UpdatedAt time.Time `json:"updatedAt"`
+	ID        int64  `json:"id"`
+	Token     string `json:"token"`
+	HasPIN    bool   `json:"hasPin"`
+	Active    bool   `json:"active"`
+	Responses int    `json:"responses"`
+	// MaxResponses caps the responses the link accepts; 0 means unlimited.
+	MaxResponses int       `json:"maxResponses"`
+	CreatedAt    time.Time `json:"createdAt"`
+	UpdatedAt    time.Time `json:"updatedAt"`
 
 	pinHash string
 }
@@ -56,7 +61,7 @@ func (s *Store) ProtectTokens(ctx context.Context) error {
 	return tokens.Protect(ctx, s.db, s.vault, "invite_links", "token_hash", "token_enc")
 }
 
-const columns = `l.id, l.token_enc, l.pin_hash, l.active, l.created_at, l.updated_at,
+const columns = `l.id, l.token_enc, l.pin_hash, l.active, l.max_responses, l.created_at, l.updated_at,
 	(SELECT COUNT(*) FROM responses r WHERE r.invite_link_id = l.id)`
 
 // Create inserts a new active link without PIN.
@@ -139,6 +144,14 @@ func (s *Store) SetActive(ctx context.Context, id int64, active bool) (Link, err
 	return s.update(ctx, id, "active = ?", active)
 }
 
+// SetMaxResponses caps the responses a link accepts; 0 removes the cap.
+func (s *Store) SetMaxResponses(ctx context.Context, id int64, limit int) (Link, error) {
+	if limit < 0 || limit > MaxResponseLimit {
+		return Link{}, fmt.Errorf("%w: maxResponses must be between 0 and %d", ErrValidation, MaxResponseLimit)
+	}
+	return s.update(ctx, id, "max_responses = ?", limit)
+}
+
 // Regenerate replaces the token of a link, invalidating the old URL.
 func (s *Store) Regenerate(ctx context.Context, id int64) (Link, error) {
 	token, err := generateToken()
@@ -173,6 +186,9 @@ func (l Link) VerifyPIN(pin string) bool {
 	return err == nil && ok
 }
 
+// Full reports whether the link has reached its response cap.
+func (l Link) Full() bool { return l.MaxResponses > 0 && l.Responses >= l.MaxResponses }
+
 // PINHash exposes the stored hash so access proofs can be bound to it.
 func (l Link) PINHash() string { return l.pinHash }
 
@@ -206,7 +222,7 @@ type scanner interface {
 func (s *Store) scan(row scanner) (Link, error) {
 	var l Link
 	var sealed string
-	err := row.Scan(&l.ID, &sealed, &l.pinHash, &l.Active, &l.CreatedAt, &l.UpdatedAt, &l.Responses)
+	err := row.Scan(&l.ID, &sealed, &l.pinHash, &l.Active, &l.MaxResponses, &l.CreatedAt, &l.UpdatedAt, &l.Responses)
 	// Empty when the session secret changed: the link still works, but staff
 	// have to regenerate it to see the URL again.
 	l.Token = s.vault.OpenOrEmpty(sealed)

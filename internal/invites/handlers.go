@@ -29,6 +29,10 @@ type activeRequest struct {
 	Active bool `json:"active"`
 }
 
+type limitRequest struct {
+	MaxResponses int `json:"maxResponses"`
+}
+
 // Routes returns the management routes; all require invite.manage.
 func (h *Handler) Routes() http.Handler {
 	r := chi.NewRouter()
@@ -37,6 +41,7 @@ func (h *Handler) Routes() http.Handler {
 	r.Post("/", h.create)
 	r.Put("/{id}/pin", h.setPIN)
 	r.Put("/{id}/active", h.setActive)
+	r.Put("/{id}/limit", h.setLimit)
 	r.Post("/{id}/regenerate", h.regenerate)
 	r.Delete("/{id}", h.delete)
 	return r
@@ -83,6 +88,19 @@ func (h *Handler) setActive(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	link, err := h.store.SetActive(r.Context(), id, req.Active)
+	h.respond(w, link, err)
+}
+
+func (h *Handler) setLimit(w http.ResponseWriter, r *http.Request) {
+	id, ok := parseID(w, r)
+	if !ok {
+		return
+	}
+	var req limitRequest
+	if !httpx.DecodeJSON(w, r, &req) {
+		return
+	}
+	link, err := h.store.SetMaxResponses(r.Context(), id, req.MaxResponses)
 	h.respond(w, link, err)
 }
 

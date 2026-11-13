@@ -115,7 +115,8 @@ func New(cfg configuration.Config, db *sql.DB) (*Server, error) {
 	userHandler := users.NewHandler(userStore, authService, cfg.BaseURL)
 	userHandler.SetPasskeys(keys)
 	rsvpHandler := rsvp.NewHandler(rsvpStore, contributionStore, inviteStore, inviteGate,
-		middleware.NewStoredLimiter(db, "pin", rsvp.PINFailureLimit, rsvp.PINFailureWindow))
+		middleware.NewStoredLimiter(db, "pin", rsvp.PINFailureLimit, rsvp.PINFailureWindow),
+		middleware.NewStoredLimiter(db, "link", rsvp.LinkSubmitLimit, rsvp.LinkSubmitWindow))
 	pushService, err := push.NewService(context.Background(), db, cfg.BaseURL)
 	if err != nil {
 		return nil, err
