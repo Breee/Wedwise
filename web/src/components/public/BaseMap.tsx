@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { t } from '@/lib/i18n'
 import * as maplibregl from 'maplibre-gl'
 import type { Map as MapLibreMap } from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
@@ -32,9 +33,9 @@ export function BaseMap({
       attributionControl: { compact: true },
       cooperativeGestures: true,
       locale: {
-        'CooperativeGesturesHandler.WindowsHelpText': 'Strg + Scrollen zum Zoomen',
-        'CooperativeGesturesHandler.MacHelpText': '⌘ + Scrollen zum Zoomen',
-        'CooperativeGesturesHandler.MobileHelpText': 'Mit zwei Fingern bewegen',
+        'CooperativeGesturesHandler.WindowsHelpText': t('Strg + Scrollen zum Zoomen'),
+        'CooperativeGesturesHandler.MacHelpText': t('⌘ + Scrollen zum Zoomen'),
+        'CooperativeGesturesHandler.MobileHelpText': t('Mit zwei Fingern bewegen'),
       },
     })
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right')

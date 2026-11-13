@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { t } from '@/lib/i18n'
 import {
   DndContext,
   DragOverlay,
@@ -114,19 +115,19 @@ function CardBody({
         <button
           type="button"
           className="-ml-2 -mt-1.5 cursor-grab touch-none rounded p-3 sm:-ml-1 sm:mt-0.5 sm:p-0.5 text-muted-foreground hover:bg-muted active:cursor-grabbing"
-          aria-label={`${c.title || 'Beitrag'} verschieben`}
+          aria-label={t('{title} verschieben', { title: c.title || t('Beitrag') })}
           {...handle}
         >
           <GripVertical className="size-4" />
         </button>
         <button type="button" className="flex-1 text-left" onClick={onOpen}>
-          <p className="font-medium leading-snug">{c.title || 'Ohne Titel'}</p>
+          <p className="font-medium leading-snug">{c.title || t('Ohne Titel')}</p>
           <p className="mt-1 text-xs text-muted-foreground">{c.contactName}</p>
           {(c.slotTime || c.durationMinutes > 0) && (
             <p className="mt-2 inline-flex items-center gap-1 text-xs text-muted-foreground">
               <Clock className="size-3" />
               {c.slotTime || '–'}
-              {c.durationMinutes > 0 && ` · ${c.durationMinutes} Min.`}
+              {c.durationMinutes > 0 && t(' · {n} Min.', { n: c.durationMinutes })}
             </p>
           )}
         </button>

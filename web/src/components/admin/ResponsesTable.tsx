@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { t } from '@/lib/i18n'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link2, Pencil, Plus, Trash2, X } from 'lucide-react'
 import { toast } from 'sonner'
@@ -41,7 +42,7 @@ function useResponseMutations(onDone: () => void) {
         contribution: null,
       }),
     onSuccess: () => {
-      toast.success('Rückmeldung gespeichert.')
+      toast.success(t('Rückmeldung gespeichert.'))
       refresh()
     },
     onError: (e) => toast.error(errorMessage(e)),
@@ -49,7 +50,7 @@ function useResponseMutations(onDone: () => void) {
   const remove = useMutation({
     mutationFn: (id: number) => api.delete(`/responses/${id}`),
     onSuccess: () => {
-      toast.success('Rückmeldung gelöscht.')
+      toast.success(t('Rückmeldung gelöscht.'))
       refresh()
     },
     onError: (e) => toast.error(errorMessage(e)),
@@ -83,11 +84,11 @@ function EditForm({ initial, onClose }: { initial: ResponseWithAttendees; onClos
     >
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
-          <Label htmlFor="r-name">Kontakt</Label>
+          <Label htmlFor="r-name">{t('Kontakt')}</Label>
           <Input id="r-name" required value={draft.contactName} onChange={(e) => setDraft({ ...draft, contactName: e.target.value })} />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="r-status">Status</Label>
+          <Label htmlFor="r-status">{t('Status')}</Label>
           <Select value={draft.status} onValueChange={(v) => setStatus(v as RsvpStatus)}>
             <SelectTrigger id="r-status" className="w-full">
               <SelectValue />
@@ -102,20 +103,20 @@ function EditForm({ initial, onClose }: { initial: ResponseWithAttendees; onClos
 
       {draft.status === 'yes' && (
         <div className="space-y-3">
-          <Label>Personen</Label>
+          <Label>{t('Personen')}</Label>
           {draft.attendees.map((a, i) => (
             <div key={i} className="space-y-2 rounded-lg border p-3">
               <div className="flex items-center gap-2">
-                <Input aria-label={`Name Person ${i + 1}`} required placeholder="Name" value={a.name} onChange={(e) => setAttendee(i, { name: e.target.value })} />
+                <Input aria-label={t('Name Person {n}', { n: i + 1 })} required placeholder={t('Name')} value={a.name} onChange={(e) => setAttendee(i, { name: e.target.value })} />
                 <label className="flex shrink-0 items-center gap-2 text-sm">
                   <Checkbox checked={a.isChild} onCheckedChange={(v) => setAttendee(i, { isChild: v === true, photoOk: v !== true })} />
-                  Kind
+                  {t('Kind')}
                 </label>
                 <Button
                   type="button"
                   variant="ghost"
                   size="icon"
-                  aria-label={`Person ${i + 1} entfernen`}
+                  aria-label={t('Person {n} entfernen', { n: i + 1 })}
                   disabled={draft.attendees.length === 1}
                   onClick={() => setDraft({ ...draft, attendees: draft.attendees.filter((_, j) => j !== i) })}
                 >
@@ -124,16 +125,16 @@ function EditForm({ initial, onClose }: { initial: ResponseWithAttendees; onClos
               </div>
               {a.isChild && (
                 <div className="flex flex-wrap items-center gap-3 text-sm">
-                  <Input aria-label={`Alter Person ${i + 1}`} type="number" min={0} max={17} placeholder="Alter" className="w-20" value={a.age || ''} onChange={(e) => setAttendee(i, { age: Math.min(17, Math.max(0, Number(e.target.value) || 0)) })} />
+                  <Input aria-label={t('Alter Person {n}', { n: i + 1 })} type="number" min={0} max={17} placeholder={t('Alter')} className="w-20" value={a.age || ''} onChange={(e) => setAttendee(i, { age: Math.min(17, Math.max(0, Number(e.target.value) || 0)) })} />
                   <label className="flex items-center gap-2">
                     <Checkbox checked={a.photoOk} onCheckedChange={(v) => setAttendee(i, { photoOk: v === true })} />
-                    Fotos erlaubt
+                    {t('Fotos erlaubt')}
                   </label>
                 </div>
               )}
               <div className="grid grid-cols-2 gap-2">
                 <Select value={a.diet || 'none'} onValueChange={(v) => setAttendee(i, { diet: v as Diet })}>
-                  <SelectTrigger aria-label={`Essen Person ${i + 1}`} className="w-full">
+                  <SelectTrigger aria-label={t('Essen Person {n}', { n: i + 1 })} className="w-full">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -144,45 +145,45 @@ function EditForm({ initial, onClose }: { initial: ResponseWithAttendees; onClos
                     ))}
                   </SelectContent>
                 </Select>
-                <Input aria-label={`Allergien Person ${i + 1}`} placeholder="Allergien" value={a.allergies} onChange={(e) => setAttendee(i, { allergies: e.target.value })} />
+                <Input aria-label={t('Allergien Person {n}', { n: i + 1 })} placeholder={t('Allergien')} value={a.allergies} onChange={(e) => setAttendee(i, { allergies: e.target.value })} />
               </div>
             </div>
           ))}
           {draft.attendees.length < MAX_ATTENDEES && (
             <Button type="button" variant="outline" size="sm" onClick={() => setDraft({ ...draft, attendees: [...draft.attendees, emptyAttendee()] })}>
-              <Plus className="size-4" /> Person hinzufügen
+              <Plus className="size-4" /> {t('Person hinzufügen')}
             </Button>
           )}
         </div>
       )}
 
       <div className="space-y-2">
-        <Label htmlFor="r-message">Nachricht</Label>
+        <Label htmlFor="r-message">{t('Nachricht')}</Label>
         <Textarea id="r-message" rows={3} value={draft.message} onChange={(e) => setDraft({ ...draft, message: e.target.value })} />
       </div>
 
       <DialogFooter className="gap-2 sm:justify-between">
         {confirmDelete ? (
           <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground">Wirklich löschen?</span>
+            <span className="text-sm text-muted-foreground">{t('Wirklich löschen?')}</span>
             <Button type="button" variant="destructive" size="sm" disabled={busy} onClick={() => remove.mutate(draft.id)}>
-              Ja, löschen
+              {t('Ja, löschen')}
             </Button>
             <Button type="button" variant="ghost" size="sm" onClick={() => setConfirmDelete(false)}>
-              Abbrechen
+              {t('Abbrechen')}
             </Button>
           </div>
         ) : (
           <Button type="button" variant="ghost" className="text-destructive" onClick={() => setConfirmDelete(true)}>
-            <Trash2 className="size-4" /> Löschen
+            <Trash2 className="size-4" /> {t('Löschen')}
           </Button>
         )}
         <div className="flex gap-2">
           <Button type="button" variant="outline" onClick={onClose}>
-            Schließen
+            {t('Schließen')}
           </Button>
           <Button type="submit" disabled={busy}>
-            Speichern
+            {t('Speichern')}
           </Button>
         </div>
       </DialogFooter>
@@ -199,12 +200,12 @@ export function ResponsesTable({ responses }: { responses: ResponseWithAttendees
         <Table className="block sm:table">
           <TableHeader className="hidden sm:table-header-group">
             <TableRow>
-              <TableHead>Kontakt</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Personen</TableHead>
-              <TableHead>Musik</TableHead>
-              <TableHead>Nachricht</TableHead>
-              <TableHead className="text-right">Eingegangen</TableHead>
+              <TableHead>{t('Kontakt')}</TableHead>
+              <TableHead>{t('Status')}</TableHead>
+              <TableHead>{t('Personen')}</TableHead>
+              <TableHead>{t('Musik')}</TableHead>
+              <TableHead>{t('Nachricht')}</TableHead>
+              <TableHead className="text-right">{t('Eingegangen')}</TableHead>
               <TableHead />
             </TableRow>
           </TableHeader>
@@ -212,7 +213,7 @@ export function ResponsesTable({ responses }: { responses: ResponseWithAttendees
             {responses.length === 0 && (
               <TableRow>
                 <TableCell colSpan={7} className="py-8 text-center text-muted-foreground">
-                  Noch keine Rückmeldungen.
+                  {t('Noch keine Rückmeldungen.')}
                 </TableCell>
               </TableRow>
             )}
@@ -232,8 +233,8 @@ export function ResponsesTable({ responses }: { responses: ResponseWithAttendees
                     {r.attendees.map((a, i) => (
                       <li key={a.id ?? i}>
                         {a.name}
-                        {a.isChild && <span className="text-muted-foreground"> (Kind{a.age ? `, ${a.age} J.` : ''})</span>}
-                        {a.isChild && !a.photoOk && <span className="font-medium text-destructive"> · keine Fotos</span>}
+                        {a.isChild && <span className="text-muted-foreground"> ({t('Kind')}{a.age ? t(', {n} J.', { n: a.age }) : ''})</span>}
+                        {a.isChild && !a.photoOk && <span className="font-medium text-destructive">{t(' · keine Fotos')}</span>}
                         <span className="text-muted-foreground">
                           {a.diet && a.diet !== 'none' ? ` · ${DIET_LABEL[a.diet] ?? a.diet}` : ''}
                           {a.allergies ? ` · ${a.allergies}` : ''}
@@ -253,17 +254,17 @@ export function ResponsesTable({ responses }: { responses: ResponseWithAttendees
                     variant="ghost"
                     size="icon"
                     className="size-10 sm:size-9"
-                    aria-label={`Bearbeitungslink von ${r.contactName} kopieren`}
-                    title="Bearbeitungslink kopieren"
+                    aria-label={t('Bearbeitungslink von {name} kopieren', { name: r.contactName })}
+                    title={t('Bearbeitungslink kopieren')}
                     onClick={() =>
                       navigator.clipboard
                         .writeText(`${window.location.origin}/rsvp?token=${r.editToken}`)
-                        .then(() => toast.success('Bearbeitungslink kopiert.'))
+                        .then(() => toast.success(t('Bearbeitungslink kopiert.')))
                     }
                   >
                     <Link2 className="size-4" />
                   </Button>}
-                  <Button variant="ghost" size="icon" className="size-10 sm:size-9" aria-label={`${r.contactName} bearbeiten`} onClick={() => setEditing(r)}>
+                  <Button variant="ghost" size="icon" className="size-10 sm:size-9" aria-label={t('{name} bearbeiten', { name: r.contactName })} onClick={() => setEditing(r)}>
                     <Pencil className="size-4" />
                   </Button>
                 </TableCell>
@@ -276,7 +277,7 @@ export function ResponsesTable({ responses }: { responses: ResponseWithAttendees
       <Dialog open={editing !== null} onOpenChange={(open) => !open && setEditing(null)}>
         <DialogContent className="max-h-[90svh] overflow-y-auto sm:max-w-xl">
           <DialogHeader>
-            <DialogTitle>Rückmeldung bearbeiten</DialogTitle>
+            <DialogTitle>{t('Rückmeldung bearbeiten')}</DialogTitle>
           </DialogHeader>
           {editing && <EditForm key={editing.id} initial={editing} onClose={() => setEditing(null)} />}
         </DialogContent>

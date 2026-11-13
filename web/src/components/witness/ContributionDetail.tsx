@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { t } from '@/lib/i18n'
 import { useQuery } from '@tanstack/react-query'
 import { Pencil } from 'lucide-react'
 import { contributionQuery, publicContentQuery } from '@/lib/queries'
@@ -19,18 +20,18 @@ export function ContributionDetail({ id, onClose }: { id: number; onClose: () =>
   const [note, setNote] = useState('')
   const [editing, setEditing] = useState(false)
 
-  if (isPending || !data) return <p className="py-8 text-center text-muted-foreground">Lädt…</p>
+  if (isPending || !data) return <p className="py-8 text-center text-muted-foreground">{t('Lädt…')}</p>
 
   return (
     <>
       <DialogHeader>
-        <DialogTitle className="text-3xl">{data.title || 'Ohne Titel'}</DialogTitle>
+        <DialogTitle className="text-3xl">{data.title || t('Ohne Titel')}</DialogTitle>
         <p className="text-sm text-muted-foreground">{data.contactName}</p>
         <ContactLinks phone={data.phone} messengers={data.messengers} />
       </DialogHeader>
       <div className="space-y-5">
         <div className="flex items-center gap-3">
-          <span className="text-sm text-muted-foreground">Status</span>
+          <span className="text-sm text-muted-foreground">{t('Status')}</span>
           <Select value={data.status} onValueChange={(v) => setStatus.mutate({ id, status: v as ContributionStatus })}>
             <SelectTrigger className="w-48">
               <SelectValue />
@@ -61,12 +62,12 @@ export function ContributionDetail({ id, onClose }: { id: number; onClose: () =>
             {data.description && <p className="whitespace-pre-line">{data.description}</p>}
             {data.needs && (
               <div className="text-sm">
-                <p className="text-muted-foreground">Benötigt</p>
+                <p className="text-muted-foreground">{t('Benötigt')}</p>
                 <p className="whitespace-pre-line">{data.needs}</p>
               </div>
             )}
             <Button variant="outline" size="sm" onClick={() => setEditing(true)}>
-              <Pencil /> Beitrag bearbeiten
+              <Pencil /> {t('Beitrag bearbeiten')}
             </Button>
           </>
         )}
@@ -80,9 +81,9 @@ export function ContributionDetail({ id, onClose }: { id: number; onClose: () =>
         />
 
         <div>
-          <h4 className="text-xl">Notizen</h4>
+          <h4 className="text-xl">{t('Notizen')}</h4>
           <ul className="mt-2 space-y-2">
-            {data.notes?.length === 0 && <li className="text-sm text-muted-foreground">Noch keine Notizen.</li>}
+            {data.notes?.length === 0 && <li className="text-sm text-muted-foreground">{t('Noch keine Notizen.')}</li>}
             {data.notes?.map((n) => (
               <li key={n.id} className="rounded-md bg-muted px-3 py-2 text-sm">
                 <p className="whitespace-pre-line">{n.text}</p>
@@ -98,15 +99,15 @@ export function ContributionDetail({ id, onClose }: { id: number; onClose: () =>
               addNote.mutate({ id, text: note }, { onSuccess: () => setNote('') })
             }}
           >
-            <Textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} placeholder="Notiz hinzufügen…" />
+            <Textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} placeholder={t('Notiz hinzufügen…')} />
             <Button type="submit" disabled={addNote.isPending || !note.trim()}>
-              Hinzufügen
+              {t('Hinzufügen')}
             </Button>
           </form>
         </div>
         <div className="flex justify-end">
           <Button variant="outline" onClick={onClose}>
-            Schließen
+            {t('Schließen')}
           </Button>
         </div>
       </div>
@@ -140,23 +141,23 @@ function ContentForm({
       }}
     >
       <div className="grid gap-1.5">
-        <Label htmlFor="e-title">Titel</Label>
+        <Label htmlFor="e-title">{t('Titel')}</Label>
         <Input id="e-title" required maxLength={200} value={title} onChange={(e) => setTitle(e.target.value)} />
       </div>
       <div className="grid gap-1.5">
-        <Label htmlFor="e-description">Beschreibung</Label>
+        <Label htmlFor="e-description">{t('Beschreibung')}</Label>
         <Textarea id="e-description" rows={3} value={description} onChange={(e) => setDescription(e.target.value)} />
       </div>
       <div className="grid gap-1.5">
-        <Label htmlFor="e-needs">Benötigt</Label>
+        <Label htmlFor="e-needs">{t('Benötigt')}</Label>
         <Textarea id="e-needs" rows={2} value={needs} onChange={(e) => setNeeds(e.target.value)} />
       </div>
       <div className="flex justify-end gap-2">
         <Button type="button" variant="outline" onClick={onCancel}>
-          Abbrechen
+          {t('Abbrechen')}
         </Button>
         <Button type="submit" disabled={pending || !title.trim()}>
-          Speichern
+          {t('Speichern')}
         </Button>
       </div>
     </form>
@@ -187,14 +188,14 @@ function ScheduleForm({
         onSave(time, Number(duration) || 0)
       }}
     >
-      <h4 className="text-xl">Ablaufplan</h4>
+      <h4 className="text-xl">{t('Ablaufplan')}</h4>
       <div className="mt-3 flex flex-wrap items-end gap-3">
         <div className="grid gap-1.5">
-          <Label htmlFor="slot-time">Uhrzeit</Label>
+          <Label htmlFor="slot-time">{t('Uhrzeit')}</Label>
           <Input id="slot-time" type="time" value={time} onChange={(e) => setTime(e.target.value)} className="w-32" />
         </div>
         <div className="grid gap-1.5">
-          <Label htmlFor="duration">Dauer (Min.)</Label>
+          <Label htmlFor="duration">{t('Dauer (Min.)')}</Label>
           <Input
             id="duration"
             type="number"
@@ -206,9 +207,9 @@ function ScheduleForm({
           />
         </div>
         <Button type="submit" variant="secondary" disabled={!dirty || pending}>
-          Speichern
+          {t('Speichern')}
         </Button>
-        {Number(duration) > limit && <p className="text-xs text-amber-700">Länger als die empfohlenen {limit} Minuten.</p>}
+        {Number(duration) > limit && <p className="text-xs text-amber-700">{t('Länger als die empfohlenen {limit} Minuten.', { limit })}</p>}
       </div>
     </form>
   )

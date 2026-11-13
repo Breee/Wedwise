@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { t } from '@/lib/i18n'
 import {
   DndContext,
   DragOverlay,
@@ -87,14 +88,14 @@ export function Schedule({ items, onOpen }: { items: Contribution[]; onOpen: (c:
         <Card>
           <CardHeader className="flex flex-row items-start justify-between gap-4">
             <div>
-              <CardTitle className="text-2xl">Ablaufplan</CardTitle>
+              <CardTitle className="text-2xl">{t('Ablaufplan')}</CardTitle>
               <p className="text-sm text-muted-foreground">
-                {planned.length} geplant · {total} Min. gesamt · Ende {fromMinutes((toMinutes(start) ?? 0) + total)}
+                {t('{n} geplant · {total} Min. gesamt · Ende {end}', { n: planned.length, total, end: fromMinutes((toMinutes(start) ?? 0) + total) })}
               </p>
             </div>
             <div className="flex items-center gap-2">
               <Label htmlFor="plan-start" className="text-sm text-muted-foreground">
-                Beginn
+                {t('Beginn')}
               </Label>
               <Input
                 id="plan-start"
@@ -112,11 +113,11 @@ export function Schedule({ items, onOpen }: { items: Contribution[]; onOpen: (c:
         </Card>
         <Card>
           <CardHeader>
-            <CardTitle className="text-2xl">Ohne Uhrzeit</CardTitle>
-            <p className="text-sm text-muted-foreground">{unplanned.length} Beiträge · in den Plan ziehen</p>
+            <CardTitle className="text-2xl">{t('Ohne Uhrzeit')}</CardTitle>
+            <p className="text-sm text-muted-foreground">{t('{n} Beiträge · in den Plan ziehen', { n: unplanned.length })}</p>
           </CardHeader>
           <CardContent className="space-y-2">
-            {unplanned.length === 0 && <p className="text-sm text-muted-foreground">Alles eingeplant.</p>}
+            {unplanned.length === 0 && <p className="text-sm text-muted-foreground">{t('Alles eingeplant.')}</p>}
             {unplanned.map((c) => (
               <UnplannedItem key={c.id} c={c} onOpen={onOpen} />
             ))}
@@ -126,7 +127,7 @@ export function Schedule({ items, onOpen }: { items: Contribution[]; onOpen: (c:
       <DragOverlay>
         {active && (
           <div className="rounded-lg border bg-card px-3 py-2 text-sm shadow-lg">
-            <span className="font-medium">{active.title || 'Ohne Titel'}</span>
+            <span className="font-medium">{active.title || t('Ohne Titel')}</span>
             <span className="block text-xs text-muted-foreground">{active.contactName}</span>
           </div>
         )}
@@ -152,7 +153,7 @@ function PlanList({
         className={cn('relative min-h-24 space-y-1 rounded-lg border-l border-border pl-6 transition-colors', isOver && 'bg-muted/40')}
       >
         {planned.length === 0 && (
-          <li className="py-6 text-sm text-muted-foreground">Noch nichts geplant. Beiträge hierher ziehen.</li>
+          <li className="py-6 text-sm text-muted-foreground">{t('Noch nichts geplant. Beiträge hierher ziehen.')}</li>
         )}
         {planned.map((c) => (
           <PlanItem key={c.id} c={c} onOpen={onOpen} onRemove={onRemove} />
@@ -177,7 +178,7 @@ function PlanItem({ c, onOpen, onRemove }: { c: Contribution; onOpen: (c: Contri
         type="button"
         {...attributes}
         {...listeners}
-        aria-label={`${c.title || 'Beitrag'} verschieben`}
+        aria-label={t('{title} verschieben', { title: c.title || t('Beitrag') })}
         className="cursor-grab touch-none rounded p-3 sm:mt-2.5 sm:p-1 text-muted-foreground hover:bg-muted active:cursor-grabbing"
       >
         <GripVertical className="size-4" />
@@ -188,9 +189,9 @@ function PlanItem({ c, onOpen, onRemove }: { c: Contribution; onOpen: (c: Contri
           <span className="text-muted-foreground"> – {fromMinutes(end)}</span>
         </div>
         <div className="min-w-0 flex-1">
-          <p className="font-medium">{c.title || 'Ohne Titel'}</p>
+          <p className="font-medium">{c.title || t('Ohne Titel')}</p>
           <p className="text-xs text-muted-foreground">
-            {c.contactName} · {duration(c)} Min.
+            {c.contactName}{t(' · {n} Min.', { n: duration(c) })}
             {c.needs && ` · ${c.needs}`}
           </p>
           <ContactLinks phone={c.phone} messengers={c.messengers} className="mt-1" />
@@ -199,7 +200,7 @@ function PlanItem({ c, onOpen, onRemove }: { c: Contribution; onOpen: (c: Contri
           {CONTRIBUTION_STATUS_LABEL[c.status]}
         </span>
       </button>
-      <Button variant="ghost" size="icon" className="mt-1.5 size-7" aria-label="Aus dem Plan entfernen" onClick={() => onRemove(c)}>
+      <Button variant="ghost" size="icon" className="mt-1.5 size-7" aria-label={t('Aus dem Plan entfernen')} onClick={() => onRemove(c)}>
         <X className="size-4" />
       </Button>
     </li>
@@ -217,14 +218,14 @@ function UnplannedItem({ c, onOpen }: { c: Contribution; onOpen: (c: Contributio
         type="button"
         {...attributes}
         {...listeners}
-        aria-label={`${c.title || 'Beitrag'} verschieben`}
+        aria-label={t('{title} verschieben', { title: c.title || t('Beitrag') })}
         className="cursor-grab touch-none rounded p-3 sm:p-1 text-muted-foreground hover:bg-muted active:cursor-grabbing"
       >
         <GripVertical className="size-4" />
       </button>
       <button type="button" onClick={() => onOpen(c)} className="flex min-w-0 flex-1 items-center justify-between gap-3 text-left">
         <span className="min-w-0">
-          <span className="font-medium">{c.title || 'Ohne Titel'}</span>
+          <span className="font-medium">{c.title || t('Ohne Titel')}</span>
           <span className="block text-xs text-muted-foreground">{c.contactName}</span>
         </span>
         <span className={cn('shrink-0 rounded-full px-2 py-0.5 text-xs', STATUS_TONE[c.status])}>

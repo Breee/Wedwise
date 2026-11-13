@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { t } from '@/lib/i18n'
 import { toast } from 'sonner'
 import { api, errorMessage } from '@/lib/api'
 import { CONTRIBUTION_STATUS_LABEL } from '@/lib/format'
@@ -40,7 +41,7 @@ export function useContributionMutations() {
       api.put(`/contributions/${id}/status`, { status }),
     onSuccess: () => {
       invalidate()
-      toast.success('Status aktualisiert.')
+      toast.success(t('Status aktualisiert.'))
     },
     onError,
   })
@@ -50,7 +51,7 @@ export function useContributionMutations() {
       api.put(`/contributions/${id}/schedule`, { slotTime, durationMinutes }),
     onSuccess: () => {
       invalidate()
-      toast.success('Zeitplan gespeichert.')
+      toast.success(t('Zeitplan gespeichert.'))
     },
     onError,
   })
@@ -72,7 +73,7 @@ export function useContributionMutations() {
     mutationFn: ({ id, ...content }: { id: number } & ContributionRequest) => api.put(`/contributions/${id}`, content),
     onSuccess: () => {
       invalidate()
-      toast.success('Beitrag gespeichert.')
+      toast.success(t('Beitrag gespeichert.'))
     },
     onError,
   })
