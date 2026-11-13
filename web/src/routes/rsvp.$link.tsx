@@ -21,6 +21,7 @@ export const Route = createFileRoute('/rsvp/$link')({
       <Card className="text-center">
         <CardContent className="py-10 text-muted-foreground">
           {errorMessage(error, 'Dieser Einladungslink ist nicht gültig.')}
+          <a href="/" className="mt-4 block text-primary underline underline-offset-4">Zur Hochzeitsseite</a>
         </CardContent>
       </Card>
     </section>

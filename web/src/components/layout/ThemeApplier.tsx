@@ -60,5 +60,10 @@ export function ThemeApplier() {
   useEffect(() => {
     if (data?.theme) applyTheme(data.theme)
   }, [data?.theme])
+  useEffect(() => {
+    if (!data) return
+    const names = data.event.couple.map((c) => c.name).filter(Boolean)
+    document.title = names.length === 2 ? `${names[0]} & ${names[1]}` : data.event.title || document.title
+  }, [data])
   return null
 }

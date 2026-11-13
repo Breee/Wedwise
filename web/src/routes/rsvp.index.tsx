@@ -44,7 +44,10 @@ function ExistingResponse({ token, onDone }: { token: string; onDone: (view: Gue
 function Notice({ text }: { text: string }) {
   return (
     <Card className="text-center">
-      <CardContent className="py-10 text-muted-foreground">{text}</CardContent>
+      <CardContent className="py-10 text-muted-foreground">
+        {text}
+        <a href="/" className="mt-4 block text-primary underline underline-offset-4">Zur Hochzeitsseite</a>
+      </CardContent>
     </Card>
   )
 }

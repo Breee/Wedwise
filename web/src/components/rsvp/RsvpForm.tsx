@@ -362,7 +362,7 @@ export function RsvpForm({ initial, link, onDone }: FormProps) {
                       type="button"
                       size="sm"
                       variant={on ? 'default' : 'outline'}
-                      className="rounded-full"
+                      className="min-h-10 rounded-full sm:min-h-0"
                       onClick={() => setGenres((l) => (on ? l.filter((x) => x !== g) : [...l, g]))}
                     >
                       {g}
