@@ -132,7 +132,7 @@ in the picker.
 ## Users and roles
 
 There is no public sign-up. Admins create users and deactivate accounts in
-the UI under "Benutzer". Creating a user yields a one-time setup link (valid
+the UI under "Benutzer" (create, deactivate, delete). Creating a user yields a one-time setup link (valid
 7 days) where the person sets their own password; a new link doubles as a
 password reset. Only a hash of the link token is stored, passwords are
 stored as argon2id hashes.
