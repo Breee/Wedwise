@@ -1,3 +1,4 @@
+import { t } from '@/lib/i18n'
 // Builds a calendar entry (timed when the schedule has a start time, else all-day) and returns a downloadable data URL.
 export function icsUrl({
   title,
@@ -38,7 +39,7 @@ export function icsUrl({
   const description = [
     ...schedule.map((s) => `${s.time} ${s.title}`),
     schedule.length ? '' : null,
-    `Alle Infos & Rückmeldung: ${url}`,
+    t('Alle Infos & Rückmeldung: {url}', { url }),
   ].filter((l): l is string => l !== null)
 
   const lines = [

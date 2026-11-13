@@ -1,3 +1,4 @@
+import { language, locale } from '@/lib/i18n'
 import { queryOptions } from '@tanstack/react-query'
 
 export type LngLat = [number, number]
@@ -181,7 +182,7 @@ export function hotelBookingUrl(hotel: { name: string; bookingUrl?: string }, ci
 
 /** Booking.com search; `filters` is the `nflt` value, e.g. 'ht_id=201' for apartments. */
 export function bookingUrl(query: string, checkIn: string, checkOut: string, filters?: string): string {
-  const u = withDates('https://www.booking.com/searchresults.de.html', checkIn, checkOut)
+  const u = withDates(`https://www.booking.com/searchresults.${language() === 'de' ? 'de' : 'en-gb'}.html`, checkIn, checkOut)
   const url = new URL(u)
   url.searchParams.set('ss', query)
   if (filters) url.searchParams.set('nflt', filters)
@@ -192,11 +193,11 @@ export function airbnbUrl(city: string, checkIn: string, checkOut: string): stri
   const p = new URLSearchParams({ adults: '2' })
   if (checkIn) p.set('checkin', checkIn)
   if (checkOut) p.set('checkout', checkOut)
-  return `https://www.airbnb.de/s/${encodeURIComponent(city)}/homes?${p}`
+  return `https://www.airbnb.${language() === 'de' ? 'de' : 'com'}/s/${encodeURIComponent(city)}/homes?${p}`
 }
 
 export function formatStayDates(checkIn: string, checkOut: string): string {
   if (!checkIn || !checkOut) return ''
-  const fmt = (d: string) => new Date(`${d}T12:00:00`).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })
+  const fmt = (d: string) => new Date(`${d}T12:00:00`).toLocaleDateString(locale(), { day: '2-digit', month: '2-digit', year: 'numeric' })
   return `${fmt(checkIn)} – ${fmt(checkOut)}`
 }

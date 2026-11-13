@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { t } from '@/lib/i18n'
 import { createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQueryClient, useSuspenseQuery } from '@tanstack/react-query'
 import { motion } from 'motion/react'
@@ -20,8 +21,8 @@ export const Route = createFileRoute('/rsvp/$link')({
       <RsvpHeader />
       <Card className="text-center">
         <CardContent className="py-10 text-muted-foreground">
-          {errorMessage(error, 'Dieser Einladungslink ist nicht gültig.')}
-          <a href="/" className="mt-4 block text-primary underline underline-offset-4">Zur Hochzeitsseite</a>
+          {errorMessage(error, t('Dieser Einladungslink ist nicht gültig.'))}
+          <a href="/" className="mt-4 block text-primary underline underline-offset-4">{t('Zur Hochzeitsseite')}</a>
         </CardContent>
       </Card>
     </section>
@@ -64,7 +65,7 @@ function PinGate({ link }: { link: string }) {
   const unlock = useMutation({
     mutationFn: () => api.post(`/rsvp/links/${encodeURIComponent(link)}/unlock`, { pin }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: inviteLinkQuery(link).queryKey }),
-    onError: (e) => toast.error(errorMessage(e, 'Die PIN ist leider nicht richtig.')),
+    onError: (e) => toast.error(errorMessage(e, t('Die PIN ist leider nicht richtig.'))),
   })
 
   return (
@@ -81,12 +82,12 @@ function PinGate({ link }: { link: string }) {
           <CardTitle className="flex items-center gap-2">
             <Lock className="size-5 text-primary" /> PIN
           </CardTitle>
-          <CardDescription>Die PIN findet ihr auf eurer Einladung.</CardDescription>
+          <CardDescription>{t('Die PIN findet ihr auf eurer Einladung.')}</CardDescription>
         </CardHeader>
         <CardContent className="flex gap-3">
           <Input value={pin} onChange={(e) => setPin(e.target.value)} aria-label="PIN" autoFocus autoComplete="off" inputMode="numeric" required />
           <Button type="submit" disabled={unlock.isPending || !pin.trim()}>
-            Weiter
+            {t('Weiter')}
           </Button>
         </CardContent>
       </Card>

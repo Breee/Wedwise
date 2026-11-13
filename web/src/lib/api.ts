@@ -1,3 +1,4 @@
+import { t } from '@/lib/i18n'
 export class ApiError extends Error {
   status: number
   code?: string
@@ -38,7 +39,7 @@ const STATUS_CODES: Record<number, string> = {
 
 function extractMessage(payload: unknown, status: number): string {
   const code = extractCode(payload) ?? STATUS_CODES[status] ?? (status >= 500 ? 'internal_error' : '')
-  return MESSAGES[code] ?? `Anfrage fehlgeschlagen (${status}).`
+  return code in MESSAGES ? t(MESSAGES[code]) : t('Anfrage fehlgeschlagen ({status}).', { status })
 }
 
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
@@ -68,7 +69,7 @@ export const api = {
   delete: <T>(path: string) => request<T>('DELETE', path),
 }
 
-export function errorMessage(error: unknown, fallback = 'Etwas ist schiefgelaufen.'): string {
+export function errorMessage(error: unknown, fallback?: string): string {
   if (error instanceof Error && error.message) return error.message
-  return fallback
+  return fallback ?? t('Etwas ist schiefgelaufen.')
 }

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { t } from '@/lib/i18n'
 import { createFileRoute } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { errorMessage } from '@/lib/api'
@@ -28,7 +29,7 @@ function EditResponsePage() {
       ) : token ? (
         <ExistingResponse token={token} onDone={setDone} />
       ) : (
-        <Notice text="Zum Antworten braucht ihr den Einladungslink aus eurer Einladung." />
+        <Notice text={t('Zum Antworten braucht ihr den Einladungslink aus eurer Einladung.')} />
       )}
     </section>
   )
@@ -36,8 +37,8 @@ function EditResponsePage() {
 
 function ExistingResponse({ token, onDone }: { token: string; onDone: (view: GuestView) => void }) {
   const { data, isPending, error } = useQuery(rsvpQuery(token))
-  if (isPending) return <p className="text-center text-muted-foreground">Lädt…</p>
-  if (error || !data) return <Notice text={errorMessage(error, 'Dieser Bearbeitungslink ist ungültig.')} />
+  if (isPending) return <p className="text-center text-muted-foreground">{t('Lädt…')}</p>
+  if (error || !data) return <Notice text={errorMessage(error, t('Dieser Bearbeitungslink ist ungültig.'))} />
   return <RsvpForm initial={data} onDone={onDone} />
 }
 
@@ -46,7 +47,7 @@ function Notice({ text }: { text: string }) {
     <Card className="text-center">
       <CardContent className="py-10 text-muted-foreground">
         {text}
-        <a href="/" className="mt-4 block text-primary underline underline-offset-4">Zur Hochzeitsseite</a>
+        <a href="/" className="mt-4 block text-primary underline underline-offset-4">{t('Zur Hochzeitsseite')}</a>
       </CardContent>
     </Card>
   )

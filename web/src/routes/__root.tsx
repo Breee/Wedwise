@@ -1,4 +1,4 @@
-import { setLanguage } from '@/lib/i18n'
+import { setLanguage, t } from '@/lib/i18n'
 import type { QueryClient } from '@tanstack/react-query'
 import { Outlet, createRootRouteWithContext, useMatchRoute } from '@tanstack/react-router'
 import { MotionConfig } from 'motion/react'
@@ -39,8 +39,8 @@ function NotFound() {
   return (
     <section className="mx-auto max-w-2xl px-6 py-32 text-center">
       <p className="font-display text-6xl text-primary">404</p>
-      <h1 className="mt-4 text-3xl">Diese Seite gibt es nicht.</h1>
-      <p className="mt-2 text-muted-foreground">Vielleicht hilft der Weg zurück zur Startseite.</p>
+      <h1 className="mt-4 text-3xl">{t('Diese Seite gibt es nicht.')}</h1>
+      <p className="mt-2 text-muted-foreground">{t('Vielleicht hilft der Weg zurück zur Startseite.')}</p>
     </section>
   )
 }
