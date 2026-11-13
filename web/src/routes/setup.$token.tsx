@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { useMutation } from '@tanstack/react-query'
 import { api, errorMessage } from '@/lib/api'
+import { createKey, webauthnSupported } from '@/lib/webauthn'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -37,11 +38,25 @@ function SetupPage() {
   const [password, setPassword] = useState('')
   const [repeat, setRepeat] = useState('')
   const save = useMutation({ mutationFn: () => api.post(`/setup/${token}`, { password }) })
+  const passkey = useMutation({
+    mutationFn: async () => {
+      const options = await api.post<{ publicKey: unknown }>(`/setup/${token}/passkey/begin`)
+      const credential = await createKey(options)
+      await api.post(`/setup/${token}/passkey`, { credential })
+    },
+  })
   const mismatch = repeat !== '' && repeat !== password
 
-  if (save.isSuccess) {
+  if (save.isSuccess || passkey.isSuccess) {
     return (
-      <Shell title="Geschafft" description="Euer Passwort ist gesetzt. Ihr könnt euch jetzt anmelden.">
+      <Shell
+        title="Geschafft"
+        description={
+          passkey.isSuccess
+            ? 'Euer Passkey ist eingerichtet. Ihr könnt euch jetzt damit anmelden.'
+            : 'Euer Passwort ist gesetzt. Ihr könnt euch jetzt anmelden.'
+        }
+      >
         <Button asChild className="w-full">
           <Link to="/login">Zur Anmeldung</Link>
         </Button>
@@ -52,8 +67,24 @@ function SetupPage() {
   return (
     <Shell
       title={`Hallo ${user.displayName || user.username}`}
-      description={`Legt ein Passwort für das Konto „${user.username}“ fest.`}
+      description={`Richtet den Zugang für das Konto „${user.username}“ ein.`}
     >
+      {webauthnSupported() && (
+        <div className="mb-6 space-y-3">
+          <Button className="w-full" disabled={passkey.isPending} onClick={() => passkey.mutate()}>
+            Mit Passkey einrichten
+          </Button>
+          <p className="text-xs text-muted-foreground">
+            Anmelden per Face ID, Fingerabdruck oder Geräte-PIN – ganz ohne Passwort.
+          </p>
+          {passkey.isError && (
+            <p className="text-sm text-destructive">Der Passkey konnte nicht eingerichtet werden.</p>
+          )}
+          <p className="pt-2 text-center text-xs tracking-widest text-muted-foreground uppercase">
+            oder Passwort festlegen
+          </p>
+        </div>
+      )}
       <form
         className="space-y-4"
         onSubmit={(e) => {
@@ -88,7 +119,12 @@ function SetupPage() {
           {mismatch && <p className="text-sm text-destructive">Die Passwörter stimmen nicht überein.</p>}
         </div>
         {save.isError && <p className="text-sm text-destructive">{errorMessage(save.error)}</p>}
-        <Button type="submit" className="w-full" disabled={save.isPending || mismatch}>
+        <Button
+          type="submit"
+          variant={webauthnSupported() ? 'outline' : 'default'}
+          className="w-full"
+          disabled={save.isPending || mismatch}
+        >
           Passwort speichern
         </Button>
       </form>

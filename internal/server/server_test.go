@@ -1620,3 +1620,70 @@ func TestSecurityKeys(t *testing.T) {
 		t.Fatalf("login: %d", code)
 	}
 }
+
+func TestPasskeySetupAndLogin(t *testing.T) {
+	app, _ := newTestAppWithUsers(t)
+	admin, _ := app.login("admin_user", "TestPass123!")
+
+	res := app.do(http.MethodPost, "/api/users/", map[string]any{"username": "passkey_user", "role": "witness"}, admin)
+	if res.StatusCode != http.StatusCreated {
+		t.Fatalf("create: got %d, want 201", res.StatusCode)
+	}
+	var created struct {
+		SetupURL string `json:"setupUrl"`
+	}
+	if err := json.NewDecoder(res.Body).Decode(&created); err != nil {
+		t.Fatal(err)
+	}
+	token := created.SetupURL[strings.LastIndex(created.SetupURL, "/")+1:]
+
+	if res := app.do(http.MethodPost, "/api/setup/nope/passkey/begin", map[string]any{}, nil); res.StatusCode != http.StatusNotFound {
+		t.Fatalf("begin with bad token: got %d, want 404", res.StatusCode)
+	}
+	res = app.do(http.MethodPost, "/api/setup/"+token+"/passkey/begin", map[string]any{}, nil)
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("begin: got %d, want 200", res.StatusCode)
+	}
+	var options struct {
+		PublicKey struct {
+			Challenge              string `json:"challenge"`
+			AuthenticatorSelection struct {
+				ResidentKey      string `json:"residentKey"`
+				UserVerification string `json:"userVerification"`
+			} `json:"authenticatorSelection"`
+		} `json:"publicKey"`
+	}
+	if err := json.NewDecoder(res.Body).Decode(&options); err != nil {
+		t.Fatal(err)
+	}
+	sel := options.PublicKey.AuthenticatorSelection
+	if options.PublicKey.Challenge == "" || sel.ResidentKey != "required" || sel.UserVerification != "required" {
+		t.Fatalf("unexpected creation options: %+v", options.PublicKey)
+	}
+
+	forged := map[string]any{"credential": map[string]any{"id": "x", "rawId": "x", "type": "public-key", "response": map[string]any{}}}
+	if res := app.do(http.MethodPost, "/api/setup/"+token+"/passkey", forged, nil); res.StatusCode != http.StatusBadRequest {
+		t.Fatalf("forged credential: got %d, want 400", res.StatusCode)
+	}
+	if res := app.do(http.MethodGet, "/api/setup/"+token, nil, nil); res.StatusCode != http.StatusOK {
+		t.Fatalf("token after failed passkey: got %d, want 200", res.StatusCode)
+	}
+
+	res = app.do(http.MethodPost, "/api/auth/passkey/begin", map[string]any{}, nil)
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("login begin: got %d, want 200", res.StatusCode)
+	}
+	var begin struct {
+		ID string `json:"id"`
+	}
+	if err := json.NewDecoder(res.Body).Decode(&begin); err != nil || begin.ID == "" {
+		t.Fatalf("login begin: no challenge id (%v)", err)
+	}
+	bad := map[string]any{"id": begin.ID, "assertion": map[string]any{"id": "x", "rawId": "x", "type": "public-key", "response": map[string]any{}}}
+	if res := app.do(http.MethodPost, "/api/auth/passkey", bad, nil); res.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("forged assertion: got %d, want 401", res.StatusCode)
+	}
+	if res := app.do(http.MethodPost, "/api/auth/passkey", map[string]any{"id": "unknown", "assertion": map[string]any{}}, nil); res.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("unknown challenge: got %d, want 401", res.StatusCode)
+	}
+}

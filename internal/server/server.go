@@ -76,6 +76,7 @@ func New(cfg configuration.Config, db *sql.DB) (*Server, error) {
 	inviteGate := invites.NewGate(cfg.SessionSecret, cfg.IsProduction())
 
 	userHandler := users.NewHandler(userStore, authService, cfg.BaseURL)
+	userHandler.SetPasskeys(keys)
 	rsvpHandler := rsvp.NewHandler(rsvpStore, contributionStore, inviteStore, inviteGate)
 	pushService, err := push.NewService(context.Background(), db, cfg.BaseURL)
 	if err != nil {

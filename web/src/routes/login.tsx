@@ -62,6 +62,16 @@ function LoginPage() {
     },
   })
 
+  const passkey = useMutation({
+    mutationFn: async () => {
+      const { id, options } = await api.post<{ id: string; options: { publicKey: unknown } }>('/auth/passkey/begin')
+      const assertion = await signWithKey(options)
+      await api.post('/auth/passkey', { id, assertion })
+      const me = await queryClient.fetchQuery({ ...meQuery, staleTime: 0 })
+      navigate({ to: search.redirect ?? dashboardFor(me.role) })
+    },
+  })
+
   return (
     <section className="mx-auto flex max-w-md flex-col px-6 py-24">
       <Card>
@@ -150,6 +160,24 @@ function LoginPage() {
               </Button>
             )}
           </form>
+          {webauthnSupported() && !needsCode && (
+            <div className="mt-5 space-y-2 border-t pt-5">
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full"
+                disabled={passkey.isPending}
+                onClick={() => passkey.mutate()}
+              >
+                Mit Passkey anmelden
+              </Button>
+              {passkey.isError && (
+                <p className="text-sm text-destructive" role="alert">
+                  Die Anmeldung mit Passkey hat nicht geklappt.
+                </p>
+              )}
+            </div>
+          )}
         </CardContent>
       </Card>
     </section>

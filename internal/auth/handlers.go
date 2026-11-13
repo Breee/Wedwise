@@ -38,6 +38,13 @@ type Challenger interface {
 	Challenge(ctx context.Context, userID int64) (any, error)
 }
 
+// Passwordless is implemented by second factors that can sign a user in on
+// their own, such as passkeys unlocked by PIN or biometrics.
+type Passwordless interface {
+	BeginPasskey(ctx context.Context) (options any, id string, err error)
+	FinishPasskey(ctx context.Context, id string, response []byte) (userID int64, ok bool, err error)
+}
+
 // SetSecondFactor enables the second login step.
 func (s *Service) SetSecondFactor(f SecondFactor) { s.secondFactor = f }
 
@@ -58,6 +65,8 @@ func (s *Service) Routes(loginMiddlewares ...func(http.Handler) http.Handler) ht
 	r.Get("/me", s.HandleMe)
 	r.With(loginMiddlewares...).Post("/login", s.HandleLogin)
 	r.With(loginMiddlewares...).Post("/webauthn/begin", s.HandleWebAuthnBegin)
+	r.With(loginMiddlewares...).Post("/passkey/begin", s.HandlePasskeyBegin)
+	r.With(loginMiddlewares...).Post("/passkey", s.HandlePasskeyLogin)
 	r.Post("/logout", s.HandleLogout)
 	return r
 }
@@ -90,6 +99,62 @@ func (s *Service) HandleWebAuthnBegin(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Cache-Control", "no-store")
 	httpx.WriteJSON(w, http.StatusOK, options)
+}
+
+// HandlePasskeyBegin returns a challenge for a login with a passkey only.
+func (s *Service) HandlePasskeyBegin(w http.ResponseWriter, r *http.Request) {
+	passwordless, ok := s.secondFactor.(Passwordless)
+	if !ok {
+		httpx.NotFound(w, "Passkey login is not available.")
+		return
+	}
+	options, id, err := passwordless.BeginPasskey(r.Context())
+	if err != nil {
+		httpx.Internal(w, err)
+		return
+	}
+	w.Header().Set("Cache-Control", "no-store")
+	httpx.WriteJSON(w, http.StatusOK, map[string]any{"id": id, "options": options})
+}
+
+// HandlePasskeyLogin starts a session for the owner of a verified passkey.
+func (s *Service) HandlePasskeyLogin(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		ID        string          `json:"id"`
+		Assertion json.RawMessage `json:"assertion"`
+	}
+	if !httpx.DecodeJSON(w, r, &req) {
+		return
+	}
+	passwordless, ok := s.secondFactor.(Passwordless)
+	if !ok {
+		httpx.NotFound(w, "Passkey login is not available.")
+		return
+	}
+	denied := func() {
+		httpx.WriteError(w, http.StatusUnauthorized, httpx.CodeUnauthorized, "This passkey could not be verified.")
+	}
+	userID, ok, err := passwordless.FinishPasskey(r.Context(), req.ID, req.Assertion)
+	if err != nil {
+		httpx.Internal(w, err)
+		return
+	}
+	if !ok {
+		denied()
+		return
+	}
+	identity, err := s.users.IdentityByID(r.Context(), userID)
+	if err != nil || !identity.Active {
+		denied()
+		return
+	}
+	session, err := s.sessions.Create(r.Context(), identity.ID, SessionDuration)
+	if err != nil {
+		httpx.Internal(w, err)
+		return
+	}
+	s.setSessionCookie(w, session)
+	httpx.WriteJSON(w, http.StatusOK, newIdentityResponse(identity))
 }
 
 // HandleLogin authenticates a user and starts a session.

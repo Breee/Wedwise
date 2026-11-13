@@ -146,6 +146,11 @@ is stored. They are bound to the host in `BASE_URL` and need HTTPS (or
 `localhost`). Recovery codes exist only together with an authenticator app, so
 register two keys or add TOTP as a fallback.
 
+A setup link also offers "Mit Passkey einrichten": the user registers a
+passkey (Face ID, fingerprint, device PIN) instead of a password and then
+signs in with "Mit Passkey anmelden" on the login page, without username or
+password. Such passkeys require user verification on the device.
+
 The first admin is created
 with the CLI inside the container (or via `USERS_PATH`):
 

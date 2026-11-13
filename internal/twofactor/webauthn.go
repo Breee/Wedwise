@@ -2,7 +2,9 @@ package twofactor
 
 import (
 	"context"
+	"crypto/rand"
 	"database/sql"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"net/url"
@@ -159,6 +161,19 @@ func (k *Keys) Count(ctx context.Context, userID int64) (int, error) {
 
 // BeginRegister returns creation options for a new key.
 func (k *Keys) BeginRegister(ctx context.Context, userID int64, username string) (*protocol.CredentialCreation, error) {
+	return k.beginRegister(ctx, userID, username)
+}
+
+// BeginRegisterPasskey returns creation options for a key that can sign in
+// without a password: stored on the device and unlocked by the user.
+func (k *Keys) BeginRegisterPasskey(ctx context.Context, userID int64, username string) (any, error) {
+	return k.beginRegister(ctx, userID, username, webauthn.WithAuthenticatorSelection(protocol.AuthenticatorSelection{
+		ResidentKey:      protocol.ResidentKeyRequirementRequired,
+		UserVerification: protocol.VerificationRequired,
+	}))
+}
+
+func (k *Keys) beginRegister(ctx context.Context, userID int64, username string, opts ...webauthn.RegistrationOption) (*protocol.CredentialCreation, error) {
 	u, _, err := k.user(ctx, userID, username)
 	if err != nil {
 		return nil, err
@@ -170,7 +185,7 @@ func (k *Keys) BeginRegister(ctx context.Context, userID int64, username string)
 	for _, c := range u.credentials {
 		exclude = append(exclude, c.Descriptor())
 	}
-	options, session, err := k.wa.BeginRegistration(u, webauthn.WithExclusions(exclude))
+	options, session, err := k.wa.BeginRegistration(u, append(opts, webauthn.WithExclusions(exclude))...)
 	if err != nil {
 		return nil, err
 	}
@@ -261,6 +276,10 @@ func (k *Keys) FinishLogin(ctx context.Context, userID int64, response []byte) (
 	if credential.Authenticator.CloneWarning {
 		return false, nil
 	}
+	return k.saveUsed(ctx, u, ids, credential)
+}
+
+func (k *Keys) saveUsed(ctx context.Context, u keyUser, ids []int64, credential *webauthn.Credential) (bool, error) {
 	raw, err := json.Marshal(credential)
 	if err != nil {
 		return false, err
@@ -273,4 +292,49 @@ func (k *Keys) FinishLogin(ctx context.Context, userID int64, response []byte) (
 		}
 	}
 	return false, nil
+}
+
+// BeginPasskeyLogin returns options for a login without username and
+// password, plus the id of the pending challenge.
+func (k *Keys) BeginPasskeyLogin() (any, string, error) {
+	options, session, err := k.wa.BeginDiscoverableLogin(webauthn.WithUserVerification(protocol.VerificationRequired))
+	if err != nil {
+		return nil, "", err
+	}
+	buf := make([]byte, 18)
+	if _, err := rand.Read(buf); err != nil {
+		return nil, "", err
+	}
+	id := base64.RawURLEncoding.EncodeToString(buf)
+	k.put("passkey:"+id, session)
+	return options, id, nil
+}
+
+// FinishPasskeyLogin verifies the assertion and returns the user it belongs
+// to. The key must have verified the user (PIN or biometrics).
+func (k *Keys) FinishPasskeyLogin(ctx context.Context, id string, response []byte) (int64, bool, error) {
+	session, ok := k.take("passkey:" + id)
+	if !ok {
+		return 0, false, nil
+	}
+	parsed, err := protocol.ParseCredentialRequestResponseBytes(response)
+	if err != nil {
+		return 0, false, nil
+	}
+	var found keyUser
+	var ids []int64
+	handler := func(_, userHandle []byte) (webauthn.User, error) {
+		userID, err := strconv.ParseInt(string(userHandle), 10, 64)
+		if err != nil {
+			return nil, err
+		}
+		found, ids, err = k.user(ctx, userID, "")
+		return found, err
+	}
+	credential, err := k.wa.ValidateDiscoverableLogin(handler, session, parsed)
+	if err != nil || credential.Authenticator.CloneWarning || !credential.Flags.UserVerified {
+		return 0, false, nil
+	}
+	saved, err := k.saveUsed(ctx, found, ids, credential)
+	return found.id, saved, err
 }

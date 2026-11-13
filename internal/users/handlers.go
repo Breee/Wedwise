@@ -1,6 +1,8 @@
 package users
 
 import (
+	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"strconv"
@@ -15,9 +17,10 @@ import (
 
 // Handler exposes user endpoints.
 type Handler struct {
-	store   *Store
-	auth    *auth.Service
-	baseURL string
+	store    *Store
+	auth     *auth.Service
+	baseURL  string
+	passkeys Passkeys
 }
 
 // NewHandler creates a user handler.
@@ -151,7 +154,71 @@ func (h *Handler) SetupRoutes(middlewares ...func(http.Handler) http.Handler) ht
 	r.Use(middlewares...)
 	r.Get("/{token}", h.setupInfo)
 	r.Post("/{token}", h.setupRedeem)
+	r.Post("/{token}/passkey/begin", h.setupPasskeyBegin)
+	r.Post("/{token}/passkey", h.setupPasskey)
 	return r
+}
+
+// Passkeys registers a passkey for a user during setup.
+type Passkeys interface {
+	BeginRegisterPasskey(ctx context.Context, userID int64, username string) (any, error)
+	FinishRegister(ctx context.Context, userID int64, username, name string, response []byte) error
+}
+
+// SetPasskeys lets setup links register a passkey instead of a password.
+func (h *Handler) SetPasskeys(p Passkeys) { h.passkeys = p }
+
+func (h *Handler) setupUser(w http.ResponseWriter, r *http.Request) (User, bool) {
+	if h.passkeys == nil {
+		httpx.NotFound(w, "Passkeys are not available.")
+		return User{}, false
+	}
+	user, err := h.store.SetupUser(r.Context(), chi.URLParam(r, "token"))
+	if errors.Is(err, ErrNotFound) {
+		setupNotFound(w)
+		return User{}, false
+	}
+	if err != nil {
+		httpx.Internal(w, err)
+		return User{}, false
+	}
+	return user, true
+}
+
+func (h *Handler) setupPasskeyBegin(w http.ResponseWriter, r *http.Request) {
+	user, ok := h.setupUser(w, r)
+	if !ok {
+		return
+	}
+	options, err := h.passkeys.BeginRegisterPasskey(r.Context(), user.ID, user.Username)
+	if err != nil {
+		httpx.Internal(w, err)
+		return
+	}
+	w.Header().Set("Cache-Control", "no-store")
+	httpx.WriteJSON(w, http.StatusOK, options)
+}
+
+func (h *Handler) setupPasskey(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Credential json.RawMessage `json:"credential"`
+	}
+	if !httpx.DecodeJSON(w, r, &req) {
+		return
+	}
+	user, ok := h.setupUser(w, r)
+	if !ok {
+		return
+	}
+	if err := h.passkeys.FinishRegister(r.Context(), user.ID, user.Username, "Passkey", req.Credential); err != nil {
+		httpx.BadRequest(w, "The passkey could not be registered.")
+		return
+	}
+	if err := h.store.ConsumeSetupToken(r.Context(), chi.URLParam(r, "token")); err != nil {
+		httpx.Internal(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func setupNotFound(w http.ResponseWriter) {

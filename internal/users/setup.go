@@ -98,3 +98,29 @@ func (s *Store) RedeemSetupToken(ctx context.Context, token, password string) er
 	}
 	return tx.Commit()
 }
+
+// ConsumeSetupToken invalidates a setup token without setting a password and
+// signs the user out everywhere. Used when the account is set up with a
+// passkey instead.
+func (s *Store) ConsumeSetupToken(ctx context.Context, token string) error {
+	user, err := s.SetupUser(ctx, token)
+	if err != nil {
+		return err
+	}
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin: %w", err)
+	}
+	defer tx.Rollback()
+	res, err := tx.ExecContext(ctx, "DELETE FROM user_setup_tokens WHERE token_hash = ?", hashToken(token))
+	if err != nil {
+		return fmt.Errorf("consume setup token: %w", err)
+	}
+	if err := checkAffected(res); err != nil {
+		return err
+	}
+	if _, err := tx.ExecContext(ctx, "DELETE FROM sessions WHERE user_id = ?", user.ID); err != nil {
+		return fmt.Errorf("clear sessions: %w", err)
+	}
+	return tx.Commit()
+}

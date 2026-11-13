@@ -104,6 +104,22 @@ func (s *Store) Challenge(ctx context.Context, userID int64) (any, error) {
 	return s.keys.BeginLogin(ctx, userID)
 }
 
+// BeginPasskey implements auth.Passwordless.
+func (s *Store) BeginPasskey(context.Context) (any, string, error) {
+	if s.keys == nil {
+		return nil, "", ErrNoKeys
+	}
+	return s.keys.BeginPasskeyLogin()
+}
+
+// FinishPasskey implements auth.Passwordless.
+func (s *Store) FinishPasskey(ctx context.Context, id string, response []byte) (int64, bool, error) {
+	if s.keys == nil {
+		return 0, false, nil
+	}
+	return s.keys.FinishPasskeyLogin(ctx, id, response)
+}
+
 // TOTPEnabled reports whether the user has a confirmed authenticator app.
 func (s *Store) TOTPEnabled(ctx context.Context, userID int64) (bool, error) {
 	var n int
