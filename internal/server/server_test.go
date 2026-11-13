@@ -181,6 +181,7 @@ func validContent() map[string]any {
 		"hero":         map[string]any{"headline": "Wir heiraten"},
 		"introduction": map[string]any{"text": "Herzlich willkommen"},
 		"location":     map[string]any{"name": "Waldsee", "navigationUrl": "https://maps.example.com"},
+		"privacy":      "Nur wir sehen eure Angaben.",
 		"schedule": []map[string]any{
 			{"time": "14:00", "title": "Ankunft"},
 			{"time": "14:30", "title": "Trauung"},
@@ -336,6 +337,7 @@ func TestContentUpdate_Couple(t *testing.T) {
 			Introduction struct {
 				Text string `json:"text"`
 			} `json:"introduction"`
+			Privacy  string `json:"privacy"`
 			Schedule []struct {
 				Title string `json:"title"`
 				Order int    `json:"order"`
@@ -358,6 +360,9 @@ func TestContentUpdate_Couple(t *testing.T) {
 	}
 	if body.Content.Introduction.Text != "Herzlich willkommen" {
 		t.Fatalf("introduction not updated: %q", body.Content.Introduction.Text)
+	}
+	if body.Content.Privacy != "Nur wir sehen eure Angaben." {
+		t.Fatalf("privacy not persisted: %q", body.Content.Privacy)
 	}
 	if len(body.Content.Schedule) != 2 || body.Content.Schedule[1].Title != "Trauung" || body.Content.Schedule[1].Order != 2 {
 		t.Fatalf("schedule not persisted in order: %+v", body.Content.Schedule)

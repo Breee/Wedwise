@@ -141,6 +141,7 @@ export interface Content {
   accommodation: Accommodation
   schedule: ScheduleEntry[]
   faq: FAQEntry[]
+  privacy?: string
   updatedAt?: string
 }
 

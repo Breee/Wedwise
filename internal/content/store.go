@@ -39,6 +39,7 @@ const (
 	keyLocationBike         = "location.bike"
 	keyLocationImage        = "location.image"
 	keyTheme                = "theme"
+	keyPrivacy              = "privacy"
 	keyTravel               = "travel"
 	keyAccommodation        = "accommodation"
 	maxContentBlockLenBytes = 20000
@@ -70,6 +71,7 @@ func (s *Store) Get(ctx context.Context) (Content, error) {
 			Image:         blocks[keyLocationImage],
 		},
 		Theme:     blocks[keyTheme],
+		Privacy:   blocks[keyPrivacy],
 		UpdatedAt: updatedAt,
 	}
 	if err := decodeBlock(blocks[keyTravel], &result.Travel); err != nil {
@@ -126,6 +128,7 @@ func (s *Store) Replace(ctx context.Context, updated Content) (Content, error) {
 		keyLocationBike:        normalized.Location.Bike,
 		keyLocationImage:       normalized.Location.Image,
 		keyTheme:               normalized.Theme,
+		keyPrivacy:             normalized.Privacy,
 		keyTravel:              encodeBlock(normalized.Travel),
 		keyAccommodation:       encodeBlock(normalized.Accommodation),
 	}
@@ -242,7 +245,7 @@ func normalize(input Content) (Content, error) {
 		&input.Introduction.Text,
 		&input.Location.Name, &input.Location.Address, &input.Location.Description,
 		&input.Location.NavigationURL, &input.Location.Transport, &input.Location.Parking, &input.Location.Bike, &input.Location.Image,
-		&input.Theme,
+		&input.Theme, &input.Privacy,
 	}
 	for _, field := range fields {
 		*field = strings.TrimSpace(*field)

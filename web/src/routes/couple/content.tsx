@@ -114,6 +114,15 @@ function ContentPage() {
               <Textarea rows={6} value={draft.introduction?.text ?? ''} onChange={(e) => set('introduction', { text: e.target.value })} />
             </CardContent>
           </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>{t('Datenschutzhinweis')}</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              <Textarea rows={4} value={draft.privacy ?? ''} onChange={(e) => set('privacy', e.target.value)} />
+              <p className="text-xs text-muted-foreground">{t('Optional. Erscheint im Fußbereich der Seite.')}</p>
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="location" className="mt-4">

@@ -398,6 +398,7 @@ export function RsvpForm({ initial, link, onDone }: FormProps) {
           <Button type="submit" size="lg" className="w-full shadow-lg sm:shadow-none" disabled={submit.isPending}>
             {submit.isPending ? t('Wird gesendet…') : initial ? t('Antwort aktualisieren') : t('Antwort absenden')}
           </Button>
+          <p className="mt-2 text-center text-xs text-muted-foreground">{t('Eure Angaben sehen nur wir und unsere Trauzeugen.')}</p>
         </div>
       </motion.form>
     </AnimatePresence>

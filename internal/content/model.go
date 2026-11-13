@@ -128,6 +128,7 @@ type Content struct {
 	Accommodation Accommodation   `json:"accommodation"`
 	Schedule      []ScheduleEntry `json:"schedule"`
 	FAQ           []FAQEntry      `json:"faq"`
-	Theme         string          `json:"theme"` // name of the active theme preset
+	Theme         string          `json:"theme"`   // name of the active theme preset
+	Privacy       string          `json:"privacy"` // optional privacy note shown in the footer
 	UpdatedAt     time.Time       `json:"updatedAt"`
 }
