@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { t } from '@/lib/i18n'
 import { createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQueryClient, useSuspenseQuery } from '@tanstack/react-query'
 import { Copy, KeyRound, Plus, ShieldOff, Trash2 } from 'lucide-react'
@@ -42,7 +43,7 @@ function UsersPage() {
   const remove = useMutation({
     mutationFn: (u: User) => api.delete(`/users/${u.id}`),
     onSuccess: () => {
-      toast.success('Benutzer gelöscht.')
+      toast.success(t('Benutzer gelöscht.'))
       refresh()
     },
     onError: (e) => toast.error(errorMessage(e)),
@@ -57,29 +58,29 @@ function UsersPage() {
 
   const resetTwoFactor = useMutation({
     mutationFn: (u: User) => api.delete(`/two-factor/${u.id}`),
-    onSuccess: () => toast.success('Zwei-Faktor-Anmeldung zurückgesetzt.'),
+    onSuccess: () => toast.success(t('Zwei-Faktor-Anmeldung zurückgesetzt.')),
     onError: (e) => toast.error(errorMessage(e)),
   })
 
   return (
     <div className="mx-auto max-w-6xl px-6 py-10">
       <PageHeader
-        title="Benutzer"
-        description="Wer sich anmelden darf – Brautpaar, Trauzeug:innen und Admins."
+        title={t('Benutzer')}
+        description={t('Wer sich anmelden darf – Brautpaar, Trauzeug:innen und Admins.')}
         action={
           <Button onClick={() => setCreating(true)}>
-            <Plus className="size-4" /> Neuer Benutzer
+            <Plus className="size-4" /> {t('Neuer Benutzer')}
           </Button>
         }
       />
       <Table className="block sm:table">
         <TableHeader className="hidden sm:table-header-group">
           <TableRow>
-            <TableHead>Benutzername</TableHead>
-            <TableHead>Name</TableHead>
-            <TableHead>Rolle</TableHead>
-            <TableHead>Aktiv</TableHead>
-            <TableHead className="text-right">Zugang</TableHead>
+            <TableHead>{t('Benutzername')}</TableHead>
+            <TableHead>{t('Name')}</TableHead>
+            <TableHead>{t('Rolle')}</TableHead>
+            <TableHead>{t('Aktiv')}</TableHead>
+            <TableHead className="text-right">{t('Zugang')}</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody className="block sm:table-row-group">
@@ -91,16 +92,16 @@ function UsersPage() {
               <TableCell className="w-full p-0 font-medium sm:w-auto sm:p-2">{u.username}</TableCell>
               <TableCell className="p-0 text-muted-foreground sm:p-2">{u.displayName || '–'}</TableCell>
               <TableCell className="p-0 sm:p-2">
-                <Badge variant="secondary">{ROLE_LABEL[u.role] ?? u.role}</Badge>
+                <Badge variant="secondary">{ROLE_LABEL[u.role] ? t(ROLE_LABEL[u.role]) : u.role}</Badge>
               </TableCell>
               <TableCell className="p-0 sm:p-2">
                 <Switch
                   checked={u.active}
                   disabled={u.id === me.id}
                   onCheckedChange={(active) => setActive.mutate({ id: u.id, active })}
-                  aria-label={`${u.username} aktiv`}
+                  aria-label={t('{name} aktiv', { name: u.username })}
                 />
-                {u.id === me.id && <span className="ml-2 text-xs text-muted-foreground">Das seid ihr</span>}
+                {u.id === me.id && <span className="ml-2 text-xs text-muted-foreground">{t('Das seid ihr')}</span>}
               </TableCell>
               <TableCell className="ml-auto p-0 text-right sm:p-2">
                 <Button
@@ -108,24 +109,24 @@ function UsersPage() {
                   size="icon"
                   className="h-10 w-auto gap-1.5 px-2 sm:size-9 sm:px-0"
                   onClick={() => newLink.mutate(u)}
-                  title="Neuen Einrichtungslink erzeugen"
-                  aria-label={`Einrichtungslink für ${u.username} erzeugen`}
+                  title={t('Neuen Einrichtungslink erzeugen')}
+                  aria-label={t('Einrichtungslink für {name} erzeugen', { name: u.username })}
                 >
                   <KeyRound className="size-4" />
-                  <span className="text-xs sm:hidden">Neuer Link</span>
+                  <span className="text-xs sm:hidden">{t('Neuer Link')}</span>
                 </Button>
                 <Button
                   variant="ghost"
                   size="icon"
                   className="h-10 w-auto gap-1.5 px-2 sm:size-9 sm:px-0"
                   onClick={() => {
-                    if (window.confirm(`Zwei-Faktor-Anmeldung von ${u.username} zurücksetzen?`)) resetTwoFactor.mutate(u)
+                    if (window.confirm(t('Zwei-Faktor-Anmeldung von {name} zurücksetzen?', { name: u.username }))) resetTwoFactor.mutate(u)
                   }}
-                  title="Zwei-Faktor-Anmeldung zurücksetzen"
-                  aria-label={`Zwei-Faktor-Anmeldung von ${u.username} zurücksetzen`}
+                  title={t('Zwei-Faktor-Anmeldung zurücksetzen')}
+                  aria-label={t('Zwei-Faktor-Anmeldung von {name} zurücksetzen', { name: u.username })}
                 >
                   <ShieldOff className="size-4" />
-                  <span className="text-xs sm:hidden">2FA zurücksetzen</span>
+                  <span className="text-xs sm:hidden">{t('2FA zurücksetzen')}</span>
                 </Button>
                 {u.id !== me.id && (
                   <Button
@@ -133,13 +134,13 @@ function UsersPage() {
                     size="icon"
                     className="h-10 w-auto gap-1.5 px-2 text-destructive sm:size-9 sm:px-0"
                     onClick={() => {
-                      if (window.confirm(`${u.username} endgültig löschen?`)) remove.mutate(u)
+                      if (window.confirm(t('{name} endgültig löschen?', { name: u.username }))) remove.mutate(u)
                     }}
-                    title="Benutzer löschen"
-                    aria-label={`${u.username} löschen`}
+                    title={t('Benutzer löschen')}
+                    aria-label={t('{name} löschen', { name: u.username })}
                   >
                     <Trash2 className="size-4" />
-                    <span className="text-xs sm:hidden">Löschen</span>
+                    <span className="text-xs sm:hidden">{t('Löschen')}</span>
                   </Button>
                 )}
               </TableCell>
@@ -187,21 +188,21 @@ function CreateForm({ onDone }: { onDone: (created: { user: string; url: string 
       }}
     >
       <DialogHeader>
-        <DialogTitle>Neuer Benutzer</DialogTitle>
+        <DialogTitle>{t('Neuer Benutzer')}</DialogTitle>
         <DialogDescription>
-          Ihr bekommt einen Einrichtungslink. Darüber legt die Person ihr Passwort selbst fest.
+          {t('Ihr bekommt einen Einrichtungslink. Darüber legt die Person ihr Passwort selbst fest.')}
         </DialogDescription>
       </DialogHeader>
       <div className="space-y-2">
-        <Label htmlFor="u-username">Benutzername</Label>
+        <Label htmlFor="u-username">{t('Benutzername')}</Label>
         <Input id="u-username" value={username} onChange={(e) => setUsername(e.target.value)} required maxLength={100} autoComplete="off" />
       </div>
       <div className="space-y-2">
-        <Label htmlFor="u-name">Name (optional)</Label>
+        <Label htmlFor="u-name">{t('Name (optional)')}</Label>
         <Input id="u-name" value={displayName} onChange={(e) => setDisplayName(e.target.value)} maxLength={200} />
       </div>
       <div className="space-y-2">
-        <Label htmlFor="u-role">Rolle</Label>
+        <Label htmlFor="u-role">{t('Rolle')}</Label>
         <Select value={role} onValueChange={(v) => setRole(v as Role)}>
           <SelectTrigger id="u-role" className="w-full">
             <SelectValue />
@@ -209,7 +210,7 @@ function CreateForm({ onDone }: { onDone: (created: { user: string; url: string 
           <SelectContent>
             {(Object.keys(ROLE_LABEL) as Role[]).map((r) => (
               <SelectItem key={r} value={r}>
-                {ROLE_LABEL[r]}
+                {t(ROLE_LABEL[r])}
               </SelectItem>
             ))}
           </SelectContent>
@@ -217,7 +218,7 @@ function CreateForm({ onDone }: { onDone: (created: { user: string; url: string 
       </div>
       <DialogFooter>
         <Button type="submit" disabled={create.isPending}>
-          Anlegen
+          {t('Anlegen')}
         </Button>
       </DialogFooter>
     </form>
@@ -228,19 +229,19 @@ function SetupLink({ user, url }: { user: string; url: string }) {
   return (
     <div className="space-y-4">
       <DialogHeader>
-        <DialogTitle>Einrichtungslink für {user}</DialogTitle>
+        <DialogTitle>{t('Einrichtungslink für {name}', { name: user })}</DialogTitle>
         <DialogDescription>
-          Gebt den Link persönlich weiter. Er gilt 7 Tage und nur einmal – wir zeigen ihn nicht noch einmal an.
+          {t('Gebt den Link persönlich weiter. Er gilt 7 Tage und nur einmal – wir zeigen ihn nicht noch einmal an.')}
         </DialogDescription>
       </DialogHeader>
       <div className="flex gap-2">
-        <Input readOnly value={url} aria-label="Einrichtungslink" onFocus={(e) => e.target.select()} />
+        <Input readOnly value={url} aria-label={t('Einrichtungslink')} onFocus={(e) => e.target.select()} />
         <Button
           type="button"
           variant="outline"
           size="icon"
-          aria-label="Link kopieren"
-          onClick={() => navigator.clipboard.writeText(url).then(() => toast.success('Link kopiert.'))}
+          aria-label={t('Link kopieren')}
+          onClick={() => navigator.clipboard.writeText(url).then(() => toast.success(t('Link kopiert.')))}
         >
           <Copy className="size-4" />
         </Button>

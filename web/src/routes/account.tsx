@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { t } from '@/lib/i18n'
 import { createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { QRCodeSVG } from 'qrcode.react'
@@ -29,7 +30,7 @@ export const Route = createFileRoute('/account')({
 })
 
 function codeError(e: unknown) {
-  return e instanceof ApiError && e.code === 'invalid_code' ? 'Der Code stimmt nicht.' : errorMessage(e)
+  return e instanceof ApiError && e.code === 'invalid_code' ? t('Der Code stimmt nicht.') : errorMessage(e)
 }
 
 function AccountPage() {
@@ -61,34 +62,34 @@ function AccountPage() {
       setCode('')
       setRecovery(null)
       refresh()
-      toast.success('Zwei-Faktor-Anmeldung deaktiviert.')
+      toast.success(t('Zwei-Faktor-Anmeldung deaktiviert.'))
     },
     onError: (e) => toast.error(codeError(e)),
   })
 
   return (
     <div className="mx-auto max-w-2xl px-6 py-10">
-      <PageHeader title="Konto" description="Anmeldung absichern und Benachrichtigungen für dieses Gerät." />
-      <h2 className="mb-1 text-2xl">Anmeldung & Sicherheit</h2>
+      <PageHeader title={t('Konto')} description={t('Anmeldung absichern und Benachrichtigungen für dieses Gerät.')} />
+      <h2 className="mb-1 text-2xl">{t('Anmeldung & Sicherheit')}</h2>
       <p className="mb-4 text-sm text-muted-foreground">
-        Beides ist freiwillig. Am einfachsten ist ein Passkey – der Code aus einer App ist die Alternative.
+        {t('Beides ist freiwillig. Am einfachsten ist ein Passkey – der Code aus einer App ist die Alternative.')}
       </p>
       <SecurityKeys keys={status?.keys ?? []} />
       <Card className="mt-6">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-2xl">
-            <ShieldCheck className="size-5 text-primary" /> Code aus einer App
+            <ShieldCheck className="size-5 text-primary" /> {t('Code aus einer App')}
           </CardTitle>
           <CardDescription>
-            Zusätzlich zum Passwort fragt die Anmeldung einen Code aus einer Authenticator-App ab.
+            {t('Zusätzlich zum Passwort fragt die Anmeldung einen Code aus einer Authenticator-App ab.')}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-5">
           {recovery && (
             <div className="space-y-3 rounded-lg border border-primary/30 bg-secondary/40 p-4">
-              <p className="text-sm font-medium">Eure Wiederherstellungscodes</p>
+              <p className="text-sm font-medium">{t('Eure Wiederherstellungscodes')}</p>
               <p className="text-sm text-muted-foreground">
-                Bewahrt sie sicher auf. Jeder Code gilt einmal, falls das Handy fehlt. Wir zeigen sie nicht noch einmal an.
+                {t('Bewahrt sie sicher auf. Jeder Code gilt einmal, falls das Handy fehlt. Wir zeigen sie nicht noch einmal an.')}
               </p>
               <ul className="grid grid-cols-1 gap-1 font-mono text-sm sm:grid-cols-2">
                 {recovery.map((c) => (
@@ -99,9 +100,9 @@ function AccountPage() {
                 type="button"
                 variant="outline"
                 size="sm"
-                onClick={() => navigator.clipboard.writeText(recovery.join('\n')).then(() => toast.success('Codes kopiert.'))}
+                onClick={() => navigator.clipboard.writeText(recovery.join('\n')).then(() => toast.success(t('Codes kopiert.')))}
               >
-                <Copy className="size-4" /> Kopieren
+                <Copy className="size-4" /> {t('Kopieren')}
               </Button>
             </div>
           )}
@@ -115,14 +116,14 @@ function AccountPage() {
               }}
             >
               <p className="text-sm">
-                Aktiv. Noch {status.recoveryCodes} Wiederherstellungscodes übrig.
+                {t('Aktiv. Noch {n} Wiederherstellungscodes übrig.', { n: status.recoveryCodes })}
               </p>
               <div className="space-y-2">
-                <Label htmlFor="a-code">Code zum Deaktivieren</Label>
+                <Label htmlFor="a-code">{t('Code zum Deaktivieren')}</Label>
                 <Input id="a-code" value={code} onChange={(e) => setCode(e.target.value)} autoComplete="one-time-code" required />
               </div>
               <Button type="submit" variant="outline" disabled={disable.isPending}>
-                Deaktivieren
+                {t('Deaktivieren')}
               </Button>
             </form>
           ) : enrolment ? (
@@ -134,16 +135,16 @@ function AccountPage() {
               }}
             >
               <p className="text-sm text-muted-foreground">
-                Scannt den QR-Code mit eurer Authenticator-App und gebt den angezeigten Code ein.
+                {t('Scannt den QR-Code mit eurer Authenticator-App und gebt den angezeigten Code ein.')}
               </p>
               <div className="w-fit rounded-lg bg-white p-3">
                 <QRCodeSVG value={enrolment.url} size={176} />
               </div>
               <p className="text-xs break-all text-muted-foreground">
-                Ohne Kamera: <span className="font-mono">{enrolment.secret}</span>
+                {t('Ohne Kamera:')} <span className="font-mono">{enrolment.secret}</span>
               </p>
               <div className="space-y-2">
-                <Label htmlFor="a-code">6-stelliger Code</Label>
+                <Label htmlFor="a-code">{t('6-stelliger Code')}</Label>
                 <Input
                   id="a-code"
                   value={code}
@@ -154,17 +155,17 @@ function AccountPage() {
                 />
               </div>
               <Button type="submit" disabled={confirm.isPending}>
-                Aktivieren
+                {t('Aktivieren')}
               </Button>
             </form>
           ) : (
             <Button onClick={() => begin.mutate()} disabled={begin.isPending || !status}>
-              Einrichten
+              {t('Einrichten')}
             </Button>
           )}
         </CardContent>
       </Card>
-      <h2 className="mt-10 mb-4 text-2xl">Benachrichtigungen</h2>
+      <h2 className="mt-10 mb-4 text-2xl">{t('Benachrichtigungen')}</h2>
       <StaffNotifications />
     </div>
   )
@@ -190,14 +191,14 @@ function SecurityKeys({ keys }: { keys: SecurityKey[] }) {
     onSuccess: () => {
       setName('')
       refresh()
-      toast.success('Schlüssel hinzugefügt.')
+      toast.success(t('Schlüssel hinzugefügt.'))
     },
-    onError: (e) => toast.error(errorMessage(e, 'Der Schlüssel konnte nicht hinzugefügt werden.')),
+    onError: (e) => toast.error(errorMessage(e, t('Der Schlüssel konnte nicht hinzugefügt werden.'))),
   })
   const remove = useMutation({
     mutationFn: (id: number) => api.delete(`/account/2fa/keys/${id}`),
     onSuccess: refresh,
-    onError: (e) => toast.error(errorMessage(e, 'Löschen fehlgeschlagen.')),
+    onError: (e) => toast.error(errorMessage(e, t('Löschen fehlgeschlagen.'))),
   })
 
   return (
@@ -205,11 +206,10 @@ function SecurityKeys({ keys }: { keys: SecurityKey[] }) {
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-2xl">
           <KeyRound className="size-5 text-primary" />
-          Passkey oder Sicherheitsschlüssel
+          {t('Passkey oder Sicherheitsschlüssel')}
         </CardTitle>
         <CardDescription>
-          Fingerabdruck, Gesichtserkennung oder ein Hardware-Schlüssel (z. B. YubiKey) als zweiter Schritt bei der
-          Anmeldung. Gespeichert wird nur der öffentliche Schlüssel.
+          {t('Fingerabdruck, Gesichtserkennung oder ein Hardware-Schlüssel (z. B. YubiKey) als zweiter Schritt bei der Anmeldung. Gespeichert wird nur der öffentliche Schlüssel.')}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -217,13 +217,13 @@ function SecurityKeys({ keys }: { keys: SecurityKey[] }) {
           <ul className="divide-y rounded-md border">
             {keys.map((k) => (
               <li key={k.id} className="flex items-center justify-between gap-3 px-3 py-2 text-sm">
-                <span>{k.name || 'Schlüssel'}</span>
+                <span>{k.name || t('Schlüssel')}</span>
                 <Button
                   variant="ghost"
                   size="icon"
                   className="size-10"
-                  aria-label={`${k.name || 'Schlüssel'} entfernen`}
-                  onClick={() => window.confirm('Diesen Schlüssel entfernen?') && remove.mutate(k.id)}
+                  aria-label={t('{name} entfernen', { name: k.name || t('Schlüssel') })}
+                  onClick={() => window.confirm(t('Diesen Schlüssel entfernen?')) && remove.mutate(k.id)}
                 >
                   <Trash2 className="size-4" />
                 </Button>
@@ -240,21 +240,21 @@ function SecurityKeys({ keys }: { keys: SecurityKey[] }) {
             }}
           >
             <div className="flex-1 space-y-2">
-              <Label htmlFor="k-name">Name</Label>
+              <Label htmlFor="k-name">{t('Name')}</Label>
               <Input
                 id="k-name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="z. B. Handy oder YubiKey"
+                placeholder={t('z. B. Handy oder YubiKey')}
                 maxLength={60}
               />
             </div>
             <Button type="submit" disabled={add.isPending}>
-              Schlüssel hinzufügen
+              {t('Schlüssel hinzufügen')}
             </Button>
           </form>
         ) : (
-          <p className="text-sm text-muted-foreground">Dieser Browser unterstützt keine Sicherheitsschlüssel.</p>
+          <p className="text-sm text-muted-foreground">{t('Dieser Browser unterstützt keine Sicherheitsschlüssel.')}</p>
         )}
       </CardContent>
     </Card>
@@ -271,22 +271,22 @@ function StaffNotifications() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-2xl">
-            <Bell className="size-5 text-primary" /> Auf diesem Gerät
+            <Bell className="size-5 text-primary" /> {t('Auf diesem Gerät')}
           </CardTitle>
-          <CardDescription>Gilt für dieses Gerät. Auf dem iPhone nur in der installierten App.</CardDescription>
+          <CardDescription>{t('Gilt für dieses Gerät. Auf dem iPhone nur in der installierten App.')}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
           {!pushSupported() ? (
-            <p className="text-sm text-muted-foreground">Dieser Browser unterstützt keine Benachrichtigungen.</p>
+            <p className="text-sm text-muted-foreground">{t('Dieser Browser unterstützt keine Benachrichtigungen.')}</p>
           ) : (
-            TOPICS.filter((t) => t.roles.includes(role)).map((t) => (
-              <div key={t.id} className="flex min-h-10 items-center justify-between gap-4">
-                <Label htmlFor={`n-${t.id}`}>{t.label}</Label>
+            TOPICS.filter((topic) => topic.roles.includes(role)).map((topic) => (
+              <div key={topic.id} className="flex min-h-10 items-center justify-between gap-4">
+                <Label htmlFor={`n-${topic.id}`}>{t(topic.label)}</Label>
                 <Switch
-                  id={`n-${t.id}`}
-                  checked={topics.includes(t.id)}
+                  id={`n-${topic.id}`}
+                  checked={topics.includes(topic.id)}
                   disabled={!ready || save.isPending}
-                  onCheckedChange={(on) => save.mutate(toggled(topics, t.id, on))}
+                  onCheckedChange={(on) => save.mutate(toggled(topics, topic.id, on))}
                 />
               </div>
             ))
