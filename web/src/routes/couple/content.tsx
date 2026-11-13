@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { t } from '@/lib/i18n'
 import { createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQueryClient, useSuspenseQuery } from '@tanstack/react-query'
 import { ArrowDown, ArrowUp, Plus, Trash2, Upload } from 'lucide-react'
@@ -33,7 +34,7 @@ function ContentPage() {
       queryClient.setQueryData(contentQuery.queryKey, saved)
       queryClient.invalidateQueries({ queryKey: ['content', 'public'] })
       setDraft(structuredClone(saved))
-      toast.success('Inhalte gespeichert.')
+      toast.success(t('Inhalte gespeichert.'))
     },
     onError: (e) => toast.error(errorMessage(e)),
   })
@@ -47,33 +48,33 @@ function ContentPage() {
   return (
     <>
       <PageHeader
-        title="Inhalte"
-        description="Texte der öffentlichen Seite bearbeiten."
+        title={t('Inhalte')}
+        description={t('Texte der öffentlichen Seite bearbeiten.')}
         action={
           <Button onClick={() => save.mutate()} disabled={save.isPending}>
-            {save.isPending ? 'Speichert…' : 'Speichern'}
+            {save.isPending ? t('Speichert…') : t('Speichern')}
           </Button>
         }
       />
       <Tabs defaultValue="hero">
         <TabsList>
-          <TabsTrigger value="hero">Begrüßung</TabsTrigger>
-          <TabsTrigger value="location">Ort</TabsTrigger>
-          <TabsTrigger value="travel">Anreise</TabsTrigger>
-          <TabsTrigger value="stay">Unterkünfte</TabsTrigger>
-          <TabsTrigger value="schedule">Ablauf</TabsTrigger>
-          <TabsTrigger value="faq">FAQ</TabsTrigger>
-          <TabsTrigger value="theme">Design</TabsTrigger>
+          <TabsTrigger value="hero">{t('Begrüßung')}</TabsTrigger>
+          <TabsTrigger value="location">{t('Ort')}</TabsTrigger>
+          <TabsTrigger value="travel">{t('Anreise')}</TabsTrigger>
+          <TabsTrigger value="stay">{t('Unterkünfte')}</TabsTrigger>
+          <TabsTrigger value="schedule">{t('Ablauf')}</TabsTrigger>
+          <TabsTrigger value="faq">{t('FAQ')}</TabsTrigger>
+          <TabsTrigger value="theme">{t('Design')}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="theme" className="mt-4">
           <Card>
             <CardHeader>
-              <CardTitle>Design</CardTitle>
+              <CardTitle>{t('Design')}</CardTitle>
             </CardHeader>
             <CardContent className="grid gap-4 sm:grid-cols-2">
               <div className="grid gap-2">
-                <Label>Thema</Label>
+                <Label>{t('Thema')}</Label>
                 <Select value={draft.theme || themes[0]?.name} onValueChange={(v) => set('theme', v)}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -95,19 +96,19 @@ function ContentPage() {
         <TabsContent value="hero" className="mt-4 space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Kopfbereich</CardTitle>
-              <p className="text-sm text-muted-foreground">Leere Felder übernehmen die Werte aus der Konfiguration.</p>
+              <CardTitle>{t('Kopfbereich')}</CardTitle>
+              <p className="text-sm text-muted-foreground">{t('Leere Felder übernehmen die Werte aus der Konfiguration.')}</p>
             </CardHeader>
             <CardContent className="grid gap-4 sm:grid-cols-2">
-              <Field label="Kleine Überschrift" value={draft.hero.eyebrow} onChange={(v) => set('hero', { ...draft.hero, eyebrow: v })} />
-              <Field label="Überschrift" value={draft.hero.headline} onChange={(v) => set('hero', { ...draft.hero, headline: v })} />
-              <Field label="Untertitel" value={draft.hero.subtitle} onChange={(v) => set('hero', { ...draft.hero, subtitle: v })} />
-              <Field label="Hinweis" value={draft.hero.note} onChange={(v) => set('hero', { ...draft.hero, note: v })} />
+              <Field label={t('Kleine Überschrift')} value={draft.hero.eyebrow} onChange={(v) => set('hero', { ...draft.hero, eyebrow: v })} />
+              <Field label={t('Überschrift')} value={draft.hero.headline} onChange={(v) => set('hero', { ...draft.hero, headline: v })} />
+              <Field label={t('Untertitel')} value={draft.hero.subtitle} onChange={(v) => set('hero', { ...draft.hero, subtitle: v })} />
+              <Field label={t('Hinweis')} value={draft.hero.note} onChange={(v) => set('hero', { ...draft.hero, note: v })} />
             </CardContent>
           </Card>
           <Card>
             <CardHeader>
-              <CardTitle>Einleitung</CardTitle>
+              <CardTitle>{t('Einleitung')}</CardTitle>
             </CardHeader>
             <CardContent>
               <Textarea rows={6} value={draft.introduction?.text ?? ''} onChange={(e) => set('introduction', { text: e.target.value })} />
@@ -118,17 +119,17 @@ function ContentPage() {
         <TabsContent value="location" className="mt-4">
           <Card>
             <CardContent className="grid gap-4 pt-6 sm:grid-cols-2">
-              <Field label="Name" value={draft.location.name} onChange={(v) => set('location', { ...draft.location, name: v })} />
-              <Field label="Adresse" value={draft.location.address} onChange={(v) => set('location', { ...draft.location, address: v })} />
-              <Field label="Navigationslink" value={draft.location.navigationUrl} onChange={(v) => set('location', { ...draft.location, navigationUrl: v })} className="sm:col-span-2" />
+              <Field label={t('Name')} value={draft.location.name} onChange={(v) => set('location', { ...draft.location, name: v })} />
+              <Field label={t('Adresse')} value={draft.location.address} onChange={(v) => set('location', { ...draft.location, address: v })} />
+              <Field label={t('Navigationslink')} value={draft.location.navigationUrl} onChange={(v) => set('location', { ...draft.location, navigationUrl: v })} className="sm:col-span-2" />
               <div className="space-y-2 sm:col-span-2">
-                <Field label="Bild-URL" value={draft.location.image ?? ''} onChange={(v) => set('location', { ...draft.location, image: v })} />
+                <Field label={t('Bild-URL')} value={draft.location.image ?? ''} onChange={(v) => set('location', { ...draft.location, image: v })} />
                 <ImageUpload onUploaded={(url) => set('location', { ...draft.location, image: url })} />
               </div>
-              <Field label="Beschreibung" multiline value={draft.location.description} onChange={(v) => set('location', { ...draft.location, description: v })} className="sm:col-span-2" />
-              <Field label="Anreise" multiline value={draft.location.transport} onChange={(v) => set('location', { ...draft.location, transport: v })} />
-              <Field label="Parken" multiline value={draft.location.parking} onChange={(v) => set('location', { ...draft.location, parking: v })} />
-              <Field label="Fahrrad" multiline value={draft.location.bike} onChange={(v) => set('location', { ...draft.location, bike: v })} />
+              <Field label={t('Beschreibung')} multiline value={draft.location.description} onChange={(v) => set('location', { ...draft.location, description: v })} className="sm:col-span-2" />
+              <Field label={t('Anreise')} multiline value={draft.location.transport} onChange={(v) => set('location', { ...draft.location, transport: v })} />
+              <Field label={t('Parken')} multiline value={draft.location.parking} onChange={(v) => set('location', { ...draft.location, parking: v })} />
+              <Field label={t('Fahrrad')} multiline value={draft.location.bike} onChange={(v) => set('location', { ...draft.location, bike: v })} />
             </CardContent>
           </Card>
         </TabsContent>
@@ -136,13 +137,13 @@ function ContentPage() {
         <TabsContent value="travel" className="mt-4 space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Koordinaten der Location</CardTitle>
+              <CardTitle>{t('Koordinaten der Location')}</CardTitle>
             </CardHeader>
             <CardContent className="grid gap-4 sm:grid-cols-2">
-              <NumberField label="Breitengrad (lat)" value={travel.lat} onChange={(v) => set('travel', { ...travel, lat: v })} />
-              <NumberField label="Längengrad (lng)" value={travel.lng} onChange={(v) => set('travel', { ...travel, lng: v })} />
+              <NumberField label={t('Breitengrad (lat)')} value={travel.lat} onChange={(v) => set('travel', { ...travel, lat: v })} />
+              <NumberField label={t('Längengrad (lng)')} value={travel.lng} onChange={(v) => set('travel', { ...travel, lng: v })} />
               <p className="text-sm text-muted-foreground sm:col-span-2">
-                Koordinaten findet ihr z. B. per Rechtsklick in Google Maps. Ohne Koordinaten wird keine Karte angezeigt.
+                {t('Koordinaten findet ihr z. B. per Rechtsklick in Google Maps. Ohne Koordinaten wird keine Karte angezeigt.')}
               </p>
             </CardContent>
           </Card>
@@ -150,25 +151,25 @@ function ContentPage() {
             items={travel.stops}
             onChange={(items) => set('travel', { ...travel, stops: items })}
             create={() => ({ name: '', kind: 'tram', line: '', lat: travel.lat, lng: travel.lng })}
-            addLabel="Haltestelle / Parkplatz hinzufügen"
+            addLabel={t('Haltestelle / Parkplatz hinzufügen')}
             render={(item, update) => (
               <div className="grid flex-1 gap-3 sm:grid-cols-4">
-                <Field label="Name" value={item.name} onChange={(v) => update({ ...item, name: v })} className="sm:col-span-2" />
+                <Field label={t('Name')} value={item.name} onChange={(v) => update({ ...item, name: v })} className="sm:col-span-2" />
                 <div className="space-y-2">
-                  <Label>Art</Label>
+                  <Label>{t('Art')}</Label>
                   <Select value={item.kind} onValueChange={(v) => update({ ...item, kind: v as Stop['kind'] })}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="tram">Tram</SelectItem>
-                      <SelectItem value="train">S-Bahn / Zug</SelectItem>
-                      <SelectItem value="bus">Bus</SelectItem>
-                      <SelectItem value="parking">Parkplatz</SelectItem>
+                      <SelectItem value="tram">{t('Tram')}</SelectItem>
+                      <SelectItem value="train">{t('S-Bahn / Zug')}</SelectItem>
+                      <SelectItem value="bus">{t('Bus')}</SelectItem>
+                      <SelectItem value="parking">{t('Parkplatz')}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
-                <Field label="Linie" value={item.line} onChange={(v) => update({ ...item, line: v })} />
-                <NumberField label="Breitengrad (lat)" value={item.lat} onChange={(v) => update({ ...item, lat: v })} className="sm:col-span-2" />
-                <NumberField label="Längengrad (lng)" value={item.lng} onChange={(v) => update({ ...item, lng: v })} className="sm:col-span-2" />
+                <Field label={t('Linie')} value={item.line} onChange={(v) => update({ ...item, line: v })} />
+                <NumberField label={t('Breitengrad (lat)')} value={item.lat} onChange={(v) => update({ ...item, lat: v })} className="sm:col-span-2" />
+                <NumberField label={t('Längengrad (lng)')} value={item.lng} onChange={(v) => update({ ...item, lng: v })} className="sm:col-span-2" />
               </div>
             )}
           />
@@ -177,48 +178,48 @@ function ContentPage() {
         <TabsContent value="stay" className="mt-4 space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Reisezeitraum für Buchungslinks</CardTitle>
+              <CardTitle>{t('Reisezeitraum für Buchungslinks')}</CardTitle>
             </CardHeader>
             <CardContent className="grid gap-4 sm:grid-cols-2">
-              <DateField label="Anreise" value={stay.checkIn} onChange={(v) => set('accommodation', { ...stay, checkIn: v })} />
-              <DateField label="Abreise" value={stay.checkOut} onChange={(v) => set('accommodation', { ...stay, checkOut: v })} />
+              <DateField label={t('Anreise')} value={stay.checkIn} onChange={(v) => set('accommodation', { ...stay, checkIn: v })} />
+              <DateField label={t('Abreise')} value={stay.checkOut} onChange={(v) => set('accommodation', { ...stay, checkOut: v })} />
             </CardContent>
           </Card>
           <ListEditor<Hotel>
             items={stay.hotels}
             onChange={(items) => set('accommodation', { ...stay, hotels: items })}
             create={() => ({ name: '', area: '', lat: travel.lat, lng: travel.lng, priceTier: 2, note: '', url: '', bookingUrl: '' })}
-            addLabel="Unterkunft hinzufügen"
+            addLabel={t('Unterkunft hinzufügen')}
             render={(item, update) => (
               <div className="grid flex-1 gap-3 sm:grid-cols-4">
-                <Field label="Name" value={item.name} onChange={(v) => update({ ...item, name: v })} className="sm:col-span-2" />
-                <Field label="Stadtteil" value={item.area} onChange={(v) => update({ ...item, area: v })} />
+                <Field label={t('Name')} value={item.name} onChange={(v) => update({ ...item, name: v })} className="sm:col-span-2" />
+                <Field label={t('Stadtteil')} value={item.area} onChange={(v) => update({ ...item, area: v })} />
                 <div className="space-y-2">
-                  <Label>Art</Label>
+                  <Label>{t('Art')}</Label>
                   <Select value={item.kind ?? 'hotel'} onValueChange={(v) => update({ ...item, kind: v as Hotel['kind'] })}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="hotel">Hotel</SelectItem>
-                      <SelectItem value="apartment">Ferienwohnung</SelectItem>
+                      <SelectItem value="hotel">{t('Hotel')}</SelectItem>
+                      <SelectItem value="apartment">{t('Ferienwohnung')}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label>Preisklasse</Label>
+                  <Label>{t('Preisklasse')}</Label>
                   <Select value={String(item.priceTier)} onValueChange={(v) => update({ ...item, priceTier: Number(v) as Hotel['priceTier'] })}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="1">€ günstig</SelectItem>
-                      <SelectItem value="2">€€ mittel</SelectItem>
-                      <SelectItem value="3">€€€ gehoben</SelectItem>
+                      <SelectItem value="1">{t('€ günstig')}</SelectItem>
+                      <SelectItem value="2">{t('€€ mittel')}</SelectItem>
+                      <SelectItem value="3">{t('€€€ gehoben')}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
-                <NumberField label="Breitengrad (lat)" value={item.lat} onChange={(v) => update({ ...item, lat: v })} className="sm:col-span-2" />
-                <NumberField label="Längengrad (lng)" value={item.lng} onChange={(v) => update({ ...item, lng: v })} className="sm:col-span-2" />
-                <Field label="Website" value={item.url} onChange={(v) => update({ ...item, url: v })} className="sm:col-span-2" />
-                <Field label="Booking-Link (Hotelseite)" value={item.bookingUrl ?? ''} onChange={(v) => update({ ...item, bookingUrl: v })} className="sm:col-span-2" />
-                <Field label="Hinweis" value={item.note} onChange={(v) => update({ ...item, note: v })} className="sm:col-span-2" />
+                <NumberField label={t('Breitengrad (lat)')} value={item.lat} onChange={(v) => update({ ...item, lat: v })} className="sm:col-span-2" />
+                <NumberField label={t('Längengrad (lng)')} value={item.lng} onChange={(v) => update({ ...item, lng: v })} className="sm:col-span-2" />
+                <Field label={t('Website')} value={item.url} onChange={(v) => update({ ...item, url: v })} className="sm:col-span-2" />
+                <Field label={t('Booking-Link (Hotelseite)')} value={item.bookingUrl ?? ''} onChange={(v) => update({ ...item, bookingUrl: v })} className="sm:col-span-2" />
+                <Field label={t('Hinweis')} value={item.note} onChange={(v) => update({ ...item, note: v })} className="sm:col-span-2" />
               </div>
             )}
           />
@@ -229,12 +230,12 @@ function ContentPage() {
             items={draft.schedule ?? []}
             onChange={(items) => set('schedule', items)}
             create={() => ({ id: 0, time: '', title: '', description: '', order: 0 })}
-            addLabel="Programmpunkt hinzufügen"
+            addLabel={t('Programmpunkt hinzufügen')}
             render={(item, update) => (
               <div className="grid flex-1 gap-3 sm:grid-cols-[8rem_1fr]">
-                <Field label="Uhrzeit" value={item.time} onChange={(v) => update({ ...item, time: v })} />
-                <Field label="Titel" value={item.title} onChange={(v) => update({ ...item, title: v })} />
-                <Field label="Beschreibung" value={item.description} onChange={(v) => update({ ...item, description: v })} className="sm:col-span-2" />
+                <Field label={t('Uhrzeit')} value={item.time} onChange={(v) => update({ ...item, time: v })} />
+                <Field label={t('Titel')} value={item.title} onChange={(v) => update({ ...item, title: v })} />
+                <Field label={t('Beschreibung')} value={item.description} onChange={(v) => update({ ...item, description: v })} className="sm:col-span-2" />
               </div>
             )}
           />
@@ -245,11 +246,11 @@ function ContentPage() {
             items={draft.faq ?? []}
             onChange={(items) => set('faq', items)}
             create={() => ({ id: 0, question: '', answer: '', order: 0 })}
-            addLabel="Frage hinzufügen"
+            addLabel={t('Frage hinzufügen')}
             render={(item, update) => (
               <div className="grid flex-1 gap-3">
-                <Field label="Frage" value={item.question} onChange={(v) => update({ ...item, question: v })} />
-                <Field label="Antwort" multiline value={item.answer} onChange={(v) => update({ ...item, answer: v })} />
+                <Field label={t('Frage')} value={item.question} onChange={(v) => update({ ...item, question: v })} />
+                <Field label={t('Antwort')} multiline value={item.answer} onChange={(v) => update({ ...item, answer: v })} />
               </div>
             )}
           />
@@ -257,13 +258,13 @@ function ContentPage() {
       </Tabs>
       {dirty && (
         <div className="sticky bottom-0 z-20 -mx-4 mt-6 flex items-center justify-between gap-3 border-t bg-background/95 px-4 py-3 backdrop-blur sm:mx-0 sm:rounded-lg sm:border">
-          <p className="text-sm text-muted-foreground">Ungespeicherte Änderungen</p>
+          <p className="text-sm text-muted-foreground">{t('Ungespeicherte Änderungen')}</p>
           <div className="flex gap-2">
             <Button variant="ghost" onClick={() => setDraft(structuredClone(data))} disabled={save.isPending}>
-              Verwerfen
+              {t('Verwerfen')}
             </Button>
             <Button onClick={() => save.mutate()} disabled={save.isPending}>
-              {save.isPending ? 'Speichert…' : 'Speichern'}
+              {save.isPending ? t('Speichert…') : t('Speichern')}
             </Button>
           </div>
         </div>
@@ -348,19 +349,19 @@ function ListEditor<T extends object>({
   }
   return (
     <div className="space-y-3">
-      {sorted.length === 0 && <p className="text-sm text-muted-foreground">Noch keine Einträge.</p>}
+      {sorted.length === 0 && <p className="text-sm text-muted-foreground">{t('Noch keine Einträge.')}</p>}
       {sorted.map((item, i) => (
         <Card key={i}>
           <CardContent className="flex gap-3 pt-6">
             {render(item, (updated) => onChange(sorted.map((x, k) => (k === i ? updated : x))))}
             <div className="flex flex-col gap-1">
-              <Button variant="ghost" size="icon-sm" onClick={() => move(i, -1)} disabled={i === 0} title="Nach oben">
+              <Button variant="ghost" size="icon-sm" onClick={() => move(i, -1)} disabled={i === 0} title={t('Nach oben')}>
                 <ArrowUp className="size-4" />
               </Button>
-              <Button variant="ghost" size="icon-sm" onClick={() => move(i, 1)} disabled={i === sorted.length - 1} title="Nach unten">
+              <Button variant="ghost" size="icon-sm" onClick={() => move(i, 1)} disabled={i === sorted.length - 1} title={t('Nach unten')}>
                 <ArrowDown className="size-4" />
               </Button>
-              <Button variant="ghost" size="icon-sm" onClick={() => onChange(sorted.filter((_, k) => k !== i))} title="Entfernen">
+              <Button variant="ghost" size="icon-sm" onClick={() => onChange(sorted.filter((_, k) => k !== i))} title={t('Entfernen')}>
                 <Trash2 className="size-4 text-destructive" />
               </Button>
             </div>
@@ -388,9 +389,9 @@ function ImageUpload({ onUploaded }: { onUploaded: (url: string) => void }) {
     try {
       const res = await fetch('/api/uploads', { method: 'POST', credentials: 'include', body: file })
       const body = await res.json().catch(() => null)
-      if (!res.ok) throw new Error(body?.error?.message ?? 'Das Bild konnte nicht hochgeladen werden.')
+      if (!res.ok) throw new Error(body?.error?.message ?? t('Das Bild konnte nicht hochgeladen werden.'))
       onUploaded(body.url)
-      toast.success('Bild hochgeladen. Speichern nicht vergessen.')
+      toast.success(t('Bild hochgeladen. Speichern nicht vergessen.'))
     } catch (e) {
       toast.error(errorMessage(e))
     } finally {
@@ -402,7 +403,7 @@ function ImageUpload({ onUploaded }: { onUploaded: (url: string) => void }) {
     <Button asChild variant="outline" size="sm" disabled={busy}>
       <label className="cursor-pointer">
         <Upload className="size-4" />
-        {busy ? 'Lädt hoch…' : 'Bild hochladen'}
+        {busy ? t('Lädt hoch…') : t('Bild hochladen')}
         <input
           type="file"
           accept="image/jpeg,image/png,image/webp,image/gif"
