@@ -17,6 +17,7 @@ third-party SaaS required.
 - [Users and roles](#users-and-roles)
 - [Deployment](#deployment)
 - [Backup and restore](#backup-and-restore)
+- [Data key](#data-key)
 - [Security](#security)
 - [Development](#development)
 
@@ -102,6 +103,8 @@ Settings come from a YAML file (`CONFIG_PATH`, default
 | Env var | YAML key | Default | Purpose |
 |---------|----------|---------|---------|
 | `SESSION_SECRET` | `sessionSecret` | — | **Required**, at least 16 characters. Signs PIN cookies and encrypts stored secrets and link tokens. Generate with `openssl rand -hex 32`. |
+| `DATA_KEY` | `dataKey` | — | **Required**, at least 32 characters, different from `SESSION_SECRET`. Encrypts guest data and backups – see [Data key](#data-key). Generate with `openssl rand -hex 32`. |
+| `DATA_KEY_PREVIOUS` | `dataKeyPrevious` | — | The old key, only while rotating. |
 | `BASE_URL` | `baseUrl` | `http://localhost:8080` | The address people open. Logins from any other origin are rejected. |
 | – | `event.language` | `de` | UI language: `de` or `en`. Your own content is not translated. |
 | – | `event.timezone` | `Europe/Berlin` | Time zone of the calendar entry. |
@@ -180,7 +183,7 @@ response list and summary contain no contribution data.
 
 ## Deployment
 
-Always set your own `SESSION_SECRET`, set `BASE_URL` to your public URL, use
+Always set your own `SESSION_SECRET` and `DATA_KEY`, set `BASE_URL` to your public URL, use
 `ENVIRONMENT=production` behind HTTPS, and create your own users.
 
 ### Docker
@@ -193,6 +196,7 @@ docker run -d --name wedwise -p 8080:8080 \
   -v wedwise-data:/data \
   -v "$(pwd)/config.yaml:/config/config.yaml:ro" \
   -e SESSION_SECRET="$(openssl rand -hex 32)" \
+  -e DATA_KEY="$(openssl rand -hex 32)" \
   -e BASE_URL=https://wedding.example.com \
   -e ENVIRONMENT=production \
   -e TRUST_PROXY_HEADERS=true \
@@ -213,6 +217,7 @@ The chart is in [`charts/wedwise`](charts/wedwise) and published to
 helm install wedding oci://ghcr.io/breee/charts/wedwise \
   --set baseUrl=https://wedding.example.com \
   --set secret.sessionSecret="$(openssl rand -hex 32)" \
+  --set secret.dataKey="$(openssl rand -hex 32)" \
   --set ingress.enabled=true --set ingress.host=wedding.example.com
 
 kubectl exec -it deploy/wedding-wedwise -- /app/wedding user create --username admin --role admin --email you@example.com
@@ -227,7 +232,7 @@ Useful values (see [`values.yaml`](charts/wedwise/values.yaml)):
 | `theme` | Optional custom theme, same shape as the files in `themes/`. |
 | `users` | Users created at startup (`username`, `role`, `password`). Stored in the chart Secret; with `secret.existingSecret` add a `users.yaml` key there. |
 | `images.files` | Images as base64 (`--set images.files.lake\\.jpg="$(base64 -w0 lake.jpg)"`), served under `/images/<name>`. About 1 MiB in total; use `images.existingConfigMap` for more. |
-| `secret.existingSecret` | Use your own Secret with keys `session-secret` and optionally `routing-api-key`. |
+| `secret.existingSecret` | Use your own Secret with keys `session-secret`, `data-key` and optionally `data-key-previous`, `routing-api-key`. |
 | `persistence.size` / `persistence.existingClaim` | Volume for the SQLite file. |
 | `ingress.*` | Host, class, annotations, TLS. |
 
@@ -242,7 +247,7 @@ SQLite lives on one volume, so the app runs as a single replica.
 | [`examples/deploy/gitops/flux`](examples/deploy/gitops/flux) | Flux `OCIRepository` + `HelmRelease`. |
 | [`examples/deploy/gitops/argocd`](examples/deploy/gitops/argocd) | Argo CD `Application`. |
 
-For GitOps keep the Secret (`session-secret`) out of plain Git – use SOPS,
+For GitOps keep the Secret (`session-secret`, `data-key`) out of plain Git – use SOPS,
 Sealed Secrets or External Secrets.
 
 ## Backup and restore
@@ -251,21 +256,54 @@ All state is the SQLite file at `DATABASE_PATH`. Take a consistent snapshot
 while the server runs:
 
 ```bash
-docker exec wedwise /app/wedding backup /data/backup.db
-docker cp wedwise:/data/backup.db ./wedding-$(date +%F).db
+docker exec wedwise /app/wedding backup /data/backup.wedwise
+docker cp wedwise:/data/backup.wedwise ./wedding-$(date +%F).wedwise
 ```
 
-On Kubernetes use `kubectl exec` and `kubectl cp` the same way. To restore,
-stop the app, replace the file at `DATABASE_PATH`, start it again. Keep
-backups somewhere else and test a restore once.
+The backup file is encrypted with `DATA_KEY` (AES-256-GCM) and useless
+without it. On Kubernetes use `kubectl exec` and `kubectl cp` the same way.
+
+To restore, stop the app, move the old file at `DATABASE_PATH` away, then
+decrypt the backup into its place and start the app again:
+
+```bash
+docker run --rm -v wedwise-data:/data -v "$(pwd):/backup:ro" \
+  -e SESSION_SECRET=... -e DATA_KEY=... \
+  ghcr.io/breee/wedwise:latest restore /backup/wedding-2027-06-01.wedwise
+```
+
+Keep backups somewhere else and test a restore once.
 
 Uploaded images live in `/data/uploads`; copy that directory as well.
+
+## Data key
+
+`DATA_KEY` encrypts what guests tell you in confidence – allergies, children's
+ages, e-mail, phone, messenger handles, messages, and what they offer to
+contribute including the witnesses' notes – with AES-256-GCM before it is
+written to the database. Names, attendance and diet stay readable so the
+overview can count them. Backups are encrypted as a whole with the same key.
+
+- **Keep a copy of the key outside the server** (password manager). Without it
+  neither the database nor any backup can be read; there is no recovery.
+- Store it apart from the data: a leaked volume or backup is harmless only as
+  long as the key is not next to it.
+- **Rotate** when the key may have leaked: set `DATA_KEY` to a new value and
+  `DATA_KEY_PREVIOUS` to the old one, then restart (or run
+  `wedding rekey`). Everything is re-encrypted on start; afterwards remove
+  `DATA_KEY_PREVIOUS`. Backups made earlier still need the old key.
+- Upgrading from a version without `DATA_KEY`: set one and start; existing
+  data is encrypted on the first start. Backups made before stay plain – delete
+  them once you have a new one.
+- A wrong key stops the server at start instead of damaging data.
 
 ## Security
 
 - Sessions are HttpOnly, SameSite=Lax cookies (Secure in production).
   State-changing requests are checked against the `Origin`/`Referer` header.
 - Passwords and invite PINs are stored as argon2id hashes.
+- Sensitive guest data and backups are encrypted with a dedicated key, see
+  [Data key](#data-key).
 - Invite and edit tokens are stored as SHA-256 hashes, so a leaked database
   or backup opens no response. A copy encrypted with AES-256-GCM (key derived
   from `SESSION_SECRET`) lets staff copy a link again; after changing the

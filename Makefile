@@ -34,6 +34,7 @@ docker-run:
 	docker run -p 8080:8080 \
 		-v wedwise-data:/data \
 		-e SESSION_SECRET=dev-secret-change-me \
+		-e DATA_KEY=dev-data-key-change-me-32-characters \
 		wedwise:latest
 
 up:

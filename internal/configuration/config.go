@@ -8,6 +8,8 @@ import (
 	"os"
 	"strings"
 
+	"github.com/Breee/Wedwise/internal/sealed"
+
 	"gopkg.in/yaml.v3"
 )
 
@@ -61,8 +63,12 @@ type Config struct {
 	DatabasePath  string `yaml:"databasePath" json:"databasePath"`
 	BaseURL       string `yaml:"baseURL" json:"baseURL"`
 	SessionSecret string `yaml:"sessionSecret" json:"-"`
-	ConfigPath    string `yaml:"configPath" json:"configPath"`
-	ThemePath     string `yaml:"themePath" json:"themePath"`
+	// DataKey encrypts sensitive guest data and backups. DataKeyPrevious is
+	// only set while rotating to a new key.
+	DataKey         string `yaml:"dataKey" json:"-"`
+	DataKeyPrevious string `yaml:"dataKeyPrevious" json:"-"`
+	ConfigPath      string `yaml:"configPath" json:"configPath"`
+	ThemePath       string `yaml:"themePath" json:"themePath"`
 	// ContentPath is an optional JSON content file applied at startup whenever it changes.
 	ContentPath string `yaml:"contentPath" json:"contentPath"`
 	// UsersPath is an optional YAML file with users created at startup.
@@ -165,18 +171,20 @@ func Load(path string) (Config, error) {
 
 func applyEnv(cfg *Config) {
 	overrides := map[string]*string{
-		"LISTEN_ADDRESS":  &cfg.ListenAddress,
-		"DATABASE_PATH":   &cfg.DatabasePath,
-		"BASE_URL":        &cfg.BaseURL,
-		"SESSION_SECRET":  &cfg.SessionSecret,
-		"CONFIG_PATH":     &cfg.ConfigPath,
-		"THEME_PATH":      &cfg.ThemePath,
-		"CONTENT_PATH":    &cfg.ContentPath,
-		"USERS_PATH":      &cfg.UsersPath,
-		"IMAGES_PATH":     &cfg.ImagesPath,
-		"UPLOADS_PATH":    &cfg.UploadsPath,
-		"ENVIRONMENT":     &cfg.Environment,
-		"ROUTING_API_KEY": &cfg.RoutingAPIKey,
+		"LISTEN_ADDRESS":    &cfg.ListenAddress,
+		"DATABASE_PATH":     &cfg.DatabasePath,
+		"BASE_URL":          &cfg.BaseURL,
+		"SESSION_SECRET":    &cfg.SessionSecret,
+		"DATA_KEY":          &cfg.DataKey,
+		"DATA_KEY_PREVIOUS": &cfg.DataKeyPrevious,
+		"CONFIG_PATH":       &cfg.ConfigPath,
+		"THEME_PATH":        &cfg.ThemePath,
+		"CONTENT_PATH":      &cfg.ContentPath,
+		"USERS_PATH":        &cfg.UsersPath,
+		"IMAGES_PATH":       &cfg.ImagesPath,
+		"UPLOADS_PATH":      &cfg.UploadsPath,
+		"ENVIRONMENT":       &cfg.Environment,
+		"ROUTING_API_KEY":   &cfg.RoutingAPIKey,
 	}
 	for key, target := range overrides {
 		if value, ok := os.LookupEnv(key); ok && value != "" {
@@ -198,6 +206,15 @@ func (c Config) Validate() error {
 	}
 	if len(c.SessionSecret) < 16 {
 		return errors.New("sessionSecret must be at least 16 characters")
+	}
+	if len(c.DataKey) < sealed.MinKeyLength {
+		return fmt.Errorf("dataKey must be at least %d characters (generate one with: openssl rand -hex 32)", sealed.MinKeyLength)
+	}
+	if c.DataKey == c.SessionSecret {
+		return errors.New("dataKey must differ from sessionSecret")
+	}
+	if c.DataKeyPrevious != "" && len(c.DataKeyPrevious) < sealed.MinKeyLength {
+		return fmt.Errorf("dataKeyPrevious must be at least %d characters", sealed.MinKeyLength)
 	}
 	if c.Event.Language != "de" && c.Event.Language != "en" {
 		return errors.New("event.language must be de or en")

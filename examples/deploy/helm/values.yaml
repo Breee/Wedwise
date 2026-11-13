@@ -2,10 +2,11 @@
 #   --namespace wedding --create-namespace -f values.yaml
 baseUrl: https://wedding.example.com
 
-# Secret with keys `session-secret` (>= 16 chars), optional `routing-api-key`
+# Secret with keys `session-secret` (>= 16 chars), `data-key` (>= 32 chars), optional `routing-api-key`
 # and optional `users.yaml`. Create it once:
 #   kubectl -n wedding create secret generic wedwise \
-#     --from-literal=session-secret="$(openssl rand -base64 32)"
+#     --from-literal=session-secret="$(openssl rand -base64 32)" \
+#     --from-literal=data-key="$(openssl rand -hex 32)"
 secret:
   existingSecret: wedwise
 

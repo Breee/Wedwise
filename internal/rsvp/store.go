@@ -5,10 +5,12 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/Breee/Wedwise/internal/contributions"
+	"github.com/Breee/Wedwise/internal/sealed"
 	"github.com/Breee/Wedwise/internal/tokens"
 )
 
@@ -29,12 +31,19 @@ type Store struct {
 	db            *sql.DB
 	contributions *contributions.Store
 	vault         *tokens.Vault
+	box           *sealed.Box
 }
 
 // NewStore creates a response store backed by db. Edit tokens are stored
 // hashed, with a copy encrypted by vault for staff who help guests.
-func NewStore(db *sql.DB, contributionStore *contributions.Store, vault *tokens.Vault) *Store {
-	return &Store{db: db, contributions: contributionStore, vault: vault}
+func NewStore(db *sql.DB, contributionStore *contributions.Store, vault *tokens.Vault, box *sealed.Box) *Store {
+	return &Store{db: db, contributions: contributionStore, vault: vault, box: box}
+}
+
+// SealedColumns lists the response data that is encrypted at rest.
+var SealedColumns = []sealed.Columns{
+	{Table: "responses", Columns: []string{"email", "phone", "message"}},
+	{Table: "response_attendees", Columns: []string{"age", "allergies"}},
 }
 
 // ProtectTokens converts edit tokens that are still stored in plain text.
@@ -142,9 +151,14 @@ func (s *Store) Create(ctx context.Context, inviteLinkID int64, params SubmitPar
 		return Response{}, "", err
 	}
 
-	sealed, err := s.vault.Seal(token)
+	sealedToken, err := s.vault.Seal(token)
 	if err != nil {
 		return Response{}, "", fmt.Errorf("seal edit token: %w", err)
+	}
+
+	private, err := s.box.SealAll(params.Email, params.Phone, params.Message)
+	if err != nil {
+		return Response{}, "", fmt.Errorf("seal response: %w", err)
 	}
 
 	tx, err := s.db.BeginTx(ctx, nil)
@@ -157,7 +171,7 @@ func (s *Store) Create(ctx context.Context, inviteLinkID int64, params SubmitPar
 	res, err := tx.ExecContext(ctx,
 		`INSERT INTO responses (invite_link_id, edit_token_hash, edit_token_enc, contact_name, email, phone, status, message, music_genres, music_song, submitted_at, updated_at)
 		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		inviteLinkID, tokens.Hash(token), sealed, params.ContactName, params.Email, params.Phone, params.Status, params.Message, params.MusicGenres, params.MusicSong, now, now)
+		inviteLinkID, tokens.Hash(token), sealedToken, params.ContactName, private[0], private[1], params.Status, private[2], params.MusicGenres, params.MusicSong, now, now)
 	if err != nil {
 		return Response{}, "", fmt.Errorf("insert response: %w", err)
 	}
@@ -212,6 +226,10 @@ func (s *Store) update(ctx context.Context, id int64, params SubmitParams, touch
 	if err := params.normalize(); err != nil {
 		return Response{}, err
 	}
+	private, err := s.box.SealAll(params.Email, params.Phone, params.Message)
+	if err != nil {
+		return Response{}, fmt.Errorf("seal response: %w", err)
+	}
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return Response{}, fmt.Errorf("begin response transaction: %w", err)
@@ -221,7 +239,7 @@ func (s *Store) update(ctx context.Context, id int64, params SubmitParams, touch
 	if _, err := tx.ExecContext(ctx,
 		`UPDATE responses SET contact_name = ?, email = ?, phone = ?, status = ?, message = ?, music_genres = ?, music_song = ?, updated_at = ?
 		 WHERE id = ?`,
-		params.ContactName, params.Email, params.Phone, params.Status, params.Message, params.MusicGenres, params.MusicSong, time.Now().UTC(), id); err != nil {
+		params.ContactName, private[0], private[1], params.Status, private[2], params.MusicGenres, params.MusicSong, time.Now().UTC(), id); err != nil {
 		return Response{}, fmt.Errorf("update response: %w", err)
 	}
 	if _, err := tx.ExecContext(ctx, "DELETE FROM response_attendees WHERE response_id = ?", id); err != nil {
@@ -238,9 +256,17 @@ func (s *Store) update(ctx context.Context, id int64, params SubmitParams, touch
 
 func (s *Store) writeDetails(ctx context.Context, tx *sql.Tx, responseID int64, params SubmitParams, touchContribution bool) error {
 	for _, attendee := range params.Attendees {
+		age := ""
+		if attendee.Age != 0 {
+			age = strconv.Itoa(attendee.Age)
+		}
+		private, err := s.box.SealAll(age, attendee.Allergies)
+		if err != nil {
+			return fmt.Errorf("seal attendee: %w", err)
+		}
 		if _, err := tx.ExecContext(ctx,
 			`INSERT INTO response_attendees (response_id, name, is_child, age, photo_ok, diet, allergies) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-			responseID, attendee.Name, attendee.IsChild, attendee.Age, attendee.PhotoOK, attendee.Diet, attendee.Allergies); err != nil {
+			responseID, attendee.Name, attendee.IsChild, private[0], attendee.PhotoOK, attendee.Diet, private[1]); err != nil {
 			return fmt.Errorf("insert attendee: %w", err)
 		}
 	}
@@ -269,7 +295,7 @@ func (s *Store) GetByToken(ctx context.Context, token string) (Response, error) 
 }
 
 func (s *Store) queryOne(ctx context.Context, query string, args ...any) (Response, error) {
-	response, err := scanResponse(s.db.QueryRowContext(ctx, query, args...))
+	response, err := s.scanResponse(s.db.QueryRowContext(ctx, query, args...))
 	if errors.Is(err, sql.ErrNoRows) {
 		return Response{}, ErrNotFound
 	}
@@ -289,7 +315,7 @@ func (s *Store) List(ctx context.Context) ([]Response, error) {
 
 	result := make([]Response, 0)
 	for rows.Next() {
-		response, err := scanResponse(rows)
+		response, err := s.scanResponse(rows)
 		if err != nil {
 			return nil, fmt.Errorf("scan response: %w", err)
 		}
@@ -322,9 +348,18 @@ func (s *Store) queryAttendees(ctx context.Context, where string, args ...any) (
 	result := make([]Attendee, 0)
 	for rows.Next() {
 		var attendee Attendee
-		if err := rows.Scan(&attendee.ID, &attendee.ResponseID, &attendee.Name, &attendee.IsChild, &attendee.Age, &attendee.PhotoOK,
+		var age string
+		if err := rows.Scan(&attendee.ID, &attendee.ResponseID, &attendee.Name, &attendee.IsChild, &age, &attendee.PhotoOK,
 			&attendee.Diet, &attendee.Allergies); err != nil {
 			return nil, fmt.Errorf("scan attendee: %w", err)
+		}
+		if err := s.box.OpenAll(&age, &attendee.Allergies); err != nil {
+			return nil, fmt.Errorf("open attendee: %w", err)
+		}
+		if age != "" {
+			if attendee.Age, err = strconv.Atoi(age); err != nil {
+				return nil, fmt.Errorf("attendee age: %w", err)
+			}
 		}
 		result = append(result, attendee)
 	}
@@ -387,10 +422,12 @@ type scanner interface {
 	Scan(dest ...any) error
 }
 
-func scanResponse(row scanner) (Response, error) {
+func (s *Store) scanResponse(row scanner) (Response, error) {
 	var r Response
-	err := row.Scan(&r.ID, &r.ContactName, &r.Email, &r.Phone, &r.Status, &r.Message, &r.MusicGenres, &r.MusicSong, &r.SubmittedAt, &r.UpdatedAt)
-	return r, err
+	if err := row.Scan(&r.ID, &r.ContactName, &r.Email, &r.Phone, &r.Status, &r.Message, &r.MusicGenres, &r.MusicSong, &r.SubmittedAt, &r.UpdatedAt); err != nil {
+		return r, err
+	}
+	return r, s.box.OpenAll(&r.Email, &r.Phone, &r.Message)
 }
 
 // EditTokens returns the edit token of every response, for staff who help

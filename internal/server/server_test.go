@@ -155,6 +155,7 @@ func newTestAppWithOptions(t *testing.T, configure func(*configuration.Config)) 
 
 	cfg := configuration.Default()
 	cfg.SessionSecret = "test-secret-32-bytes-long-padding"
+	cfg.DataKey = testDataKey
 	cfg.BaseURL = "http://localhost"
 	cfg.UploadsPath = filepath.Join(dir, "uploads")
 	if configure != nil {
@@ -1850,3 +1851,5 @@ func TestMessageFeed(t *testing.T) {
 		t.Fatalf("second delete: got %d", res.StatusCode)
 	}
 }
+
+const testDataKey = "test-data-key-32-bytes-long-padding"

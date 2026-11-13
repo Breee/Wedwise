@@ -43,6 +43,11 @@ secret:
   existingSecret: ""
   # Required when existingSecret is empty. At least 16 characters.
   sessionSecret: ""
+  # Required when existingSecret is empty. At least 32 characters. Encrypts
+  # guest data and backups; keep a copy somewhere safe.
+  dataKey: ""
+  # Only while rotating: the key that was used before.
+  dataKeyPrevious: ""
   # Optional OpenRouteService key for walking, cycling and driving routes.
   routingApiKey: ""
 

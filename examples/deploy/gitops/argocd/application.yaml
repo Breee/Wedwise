@@ -1,5 +1,5 @@
 # Argo CD: chart from the OCI registry, values inline.
-# The Secret `wedwise` (key `session-secret`) must exist in the namespace –
+# The Secret `wedwise` (keys `session-secret` and `data-key`) must exist in the namespace –
 # manage it with SOPS, Sealed Secrets or External Secrets, not in plain Git.
 apiVersion: argoproj.io/v1alpha1
 kind: Application

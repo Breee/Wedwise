@@ -2,6 +2,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"errors"
@@ -11,9 +12,12 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
+
+	"github.com/Breee/Wedwise/internal/sealed"
 
 	"golang.org/x/term"
 
@@ -47,6 +51,10 @@ func run(args []string) error {
 		return runMigrate(args)
 	case "backup":
 		return runBackup(args)
+	case "restore":
+		return runRestore(args)
+	case "rekey":
+		return runRekey(args)
 	case "user":
 		return runUser(args)
 	case "help", "-h", "--help":
@@ -64,7 +72,9 @@ func usage() {
 Commands:
   serve                              Start the HTTP server (default)
   migrate                            Apply pending database migrations
-  backup <path>                      Write a consistent database backup to <path>
+  backup <path>                      Write an encrypted database backup to <path>
+  restore <path>                     Decrypt a backup into the configured database path
+  rekey                              Re-encrypt guest data after changing DATA_KEY
   user create --username U --role R  Create a user (roles: couple, witness, admin)
   user list                          List all users
   user disable --username U          Deactivate a user
@@ -76,14 +86,18 @@ Global flags:
 `)
 }
 
-func setup(args []string, name string) (configuration.Config, *sql.DB, []string, error) {
+func loadConfig(args []string, name string) (configuration.Config, []string, error) {
 	fs := flag.NewFlagSet(name, flag.ContinueOnError)
 	configPath := fs.String("config", "", "path to the configuration file")
 	if err := fs.Parse(args); err != nil {
-		return configuration.Config{}, nil, nil, err
+		return configuration.Config{}, nil, err
 	}
-
 	cfg, err := configuration.Load(*configPath)
+	return cfg, fs.Args(), err
+}
+
+func setup(args []string, name string) (configuration.Config, *sql.DB, []string, error) {
+	cfg, rest, err := loadConfig(args, name)
 	if err != nil {
 		return configuration.Config{}, nil, nil, err
 	}
@@ -91,7 +105,7 @@ func setup(args []string, name string) (configuration.Config, *sql.DB, []string,
 	if err != nil {
 		return configuration.Config{}, nil, nil, err
 	}
-	return cfg, db, fs.Args(), nil
+	return cfg, db, rest, nil
 }
 
 func runServe(args []string) error {
@@ -167,8 +181,11 @@ func runMigrate(args []string) error {
 	return nil
 }
 
+// backupMagic starts every backup file, followed by the sealed database.
+const backupMagic = "WEDWISE-BACKUP-1\n"
+
 func runBackup(args []string) error {
-	_, db, rest, err := setup(args, "backup")
+	cfg, db, rest, err := setup(args, "backup")
 	if err != nil {
 		return err
 	}
@@ -177,13 +194,105 @@ func runBackup(args []string) error {
 	if len(rest) != 1 {
 		return errors.New("usage: wedding backup <path>")
 	}
+	destination := rest[0]
+	if _, err := os.Stat(destination); err == nil {
+		return fmt.Errorf("backup destination %s already exists", destination)
+	}
+	box, err := sealed.New(cfg.DataKey)
+	if err != nil {
+		return err
+	}
+
+	// SQLite can only write a plain copy, so it goes to a private directory
+	// next to the destination and is removed once it is sealed.
+	if err := os.MkdirAll(filepath.Dir(destination), 0o750); err != nil {
+		return fmt.Errorf("create backup directory: %w", err)
+	}
+	workDir, err := os.MkdirTemp(filepath.Dir(destination), ".wedwise-backup-")
+	if err != nil {
+		return fmt.Errorf("create work directory: %w", err)
+	}
+	defer func() { _ = os.RemoveAll(workDir) }()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
-	if err := database.Backup(ctx, db, rest[0]); err != nil {
+	plainPath := filepath.Join(workDir, "plain.db")
+	if err := database.Backup(ctx, db, plainPath); err != nil {
 		return err
 	}
-	slog.Info("backup written", "path", rest[0])
+	plain, err := os.ReadFile(plainPath)
+	if err != nil {
+		return fmt.Errorf("read backup: %w", err)
+	}
+	data, err := box.SealBytes(plain)
+	if err != nil {
+		return fmt.Errorf("encrypt backup: %w", err)
+	}
+	if err := os.WriteFile(destination, append([]byte(backupMagic), data...), 0o600); err != nil {
+		return fmt.Errorf("write backup: %w", err)
+	}
+	slog.Info("encrypted backup written", "path", destination)
+	return nil
+}
+
+func runRestore(args []string) error {
+	cfg, rest, err := loadConfig(args, "restore")
+	if err != nil {
+		return err
+	}
+	if len(rest) != 1 {
+		return errors.New("usage: wedding restore <path>")
+	}
+	if _, err := os.Stat(cfg.DatabasePath); err == nil {
+		return fmt.Errorf("database %s already exists; move it away first", cfg.DatabasePath)
+	}
+	raw, err := os.ReadFile(rest[0])
+	if err != nil {
+		return fmt.Errorf("read backup: %w", err)
+	}
+	data, ok := bytes.CutPrefix(raw, []byte(backupMagic))
+	if !ok {
+		return errors.New("not a Wedwise backup file")
+	}
+	box, err := sealed.New(cfg.DataKey, cfg.DataKeyPrevious)
+	if err != nil {
+		return err
+	}
+	plain, _, err := box.OpenBytes(data)
+	if err != nil {
+		return fmt.Errorf("decrypt backup: %w", err)
+	}
+	if err := os.MkdirAll(filepath.Dir(cfg.DatabasePath), 0o750); err != nil {
+		return fmt.Errorf("create database directory: %w", err)
+	}
+	if err := os.WriteFile(cfg.DatabasePath, plain, 0o600); err != nil {
+		return fmt.Errorf("write database: %w", err)
+	}
+	slog.Info("backup restored", "path", cfg.DatabasePath)
+	return nil
+}
+
+func runRekey(args []string) error {
+	cfg, db, _, err := setup(args, "rekey")
+	if err != nil {
+		return err
+	}
+	defer func() { _ = db.Close() }()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+	if err := database.Migrate(ctx, db); err != nil {
+		return err
+	}
+	box, err := sealed.New(cfg.DataKey, cfg.DataKeyPrevious)
+	if err != nil {
+		return err
+	}
+	count, err := box.Protect(ctx, db, server.SealedColumns())
+	if err != nil {
+		return err
+	}
+	slog.Info("guest data is encrypted with the current data key", "rewritten", count)
 	return nil
 }
 

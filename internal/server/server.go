@@ -13,6 +13,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Breee/Wedwise/internal/sealed"
+
 	"github.com/go-chi/chi/v5"
 
 	"github.com/Breee/Wedwise/internal/auth"
@@ -49,6 +51,11 @@ type Server struct {
 	router http.Handler
 }
 
+// SealedColumns lists every column that is encrypted with the data key.
+func SealedColumns() []sealed.Columns {
+	return append(append([]sealed.Columns{}, rsvp.SealedColumns...), contributions.SealedColumns...)
+}
+
 // New creates a fully wired server.
 func New(cfg configuration.Config, db *sql.DB) (*Server, error) {
 	uploadsDir := cfg.UploadsPath
@@ -71,7 +78,14 @@ func New(cfg configuration.Config, db *sql.DB) (*Server, error) {
 	authService.SetSecondFactor(twoFactorStore)
 	twoFactorHandler := twofactor.NewHandler(twoFactorStore)
 
-	contributionStore := contributions.NewStore(db)
+	box, err := sealed.New(cfg.DataKey, cfg.DataKeyPrevious)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := box.Protect(context.Background(), db, SealedColumns()); err != nil {
+		return nil, fmt.Errorf("protect guest data: %w", err)
+	}
+	contributionStore := contributions.NewStore(db, box)
 	inviteVault, err := tokens.NewVault(cfg.SessionSecret, "invite-token")
 	if err != nil {
 		return nil, err
@@ -80,7 +94,7 @@ func New(cfg configuration.Config, db *sql.DB) (*Server, error) {
 	if err != nil {
 		return nil, err
 	}
-	rsvpStore := rsvp.NewStore(db, contributionStore, editVault)
+	rsvpStore := rsvp.NewStore(db, contributionStore, editVault, box)
 	contentStore := content.NewStore(db)
 	inviteStore := invites.NewStore(db, inviteVault)
 	if err := inviteStore.ProtectTokens(context.Background()); err != nil {

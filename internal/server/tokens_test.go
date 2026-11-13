@@ -12,6 +12,7 @@ import (
 	"github.com/Breee/Wedwise/internal/database"
 	"github.com/Breee/Wedwise/internal/invites"
 	"github.com/Breee/Wedwise/internal/rsvp"
+	"github.com/Breee/Wedwise/internal/sealed"
 	"github.com/Breee/Wedwise/internal/tokens"
 )
 
@@ -83,7 +84,11 @@ func TestLegacyTokensConverted(t *testing.T) {
 		t.Fatal(err)
 	}
 	links := invites.NewStore(db, vault)
-	responses := rsvp.NewStore(db, contributions.NewStore(db), vault)
+	box, err := sealed.New(testDataKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	responses := rsvp.NewStore(db, contributions.NewStore(db, box), vault, box)
 	for range 2 { // converting twice must not hash the hash
 		if err := links.ProtectTokens(ctx); err != nil {
 			t.Fatal(err)

@@ -9,6 +9,8 @@ import (
 	"slices"
 	"strings"
 	"time"
+
+	"github.com/Breee/Wedwise/internal/sealed"
 )
 
 // ErrNotFound is returned when no matching contribution exists.
@@ -19,12 +21,28 @@ var ErrValidation = errors.New("invalid contribution data")
 
 // Store persists contributions in SQLite.
 type Store struct {
-	db *sql.DB
+	db  *sql.DB
+	box *sealed.Box
 }
 
-// NewStore creates a contribution store backed by db.
-func NewStore(db *sql.DB) *Store {
-	return &Store{db: db}
+// NewStore creates a contribution store backed by db. What guests offer and
+// how to reach them is encrypted with box.
+func NewStore(db *sql.DB, box *sealed.Box) *Store {
+	return &Store{db: db, box: box}
+}
+
+// SealedColumns lists the contribution data that is encrypted at rest.
+var SealedColumns = []sealed.Columns{
+	{Table: "contributions", Columns: []string{"title", "description", "needs", "phone", "messengers"}},
+	{Table: "contribution_notes", Columns: []string{"text"}},
+}
+
+func (s *Store) seal(input Input) ([]any, error) {
+	private, err := s.box.SealAll(input.Title, input.Description, input.Needs, input.Phone, encodeMessengers(input.Messengers))
+	if err != nil {
+		return nil, fmt.Errorf("seal contribution: %w", err)
+	}
+	return private, nil
 }
 
 // Execer is satisfied by *sql.DB and *sql.Tx so that guest submissions can be
@@ -100,15 +118,18 @@ func (s *Store) Upsert(ctx context.Context, exec Execer, responseID int64, input
 	if err := input.normalize(); err != nil {
 		return err
 	}
+	private, err := s.seal(input)
+	if err != nil {
+		return err
+	}
 	now := time.Now().UTC()
-	_, err := exec.ExecContext(ctx,
+	_, err = exec.ExecContext(ctx,
 		`INSERT INTO contributions (response_id, title, description, needs, phone, messengers, status, created_at, updated_at)
 		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 		 ON CONFLICT(response_id) DO UPDATE SET title = excluded.title, description = excluded.description,
 			needs = excluded.needs, phone = excluded.phone, messengers = excluded.messengers,
 			updated_at = excluded.updated_at`,
-		responseID, input.Title, input.Description, input.Needs, input.Phone,
-		encodeMessengers(input.Messengers), StatusNew, now, now)
+		append(append([]any{responseID}, private...), StatusNew, now, now)...)
 	if err != nil {
 		return fmt.Errorf("upsert contribution: %w", err)
 	}
@@ -120,8 +141,11 @@ func (s *Store) UpdateContent(ctx context.Context, id int64, input Input) (Contr
 	if err := input.normalize(); err != nil {
 		return Contribution{}, err
 	}
-	return s.update(ctx, id, "title = ?, description = ?, needs = ?, phone = ?, messengers = ?",
-		input.Title, input.Description, input.Needs, input.Phone, encodeMessengers(input.Messengers))
+	private, err := s.seal(input)
+	if err != nil {
+		return Contribution{}, err
+	}
+	return s.update(ctx, id, "title = ?, description = ?, needs = ?, phone = ?, messengers = ?", private...)
 }
 
 // DeleteByResponse removes the contribution of a response, if any.
@@ -143,7 +167,7 @@ func (s *Store) GetByID(ctx context.Context, id int64) (Contribution, error) {
 }
 
 func (s *Store) queryOne(ctx context.Context, query string, args ...any) (Contribution, error) {
-	contribution, err := scan(s.db.QueryRowContext(ctx, query, args...))
+	contribution, err := s.scan(s.db.QueryRowContext(ctx, query, args...))
 	if errors.Is(err, sql.ErrNoRows) {
 		return Contribution{}, ErrNotFound
 	}
@@ -174,7 +198,7 @@ func (s *Store) List(ctx context.Context, status string) ([]Contribution, error)
 
 	result := make([]Contribution, 0)
 	for rows.Next() {
-		contribution, err := scan(rows)
+		contribution, err := s.scan(rows)
 		if err != nil {
 			return nil, fmt.Errorf("scan contribution: %w", err)
 		}
@@ -279,10 +303,14 @@ func (s *Store) AddNote(ctx context.Context, contributionID, authorUserID int64,
 		return ContributionNote{}, err
 	}
 
+	sealedText, err := s.box.Seal(text)
+	if err != nil {
+		return ContributionNote{}, fmt.Errorf("seal note: %w", err)
+	}
 	now := time.Now().UTC()
 	res, err := s.db.ExecContext(ctx,
 		"INSERT INTO contribution_notes (contribution_id, author_user_id, text, created_at) VALUES (?, ?, ?, ?)",
-		contributionID, authorUserID, text, now)
+		contributionID, authorUserID, sealedText, now)
 	if err != nil {
 		return ContributionNote{}, fmt.Errorf("insert note: %w", err)
 	}
@@ -315,6 +343,9 @@ func (s *Store) Notes(ctx context.Context, contributionID int64) ([]Contribution
 		if err := rows.Scan(&note.ID, &note.ContributionID, &note.AuthorUserID, &note.Text, &note.CreatedAt); err != nil {
 			return nil, fmt.Errorf("scan note: %w", err)
 		}
+		if err := s.box.OpenAll(&note.Text); err != nil {
+			return nil, fmt.Errorf("open note: %w", err)
+		}
 		result = append(result, note)
 	}
 	if err := rows.Err(); err != nil {
@@ -327,12 +358,15 @@ type scanner interface {
 	Scan(dest ...any) error
 }
 
-func scan(row scanner) (Contribution, error) {
+func (s *Store) scan(row scanner) (Contribution, error) {
 	var c Contribution
 	var messengers string
 	err := row.Scan(&c.ID, &c.ResponseID, &c.ContactName, &c.Title, &c.Description, &c.Needs, &c.Phone,
 		&messengers, &c.Status, &c.SlotTime, &c.DurationMinutes, &c.CreatedAt, &c.UpdatedAt)
 	if err != nil {
+		return c, err
+	}
+	if err := s.box.OpenAll(&c.Title, &c.Description, &c.Needs, &c.Phone, &messengers); err != nil {
 		return c, err
 	}
 	c.Messengers, err = decodeMessengers(messengers)

@@ -71,6 +71,17 @@ spec:
                 secretKeyRef:
                   name: {{ include "wedwise.secretName" . }}
                   key: session-secret
+            - name: DATA_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "wedwise.secretName" . }}
+                  key: data-key
+            - name: DATA_KEY_PREVIOUS
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "wedwise.secretName" . }}
+                  key: data-key-previous
+                  optional: true
             - name: ROUTING_API_KEY
               valueFrom:
                 secretKeyRef:

@@ -1,5 +1,5 @@
 # Production example: published image behind Caddy with automatic HTTPS.
-# 1. cp .env.example .env   and fill in DOMAIN and SESSION_SECRET
+# 1. cp .env.example .env   and fill in DOMAIN, SESSION_SECRET and DATA_KEY
 # 2. put config.yaml (see ../../config.yaml) into ./config/
 # 3. docker compose up -d
 # 4. docker compose exec wedwise /app/wedding user create --username admin --role admin
@@ -10,6 +10,8 @@ services:
     environment:
       BASE_URL: "https://${DOMAIN:?set DOMAIN in .env}"
       SESSION_SECRET: "${SESSION_SECRET:?set SESSION_SECRET in .env}"
+      DATA_KEY: "${DATA_KEY:?set DATA_KEY in .env}"
+      DATA_KEY_PREVIOUS: "${DATA_KEY_PREVIOUS:-}"
       ENVIRONMENT: production
       TRUST_PROXY_HEADERS: "true"
       DATABASE_PATH: /data/wedding.db
