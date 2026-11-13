@@ -21,6 +21,7 @@ import (
 	"github.com/Breee/Wedwise/internal/httpx"
 	"github.com/Breee/Wedwise/internal/invites"
 	"github.com/Breee/Wedwise/internal/middleware"
+	"github.com/Breee/Wedwise/internal/push"
 	"github.com/Breee/Wedwise/internal/routing"
 	"github.com/Breee/Wedwise/internal/rsvp"
 	"github.com/Breee/Wedwise/internal/songs"
@@ -71,6 +72,22 @@ func New(cfg configuration.Config, db *sql.DB) (*Server, error) {
 
 	userHandler := users.NewHandler(userStore, authService, cfg.BaseURL)
 	rsvpHandler := rsvp.NewHandler(rsvpStore, contributionStore, inviteStore, inviteGate)
+	pushService, err := push.NewService(context.Background(), db, cfg.BaseURL)
+	if err != nil {
+		return nil, err
+	}
+	pushHandler := push.NewHandler(pushService)
+	rsvpHandler.OnResponse(func(response rsvp.Response, withContribution bool) {
+		body := response.ContactName + " hat zugesagt."
+		if response.Status != rsvp.StatusYes {
+			body = response.ContactName + " hat abgesagt."
+		}
+		pushService.Notify(push.TopicResponses, push.Message{Title: "Neue Rückmeldung", Body: body, URL: "/dashboard"})
+		if withContribution {
+			pushService.Notify(push.TopicContributions, push.Message{
+				Title: "Neuer Beitrag", Body: response.ContactName + " möchte etwas beitragen.", URL: "/witness/dashboard"})
+		}
+	})
 	inviteHandler := invites.NewHandler(inviteStore, authService)
 	contributionHandler := contributions.NewHandler(contributionStore, authService)
 	themes, err := theme.Load(cfg.ThemePath)
@@ -123,6 +140,9 @@ func New(cfg configuration.Config, db *sql.DB) (*Server, error) {
 		api.Mount("/auth", authService.Routes(loginLimit))
 		api.Mount("/setup", userHandler.SetupRoutes(loginLimit))
 		api.Mount("/rsvp", rsvpHandler.PublicRoutes(rsvpLimit))
+		api.Get("/push/key", pushHandler.Key)
+		api.With(rsvpLimit).Post("/push/subscriptions", pushHandler.Subscribe)
+		api.With(rsvpLimit).Post("/push/status", pushHandler.Status)
 		api.Get("/content/public", contentHandler.PublicHandler)
 		api.Get("/themes", contentHandler.ThemesHandler)
 		api.With(routeLimit).Method(http.MethodGet, "/route", routing.NewHandler(cfg.RoutingAPIKey, db))
@@ -142,6 +162,8 @@ func New(cfg configuration.Config, db *sql.DB) (*Server, error) {
 			protected.With(authService.RequirePermission(auth.PermContentWrite)).
 				Method(http.MethodPost, "/uploads", uploads.NewHandler(uploadsDir))
 			protected.Mount("/responses", rsvpHandler.StaffRoutes(authService))
+			protected.With(authService.RequirePermission(auth.PermContentWrite)).
+				Post("/push/broadcast", pushHandler.Broadcast)
 		})
 
 		api.NotFound(func(w http.ResponseWriter, r *http.Request) {

@@ -33,6 +33,7 @@ type Handler struct {
 	links         *invites.Store
 	gate          *invites.Gate
 	pinFailures   *middleware.Limiter
+	notify        func(response Response, withContribution bool)
 }
 
 // NewHandler creates an RSVP handler.
@@ -298,6 +299,12 @@ func (h *Handler) unlock(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// OnResponse registers a callback that runs after a guest submits a new
+// response.
+func (h *Handler) OnResponse(fn func(response Response, withContribution bool)) {
+	h.notify = fn
+}
+
 func (h *Handler) create(w http.ResponseWriter, r *http.Request) {
 	link, ok := h.activeLink(w, r)
 	if !ok {
@@ -315,6 +322,9 @@ func (h *Handler) create(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		h.writeError(w, err)
 		return
+	}
+	if h.notify != nil {
+		h.notify(response, req.Contribution != nil && response.Status == StatusYes)
 	}
 	h.writeGuestView(w, r, http.StatusCreated, response, token)
 }

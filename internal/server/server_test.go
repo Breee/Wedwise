@@ -1503,3 +1503,59 @@ func TestTwoFactorTOTP(t *testing.T) {
 		t.Fatalf("login after disable: %d", status)
 	}
 }
+
+func TestPushSubscriptionTopicsByRole(t *testing.T) {
+	app, _ := newTestAppWithUsers(t)
+	couple, _ := app.login("couple_user", "TestPass123!")
+	witness, _ := app.login("witness_user", "TestPass123!")
+
+	resp := app.do(http.MethodGet, "/api/push/key", nil, nil)
+	var key struct{ Key string }
+	json.NewDecoder(resp.Body).Decode(&key)
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusOK || key.Key == "" {
+		t.Fatalf("push key: %d %q", resp.StatusCode, key.Key)
+	}
+
+	subscribe := func(cookie *http.Cookie, endpoint string) []string {
+		t.Helper()
+		resp := app.do(http.MethodPost, "/api/push/subscriptions", map[string]any{
+			"endpoint": endpoint,
+			"keys":     map[string]string{"p256dh": "k", "auth": "a"},
+			"topics":   []string{"broadcast", "responses", "contributions", "bogus"},
+		}, cookie)
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			t.Fatalf("subscribe: %d", resp.StatusCode)
+		}
+		var out struct{ Topics []string }
+		json.NewDecoder(resp.Body).Decode(&out)
+		return out.Topics
+	}
+	if got := subscribe(nil, "https://push.example/g"); len(got) != 1 || got[0] != "broadcast" {
+		t.Fatalf("guest topics: %v", got)
+	}
+	if got := subscribe(couple, "https://push.example/c"); len(got) != 2 {
+		t.Fatalf("couple must not get contributions: %v", got)
+	}
+	if got := subscribe(witness, "https://push.example/w"); len(got) != 3 {
+		t.Fatalf("witness topics: %v", got)
+	}
+
+	body := map[string]string{"title": "Hallo", "body": "Text"}
+	for name, c := range map[string]struct {
+		cookie *http.Cookie
+		want   int
+	}{"anonymous": {nil, 401}, "witness": {witness, 403}} {
+		resp := app.do(http.MethodPost, "/api/push/broadcast", body, c.cookie)
+		resp.Body.Close()
+		if resp.StatusCode != c.want {
+			t.Fatalf("%s broadcast: got %d want %d", name, resp.StatusCode, c.want)
+		}
+	}
+	resp = app.do(http.MethodPost, "/api/push/broadcast", map[string]string{"title": ""}, couple)
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Fatalf("empty title: %d", resp.StatusCode)
+	}
+}
