@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { t } from '@/lib/i18n'
 import { Music, Search } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 
@@ -61,7 +62,7 @@ export function SongSearch({ value, onChange }: { value: string; onChange: (v: s
       <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
       <Input
         className="pl-9"
-        placeholder="Song oder Interpret suchen …"
+        placeholder={t('Song oder Interpret suchen …')}
         value={query}
         onChange={(e) => {
           setQuery(e.target.value)

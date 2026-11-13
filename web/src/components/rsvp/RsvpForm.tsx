@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { t } from '@/lib/i18n'
 import { Link, useNavigate } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { motion, AnimatePresence } from 'motion/react'
@@ -28,9 +29,9 @@ const MAX_ATTENDEES = 10
 export function RsvpHeader() {
   return (
     <div className="mb-10 text-center">
-      <p className="text-xs font-medium tracking-[0.35em] text-primary uppercase">Rückmeldung</p>
-      <h1 className="mt-3 text-5xl">Seid ihr dabei?</h1>
-      <p className="mt-3 text-muted-foreground">Wir freuen uns auf eure Antwort.</p>
+      <p className="text-xs font-medium tracking-[0.35em] text-primary uppercase">{t('Rückmeldung')}</p>
+      <h1 className="mt-3 text-5xl">{t('Seid ihr dabei?')}</h1>
+      <p className="mt-3 text-muted-foreground">{t('Wir freuen uns auf eure Antwort.')}</p>
     </div>
   )
 }
@@ -67,7 +68,7 @@ export function RsvpForm({ initial, link, onDone }: FormProps) {
   const stepCount = attending ? 6 : 3
   const Step = ({ n }: { n: number }) => (
     <p className="text-xs font-medium tracking-[0.25em] text-primary uppercase">
-      Schritt {n} von {stepCount}
+      {t('Schritt {n} von {count}', { n, count: stepCount })}
     </p>
   )
 
@@ -115,12 +116,12 @@ export function RsvpForm({ initial, link, onDone }: FormProps) {
         <Card>
           <CardHeader>
             <Step n={1} />
-            <CardTitle>Wer antwortet?</CardTitle>
-            <CardDescription>Eine Antwort pro Haushalt genügt.</CardDescription>
+            <CardTitle>{t('Wer antwortet?')}</CardTitle>
+            <CardDescription>{t('Eine Antwort pro Haushalt genügt.')}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="contactName">Name</Label>
+              <Label htmlFor="contactName">{t('Name')}</Label>
               <Input id="contactName" value={contactName} onChange={(e) => setContactName(e.target.value)} required autoComplete="name" />
             </div>
           </CardContent>
@@ -129,14 +130,14 @@ export function RsvpForm({ initial, link, onDone }: FormProps) {
         <Card>
           <CardHeader>
             <Step n={2} />
-            <CardTitle>Kommt ihr?</CardTitle>
+            <CardTitle>{t('Kommt ihr?')}</CardTitle>
           </CardHeader>
           <CardContent>
             <RadioGroup value={status} onValueChange={(v) => setStatus(v as RsvpStatus)} className="grid gap-3 sm:grid-cols-2">
               {(
                 [
-                  ['yes', 'Ja, wir kommen!'],
-                  ['no', 'Leider nicht'],
+                  ['yes', t('Ja, wir kommen!')],
+                  ['no', t('Leider nicht')],
                 ] as const
               ).map(([v, label]) => (
                 <Label
@@ -156,8 +157,8 @@ export function RsvpForm({ initial, link, onDone }: FormProps) {
           <Card>
             <CardHeader>
               <Step n={3} />
-              <CardTitle>Wer kommt?</CardTitle>
-              <CardDescription>Bitte alle Personen eintragen, auch Kinder.</CardDescription>
+              <CardTitle>{t('Wer kommt?')}</CardTitle>
+              <CardDescription>{t('Bitte alle Personen eintragen, auch Kinder.')}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               {attendees.map((a, i) => (
@@ -165,15 +166,15 @@ export function RsvpForm({ initial, link, onDone }: FormProps) {
                   {i > 0 && <Separator />}
                   <div className="flex items-end gap-3">
                     <div className="flex-1 space-y-2">
-                      <Label htmlFor={`name-${i}`}>Name</Label>
+                      <Label htmlFor={`name-${i}`}>{t('Name')}</Label>
                       <Input id={`name-${i}`} value={a.name} onChange={(e) => updateAttendee(i, { name: e.target.value })} required />
                     </div>
                     <Label className="flex h-9 items-center gap-2 text-sm font-normal">
                       <Checkbox checked={a.isChild} onCheckedChange={(c) => updateAttendee(i, { isChild: c === true, photoOk: c !== true })} />
-                      Kind
+                      {t('Kind')}
                     </Label>
                     {attendees.length > 1 && (
-                      <Button type="button" variant="ghost" size="icon" title="Entfernen" onClick={() => setAttendees((l) => l.filter((_, k) => k !== i))}>
+                      <Button type="button" variant="ghost" size="icon" title={t('Entfernen')} onClick={() => setAttendees((l) => l.filter((_, k) => k !== i))}>
                         <Minus className="size-4" />
                       </Button>
                     )}
@@ -181,7 +182,7 @@ export function RsvpForm({ initial, link, onDone }: FormProps) {
                   {a.isChild && (
                     <div className="space-y-3 rounded-lg bg-secondary/40 p-3">
                       <div className="flex items-center gap-3">
-                        <Label htmlFor={`age-${i}`}>Alter</Label>
+                        <Label htmlFor={`age-${i}`}>{t('Alter')}</Label>
                         <Input
                           id={`age-${i}`}
                           type="number"
@@ -192,15 +193,14 @@ export function RsvpForm({ initial, link, onDone }: FormProps) {
                           value={a.age || ''}
                           onChange={(e) => updateAttendee(i, { age: Math.min(17, Math.max(0, Number(e.target.value) || 0)) })}
                         />
-                        <span className="text-sm text-muted-foreground">Jahre</span>
+                        <span className="text-sm text-muted-foreground">{t('Jahre')}</span>
                       </div>
                       <Label className="flex items-start gap-2 text-sm leading-snug font-normal">
                         <Checkbox className="mt-0.5" checked={a.photoOk} onCheckedChange={(c) => updateAttendee(i, { photoOk: c === true })} />
                         <span>
-                          Unsere Fotografin oder unser Fotograf darf {a.name || 'euer Kind'} mit aufs Bild nehmen.
+                          {t('Unsere Fotografin oder unser Fotograf darf {name} mit aufs Bild nehmen.', { name: a.name || t('euer Kind') })}
                           <span className="mt-1 block text-muted-foreground">
-                            Die Fotos bleiben eine private Erinnerung für uns und werden nicht veröffentlicht. Wenn ihr das lieber nicht
-                            möchtet, ist das völlig in Ordnung – lasst das Häkchen einfach weg.
+                            {t('Die Fotos bleiben eine private Erinnerung für uns und werden nicht veröffentlicht. Wenn ihr das lieber nicht möchtet, ist das völlig in Ordnung – lasst das Häkchen einfach weg.')}
                           </span>
                         </span>
                       </Label>
@@ -208,7 +208,7 @@ export function RsvpForm({ initial, link, onDone }: FormProps) {
                   )}
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label>Ernährung</Label>
+                      <Label>{t('Ernährung')}</Label>
                       <Select value={a.diet || 'none'} onValueChange={(v) => updateAttendee(i, { diet: v as Attendee['diet'] })}>
                         <SelectTrigger className="w-full">
                           <SelectValue />
@@ -223,7 +223,7 @@ export function RsvpForm({ initial, link, onDone }: FormProps) {
                       </Select>
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor={`allergies-${i}`}>Allergien</Label>
+                      <Label htmlFor={`allergies-${i}`}>{t('Allergien')}</Label>
                       <Input id={`allergies-${i}`} value={a.allergies} onChange={(e) => updateAttendee(i, { allergies: e.target.value })} />
                     </div>
                   </div>
@@ -231,7 +231,7 @@ export function RsvpForm({ initial, link, onDone }: FormProps) {
               ))}
               {attendees.length < MAX_ATTENDEES && (
                 <Button type="button" variant="outline" onClick={() => setAttendees((l) => [...l, newAttendee()])}>
-                  <Plus className="size-4" /> Person hinzufügen
+                  <Plus className="size-4" /> {t('Person hinzufügen')}
                 </Button>
               )}
             </CardContent>
@@ -242,34 +242,34 @@ export function RsvpForm({ initial, link, onDone }: FormProps) {
           <Card>
             <CardHeader>
               <Step n={4} />
-              <CardTitle>Möchtet ihr einen Beitrag zum Programm leisten?</CardTitle>
-              <CardDescription>Rede, Spiel, Musik, Überraschung – unsere Trauzeugen koordinieren alles und melden sich bei euch.</CardDescription>
+              <CardTitle>{t('Möchtet ihr einen Beitrag zum Programm leisten?')}</CardTitle>
+              <CardDescription>{t('Rede, Spiel, Musik, Überraschung – unsere Trauzeugen koordinieren alles und melden sich bei euch.')}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="grid gap-3 sm:grid-cols-2">
                 <Button type="button" variant={wantsContribution ? 'default' : 'outline'} onClick={() => setWantsContribution(true)}>
-                  Ja, gern
+                  {t('Ja, gern')}
                 </Button>
                 <Button type="button" variant={!wantsContribution ? 'default' : 'outline'} onClick={() => setWantsContribution(false)}>
-                  Nein
+                  {t('Nein')}
                 </Button>
               </div>
               {wantsContribution && (
                 <div className="space-y-4">
                   <p className="flex items-start gap-2 rounded-md bg-accent/50 px-3 py-2 text-sm">
                     <Clock className="mt-0.5 size-4 shrink-0 text-primary" />
-                    Bitte plant maximal ca. {minutes} Minuten ein, damit alle Beiträge Platz finden.
+                    {t('Bitte plant maximal ca. {minutes} Minuten ein, damit alle Beiträge Platz finden.', { minutes })}
                   </p>
                   <div className="space-y-2">
-                    <Label htmlFor="c-title">Was habt ihr vor?</Label>
-                    <Input id="c-title" value={contribution.title} onChange={(e) => setContribution({ ...contribution, title: e.target.value })} placeholder="z. B. Rede, Spiel, Lied" required />
+                    <Label htmlFor="c-title">{t('Was habt ihr vor?')}</Label>
+                    <Input id="c-title" value={contribution.title} onChange={(e) => setContribution({ ...contribution, title: e.target.value })} placeholder={t('z. B. Rede, Spiel, Lied')} required />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="c-desc">Kurze Beschreibung <span className="font-normal text-muted-foreground">(optional)</span></Label>
+                    <Label htmlFor="c-desc">{t('Kurze Beschreibung')} <span className="font-normal text-muted-foreground">{t('(optional)')}</span></Label>
                     <Textarea id="c-desc" rows={3} value={contribution.description} onChange={(e) => setContribution({ ...contribution, description: e.target.value })} />
                   </div>
                   <div className="space-y-3">
-                    <Label>Was braucht ihr dafür?</Label>
+                    <Label>{t('Was braucht ihr dafür?')}</Label>
                     <div className="flex flex-wrap gap-2">
                       {NEEDS_OPTIONS.map((o) => {
                         const on = needs.selected.includes(o)
@@ -283,15 +283,15 @@ export function RsvpForm({ initial, link, onDone }: FormProps) {
                             aria-pressed={on}
                             onClick={() => setNeeds((n) => ({ ...n, selected: on ? n.selected.filter((x) => x !== o) : [...n.selected, o] }))}
                           >
-                            {o}
+                            {t(o)}
                           </Button>
                         )
                       })}
                     </div>
-                    <Input placeholder="Sonstiges …" value={needs.other} onChange={(e) => setNeeds((n) => ({ ...n, other: e.target.value }))} />
+                    <Input placeholder={t('Sonstiges …')} value={needs.other} onChange={(e) => setNeeds((n) => ({ ...n, other: e.target.value }))} />
                   </div>
                   <div className="space-y-3">
-                    <Label>Wie erreichen euch die Trauzeugen?</Label>
+                    <Label>{t('Wie erreichen euch die Trauzeugen?')}</Label>
                     <div className="flex flex-wrap gap-2">
                       {MESSENGERS.map((m) => {
                         const on = contribution.messengers.some((x) => x.kind === m.id)
@@ -324,8 +324,8 @@ export function RsvpForm({ initial, link, onDone }: FormProps) {
                         <div key={m.kind} className="flex items-center gap-2">
                           <MessengerIcon kind={m.kind} className="size-5 shrink-0" />
                           <Input
-                            aria-label={`${meta.label}: ${meta.handleHint}`}
-                            placeholder={meta.handleHint}
+                            aria-label={`${meta.label}: ${t(meta.handleHint)}`}
+                            placeholder={t(meta.handleHint)}
                             value={m.handle}
                             required
                             onChange={(e) =>
@@ -339,7 +339,7 @@ export function RsvpForm({ initial, link, onDone }: FormProps) {
                       )
                     })}
                     {contribution.messengers.length === 0 && (
-                      <p className="text-sm text-muted-foreground">Bitte mindestens einen Messenger auswählen.</p>
+                      <p className="text-sm text-muted-foreground">{t('Bitte mindestens einen Messenger auswählen.')}</p>
                     )}
                   </div>
                 </div>
@@ -352,8 +352,8 @@ export function RsvpForm({ initial, link, onDone }: FormProps) {
           <Card>
             <CardHeader>
               <Step n={5} />
-              <CardTitle>Musikwünsche</CardTitle>
-              <CardDescription>Was bringt euch auf die Tanzfläche?</CardDescription>
+              <CardTitle>{t('Musikwünsche')}</CardTitle>
+              <CardDescription>{t('Was bringt euch auf die Tanzfläche?')}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-5">
               <div className="flex flex-wrap gap-2">
@@ -374,7 +374,7 @@ export function RsvpForm({ initial, link, onDone }: FormProps) {
                 })}
               </div>
               <div className="space-y-2">
-                <Label>Euer Must-play-Song <span className="font-normal text-muted-foreground">(optional)</span></Label>
+                <Label>{t('Euer Must-play-Song')} <span className="font-normal text-muted-foreground">{t('(optional)')}</span></Label>
                 <SongSearch value={song} onChange={setSong} />
               </div>
             </CardContent>
@@ -385,7 +385,7 @@ export function RsvpForm({ initial, link, onDone }: FormProps) {
           <CardHeader>
             <Step n={attending ? 6 : 3} />
             <CardTitle className="flex items-center gap-2">
-              Nachricht an uns <span className="text-sm font-normal text-muted-foreground">(optional)</span>
+              {t('Nachricht an uns')} <span className="text-sm font-normal text-muted-foreground">{t('(optional)')}</span>
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -395,7 +395,7 @@ export function RsvpForm({ initial, link, onDone }: FormProps) {
 
         <div className="sticky bottom-0 -mx-4 bg-gradient-to-t from-background via-background/95 to-transparent px-4 pt-6 pb-4 sm:static sm:mx-0 sm:bg-none sm:p-0">
           <Button type="submit" size="lg" className="w-full shadow-lg sm:shadow-none" disabled={submit.isPending}>
-            {submit.isPending ? 'Wird gesendet…' : initial ? 'Antwort aktualisieren' : 'Antwort absenden'}
+            {submit.isPending ? t('Wird gesendet…') : initial ? t('Antwort aktualisieren') : t('Antwort absenden')}
           </Button>
         </div>
       </motion.form>
@@ -411,23 +411,23 @@ export function Done({ view, onEdit }: { view: GuestView; onEdit: () => void }) 
       <Card className="text-center">
         <CardContent className="space-y-4 py-12">
           <CheckCircle2 className="mx-auto size-12 text-primary" />
-          <h2 className="text-4xl">Vielen Dank!</h2>
+          <h2 className="text-4xl">{t('Vielen Dank!')}</h2>
           <p className="text-muted-foreground">
             {view.status === 'no'
-              ? 'Schade, dass ihr nicht dabei sein könnt. Wir denken an euch.'
-              : 'Eure Rückmeldung ist angekommen. Wir freuen uns riesig auf euch!'}
+              ? t('Schade, dass ihr nicht dabei sein könnt. Wir denken an euch.')
+              : t('Eure Rückmeldung ist angekommen. Wir freuen uns riesig auf euch!')}
           </p>
-          {view.contribution && <p className="text-sm text-muted-foreground">Euer Beitrag wurde an die Trauzeugen weitergeleitet.</p>}
+          {view.contribution && <p className="text-sm text-muted-foreground">{t('Euer Beitrag wurde an die Trauzeugen weitergeleitet.')}</p>}
           <div className="mx-auto max-w-md space-y-2 pt-4 text-left">
-            <Label className="text-xs text-muted-foreground">Mit diesem Link könnt ihr eure Antwort später ändern:</Label>
+            <Label className="text-xs text-muted-foreground">{t('Mit diesem Link könnt ihr eure Antwort später ändern:')}</Label>
             <div className="flex gap-2">
               <Input readOnly value={editUrl} onFocus={(e) => e.currentTarget.select()} className="text-xs" />
               <Button
                 type="button"
                 variant="outline"
                 size="icon"
-                title="Link kopieren"
-                onClick={() => navigator.clipboard.writeText(editUrl).then(() => toast.success('Link kopiert.'))}
+                title={t('Link kopieren')}
+                onClick={() => navigator.clipboard.writeText(editUrl).then(() => toast.success(t('Link kopiert.')))}
               >
                 <Copy className="size-4" />
               </Button>
@@ -436,8 +436,8 @@ export function Done({ view, onEdit }: { view: GuestView; onEdit: () => void }) 
                   type="button"
                   variant="outline"
                   size="icon"
-                  title="Link teilen"
-                  onClick={() => navigator.share({ title: 'Unsere Rückmeldung', url: editUrl }).catch(() => undefined)}
+                  title={t('Link teilen')}
+                  onClick={() => navigator.share({ title: t('Unsere Rückmeldung'), url: editUrl }).catch(() => undefined)}
                 >
                   <Share2 className="size-4" />
                 </Button>
@@ -448,11 +448,11 @@ export function Done({ view, onEdit }: { view: GuestView; onEdit: () => void }) 
           <GuestNotifications />
           <div className="flex flex-col items-center gap-3 pt-2">
             <Button asChild size="lg">
-              <Link to="/">Alle Infos zur Hochzeit ansehen</Link>
+              <Link to="/">{t('Alle Infos zur Hochzeit ansehen')}</Link>
             </Button>
-            <p className="text-sm text-muted-foreground">Ablauf, Anreise und Unterkünfte findet ihr dort jederzeit wieder.</p>
+            <p className="text-sm text-muted-foreground">{t('Ablauf, Anreise und Unterkünfte findet ihr dort jederzeit wieder.')}</p>
             <Button variant="outline" onClick={onEdit}>
-              Antwort bearbeiten
+              {t('Antwort bearbeiten')}
             </Button>
           </div>
         </CardContent>
