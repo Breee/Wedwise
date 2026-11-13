@@ -8,6 +8,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"image"
+	"image/jpeg"
+	"image/png"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -1237,7 +1240,11 @@ func TestImageUpload(t *testing.T) {
 	couple, _ := app.login("couple_user", "TestPass123!")
 	witness, _ := app.login("witness_user", "TestPass123!")
 
-	png := append([]byte("\x89PNG\r\n\x1a\n"), make([]byte, 64)...)
+	var encoded bytes.Buffer
+	if err := png.Encode(&encoded, image.NewRGBA(image.Rect(0, 0, 4, 4))); err != nil {
+		t.Fatal(err)
+	}
+	small := encoded.Bytes()
 	upload := func(body []byte, cookie *http.Cookie) *http.Response {
 		req, err := http.NewRequest(http.MethodPost, app.srv.URL+"/api/uploads", bytes.NewReader(body))
 		if err != nil {
@@ -1254,10 +1261,10 @@ func TestImageUpload(t *testing.T) {
 		return resp
 	}
 
-	if resp := upload(png, nil); resp.StatusCode != http.StatusUnauthorized {
+	if resp := upload(small, nil); resp.StatusCode != http.StatusUnauthorized {
 		t.Fatalf("anonymous upload: got %d", resp.StatusCode)
 	}
-	if resp := upload(png, witness); resp.StatusCode != http.StatusForbidden {
+	if resp := upload(small, witness); resp.StatusCode != http.StatusForbidden {
 		t.Fatalf("witness upload: got %d", resp.StatusCode)
 	}
 	if resp := upload([]byte("<svg onload=alert(1)>"), couple); resp.StatusCode != http.StatusBadRequest {
@@ -1267,7 +1274,7 @@ func TestImageUpload(t *testing.T) {
 		t.Fatalf("oversized upload: got %d", resp.StatusCode)
 	}
 
-	resp := upload(png, couple)
+	resp := upload(small, couple)
 	if resp.StatusCode != http.StatusCreated {
 		t.Fatalf("upload: got %d", resp.StatusCode)
 	}
@@ -1280,6 +1287,43 @@ func TestImageUpload(t *testing.T) {
 	}
 	if got := app.do(http.MethodGet, out.URL, nil, nil); got.StatusCode != http.StatusOK {
 		t.Fatalf("serve upload: got %d", got.StatusCode)
+	}
+
+	if resp := upload(append([]byte("\x89PNG\r\n\x1a\n"), make([]byte, 64)...), couple); resp.StatusCode != http.StatusBadRequest {
+		t.Fatalf("broken image: got %d", resp.StatusCode)
+	}
+
+	// A photo with a GPS-tagged EXIF block and a size above the limit.
+	var photo bytes.Buffer
+	if err := jpeg.Encode(&photo, image.NewRGBA(image.Rect(0, 0, 3000, 1500)), nil); err != nil {
+		t.Fatal(err)
+	}
+	const marker = "GPSLatitude-47.98"
+	exif := append([]byte("Exif\x00\x00"), marker...)
+	tagged := append([]byte{0xFF, 0xD8, 0xFF, 0xE1, byte((len(exif) + 2) >> 8), byte(len(exif) + 2)}, exif...)
+	tagged = append(tagged, photo.Bytes()[2:]...)
+
+	resp = upload(tagged, couple)
+	if resp.StatusCode != http.StatusCreated {
+		t.Fatalf("photo upload: got %d", resp.StatusCode)
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		t.Fatal(err)
+	}
+	stored := app.do(http.MethodGet, out.URL, nil, nil)
+	body, err := io.ReadAll(stored.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bytes.Contains(body, []byte(marker)) || bytes.Contains(body, []byte("Exif")) {
+		t.Fatal("stored photo still carries EXIF data")
+	}
+	cfg, err := jpeg.DecodeConfig(bytes.NewReader(body))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Width != 2560 || cfg.Height != 1280 {
+		t.Fatalf("stored photo is %dx%d, want 2560x1280", cfg.Width, cfg.Height)
 	}
 }
 
