@@ -14,23 +14,31 @@ function extractCode(payload: unknown): string | undefined {
   return error && typeof error === 'object' && typeof error.code === 'string' ? error.code : undefined
 }
 
+const MESSAGES: Record<string, string> = {
+  bad_request: 'Die Eingabe ist ungültig. Bitte prüft eure Angaben.',
+  unauthorized: 'Nicht angemeldet.',
+  forbidden: 'Dafür fehlt die Berechtigung.',
+  not_found: 'Nicht gefunden.',
+  conflict: 'Das gibt es schon.',
+  too_many_requests: 'Zu viele Versuche. Bitte wartet einen Moment.',
+  internal_error: 'Auf dem Server ist etwas schiefgelaufen.',
+  two_factor_required: 'Bitte gebt euren Anmeldecode ein.',
+  invalid_code: 'Der Code stimmt nicht.',
+  invalid_pin: 'Die PIN stimmt nicht.',
+}
+
+const STATUS_CODES: Record<number, string> = {
+  400: 'bad_request',
+  401: 'unauthorized',
+  403: 'forbidden',
+  404: 'not_found',
+  409: 'conflict',
+  429: 'too_many_requests',
+}
+
 function extractMessage(payload: unknown, status: number): string {
-  if (typeof payload === 'string' && payload.trim() !== '') return payload
-  if (payload && typeof payload === 'object') {
-    const record = payload as Record<string, unknown>
-    for (const key of ['error', 'message', 'detail']) {
-      const value = record[key]
-      if (typeof value === 'string' && value.trim() !== '') return value
-      if (value && typeof value === 'object') {
-        const nested = (value as Record<string, unknown>).message
-        if (typeof nested === 'string' && nested.trim() !== '') return nested
-      }
-    }
-  }
-  if (status === 401) return 'Nicht angemeldet.'
-  if (status === 403) return 'Dafür fehlt die Berechtigung.'
-  if (status === 404) return 'Nicht gefunden.'
-  return `Anfrage fehlgeschlagen (${status}).`
+  const code = extractCode(payload) ?? STATUS_CODES[status] ?? (status >= 500 ? 'internal_error' : '')
+  return MESSAGES[code] ?? `Anfrage fehlgeschlagen (${status}).`
 }
 
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
