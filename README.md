@@ -233,6 +233,18 @@ Useful values (see [`values.yaml`](charts/wedwise/values.yaml)):
 
 SQLite lives on one volume, so the app runs as a single replica.
 
+### Ready-made examples
+
+| Path | What |
+|------|------|
+| [`examples/deploy/compose`](examples/deploy/compose) | Docker Compose with Caddy for automatic HTTPS (`cp .env.example .env`, `docker compose up -d`). |
+| [`examples/deploy/helm/values.yaml`](examples/deploy/helm/values.yaml) | Helm values with ingress, cert-manager TLS and an existing Secret. |
+| [`examples/deploy/gitops/flux`](examples/deploy/gitops/flux) | Flux `OCIRepository` + `HelmRelease`. |
+| [`examples/deploy/gitops/argocd`](examples/deploy/gitops/argocd) | Argo CD `Application`. |
+
+For GitOps keep the Secret (`session-secret`) out of plain Git – use SOPS,
+Sealed Secrets or External Secrets.
+
 ## Backup and restore
 
 All state is the SQLite file at `DATABASE_PATH`. Take a consistent snapshot

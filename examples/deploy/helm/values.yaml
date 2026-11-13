@@ -1,0 +1,38 @@
+# helm upgrade --install wedding oci://ghcr.io/breee/charts/wedwise \
+#   --namespace wedding --create-namespace -f values.yaml
+baseUrl: https://wedding.example.com
+
+# Secret with keys `session-secret` (>= 16 chars), optional `routing-api-key`
+# and optional `users.yaml`. Create it once:
+#   kubectl -n wedding create secret generic wedwise \
+#     --from-literal=session-secret="$(openssl rand -base64 32)"
+secret:
+  existingSecret: wedwise
+
+config:
+  event:
+    title: Our Wedding
+    language: en
+    date: "2027-06-25"
+    couple:
+      - name: Alex
+      - name: Sam
+
+env:
+  - name: TRUST_PROXY_HEADERS
+    value: "true"
+
+persistence:
+  enabled: true
+  size: 1Gi
+
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt
+  host: wedding.example.com
+  tls:
+    - secretName: wedwise-tls
+      hosts:
+        - wedding.example.com

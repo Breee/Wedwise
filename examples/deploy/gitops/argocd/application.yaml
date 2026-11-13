@@ -1,0 +1,41 @@
+# Argo CD: chart from the OCI registry, values inline.
+# The Secret `wedwise` (key `session-secret`) must exist in the namespace –
+# manage it with SOPS, Sealed Secrets or External Secrets, not in plain Git.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: wedwise
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: ghcr.io/breee/charts
+    chart: wedwise
+    targetRevision: 0.1.0
+    helm:
+      valuesObject:
+        baseUrl: https://wedding.example.com
+        secret:
+          existingSecret: wedwise
+        env:
+          - name: TRUST_PROXY_HEADERS
+            value: "true"
+        ingress:
+          enabled: true
+          className: nginx
+          annotations:
+            cert-manager.io/cluster-issuer: letsencrypt
+          host: wedding.example.com
+          tls:
+            - secretName: wedwise-tls
+              hosts:
+                - wedding.example.com
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: wedding
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

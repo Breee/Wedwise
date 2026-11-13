@@ -1,0 +1,40 @@
+# Production example: published image behind Caddy with automatic HTTPS.
+# 1. cp .env.example .env   and fill in DOMAIN and SESSION_SECRET
+# 2. put config.yaml (see ../../config.yaml) into ./config/
+# 3. docker compose up -d
+# 4. docker compose exec wedwise /app/wedding user create --username admin --role admin
+services:
+  wedwise:
+    image: ghcr.io/breee/wedwise:${WEDWISE_VERSION:-latest}
+    restart: unless-stopped
+    environment:
+      BASE_URL: "https://${DOMAIN:?set DOMAIN in .env}"
+      SESSION_SECRET: "${SESSION_SECRET:?set SESSION_SECRET in .env}"
+      ENVIRONMENT: production
+      TRUST_PROXY_HEADERS: "true"
+      DATABASE_PATH: /data/wedding.db
+      CONFIG_PATH: /config/config.yaml
+      ROUTING_API_KEY: "${ROUTING_API_KEY:-}"
+    volumes:
+      - wedwise-data:/data
+      - ./config:/config:ro
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: "${DOMAIN}"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - wedwise
+
+volumes:
+  wedwise-data:
+  caddy-data:
+  caddy-config:

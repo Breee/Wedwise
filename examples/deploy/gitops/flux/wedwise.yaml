@@ -1,0 +1,46 @@
+# Flux: chart from the OCI registry, values inline.
+# The Secret `wedwise` (key `session-secret`) must exist in the namespace –
+# manage it with SOPS, Sealed Secrets or External Secrets, not in plain Git.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: wedding
+---
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: OCIRepository
+metadata:
+  name: wedwise
+  namespace: wedding
+spec:
+  interval: 1h
+  url: oci://ghcr.io/breee/charts/wedwise
+  ref:
+    semver: ">=0.1.0"
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: wedwise
+  namespace: wedding
+spec:
+  interval: 10m
+  chartRef:
+    kind: OCIRepository
+    name: wedwise
+  values:
+    baseUrl: https://wedding.example.com
+    secret:
+      existingSecret: wedwise
+    env:
+      - name: TRUST_PROXY_HEADERS
+        value: "true"
+    ingress:
+      enabled: true
+      className: nginx
+      annotations:
+        cert-manager.io/cluster-issuer: letsencrypt
+      host: wedding.example.com
+      tls:
+        - secretName: wedwise-tls
+          hosts:
+            - wedding.example.com
