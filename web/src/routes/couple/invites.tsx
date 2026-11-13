@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { t } from '@/lib/i18n'
 import { createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQueryClient, useSuspenseQuery } from '@tanstack/react-query'
 import { Copy, Eye, EyeOff, KeyRound, Plus, RefreshCw, Share2, Trash2 } from 'lucide-react'
@@ -49,7 +50,7 @@ function InvitesPage() {
     mutationFn: (id: number) => api.post(`/invite-links/${id}/regenerate`),
     onSuccess: () => {
       refresh()
-      toast.success('Neuer Link erzeugt. Der alte Link funktioniert nicht mehr.')
+      toast.success(t('Neuer Link erzeugt. Der alte Link funktioniert nicht mehr.'))
     },
     onError,
   })
@@ -60,35 +61,35 @@ function InvitesPage() {
   })
 
   const share = (token: string) => navigator.share({ url: linkUrl(token) }).catch(() => {})
-  const copy = (token: string) => navigator.clipboard.writeText(linkUrl(token)).then(() => toast.success('Link kopiert.'))
+  const copy = (token: string) => navigator.clipboard.writeText(linkUrl(token)).then(() => toast.success(t('Link kopiert.')))
 
   return (
     <>
       <PageHeader
-        title="Einladungslinks"
-        description="Einen Link für alle oder mehrere Links für verschiedene Gruppen – optional mit PIN."
+        title={t('Einladungslinks')}
+        description={t('Einen Link für alle oder mehrere Links für verschiedene Gruppen – optional mit PIN.')}
         action={
           <Button onClick={() => create.mutate()} disabled={create.isPending}>
-            <Plus className="size-4" /> Neuer Link
+            <Plus className="size-4" /> {t('Neuer Link')}
           </Button>
         }
       />
       <Table className="block sm:table">
         <TableHeader className="hidden sm:table-header-group">
           <TableRow>
-            <TableHead>Link</TableHead>
+            <TableHead>{t('Link')}</TableHead>
             <TableHead>PIN</TableHead>
-            <TableHead>Antworten</TableHead>
-            <TableHead>Erstellt</TableHead>
-            <TableHead>Aktiv</TableHead>
-            <TableHead className="text-right">Aktionen</TableHead>
+            <TableHead>{t('Antworten')}</TableHead>
+            <TableHead>{t('Erstellt')}</TableHead>
+            <TableHead>{t('Aktiv')}</TableHead>
+            <TableHead className="text-right">{t('Aktionen')}</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody className="block sm:table-row-group">
           {links.length === 0 && (
             <TableRow>
               <TableCell colSpan={6} className="py-10 text-center text-muted-foreground">
-                Noch keine Links. Erstellt einen und teilt ihn mit euren Gästen.
+                {t('Noch keine Links. Erstellt einen und teilt ihn mit euren Gästen.')}
               </TableCell>
             </TableRow>
           )}
@@ -97,28 +98,28 @@ function InvitesPage() {
               <TableCell className="w-full min-w-0 p-0 sm:w-auto sm:p-2">
                 <div className="flex items-center gap-1 font-mono text-xs">
                   <span className="truncate">{revealed === l.id ? linkUrl(l.token) : `${window.location.origin}/rsvp/••••••••••••`}</span>
-                  <Button type="button" variant="ghost" size="icon" className="size-10 shrink-0 sm:size-7" title={revealed === l.id ? 'Verbergen' : 'Anzeigen'} onClick={() => setRevealed(revealed === l.id ? null : l.id)}>
+                  <Button type="button" variant="ghost" size="icon" className="size-10 shrink-0 sm:size-7" title={revealed === l.id ? t('Verbergen') : t('Anzeigen')} onClick={() => setRevealed(revealed === l.id ? null : l.id)}>
                     {revealed === l.id ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
                   </Button>
-                  <Button type="button" variant="ghost" size="icon" className="size-10 shrink-0 sm:size-7" title="Link kopieren" aria-label="Link kopieren" onClick={() => copy(l.token)}>
+                  <Button type="button" variant="ghost" size="icon" className="size-10 shrink-0 sm:size-7" title={t('Link kopieren')} aria-label={t('Link kopieren')} onClick={() => copy(l.token)}>
                     <Copy className="size-3.5" />
                   </Button>
                   {'share' in navigator && (
-                    <Button type="button" variant="ghost" size="icon" className="size-10 shrink-0 sm:size-7" title="Link teilen" aria-label="Link teilen" onClick={() => share(l.token)}>
+                    <Button type="button" variant="ghost" size="icon" className="size-10 shrink-0 sm:size-7" title={t('Link teilen')} aria-label={t('Link teilen')} onClick={() => share(l.token)}>
                       <Share2 className="size-3.5" />
                     </Button>
                   )}
                 </div>
               </TableCell>
-              <TableCell className="p-0 sm:p-2">{l.hasPin ? <Badge>PIN</Badge> : <span className="text-muted-foreground"><span className="sm:hidden">Kein PIN</span><span className="hidden sm:inline">–</span></span>}</TableCell>
-              <TableCell className="p-0 sm:p-2">{l.responses}<span className="text-muted-foreground sm:hidden"> Antworten</span></TableCell>
+              <TableCell className="p-0 sm:p-2">{l.hasPin ? <Badge>PIN</Badge> : <span className="text-muted-foreground"><span className="sm:hidden">{t('Kein PIN')}</span><span className="hidden sm:inline">–</span></span>}</TableCell>
+              <TableCell className="p-0 sm:p-2">{l.responses}<span className="text-muted-foreground sm:hidden"> {t('Antworten')}</span></TableCell>
               <TableCell className="hidden text-muted-foreground sm:table-cell">{formatDateTime(l.createdAt)}</TableCell>
               <TableCell className="p-0 sm:p-2">
-                <Switch checked={l.active} onCheckedChange={(active) => setActive.mutate({ id: l.id, active })} aria-label="Aktiv" />
+                <Switch checked={l.active} onCheckedChange={(active) => setActive.mutate({ id: l.id, active })} aria-label={t('Aktiv')} />
               </TableCell>
               <TableCell className="ml-auto p-0 text-right sm:p-2">
                 <div className="flex justify-end gap-1">
-                  <Button variant="ghost" size="icon" className="h-10 w-auto gap-1.5 px-2 sm:size-9 sm:px-0" title={l.hasPin ? 'PIN ändern' : 'PIN setzen'} onClick={() => setPinTarget(l)}>
+                  <Button variant="ghost" size="icon" className="h-10 w-auto gap-1.5 px-2 sm:size-9 sm:px-0" title={l.hasPin ? t('PIN ändern') : t('PIN setzen')} onClick={() => setPinTarget(l)}>
                     <KeyRound className="size-4" />
                     <span className="text-xs sm:hidden">PIN</span>
                   </Button>
@@ -126,21 +127,21 @@ function InvitesPage() {
                     variant="ghost"
                     size="icon"
                     className="h-10 w-auto gap-1.5 px-2 sm:size-9 sm:px-0"
-                    title="Neuen Link erzeugen"
-                    onClick={() => confirm('Der bisherige Link funktioniert danach nicht mehr. Fortfahren?') && regenerate.mutate(l.id)}
+                    title={t('Neuen Link erzeugen')}
+                    onClick={() => confirm(t('Der bisherige Link funktioniert danach nicht mehr. Fortfahren?')) && regenerate.mutate(l.id)}
                   >
                     <RefreshCw className="size-4" />
-                    <span className="text-xs sm:hidden">Neu</span>
+                    <span className="text-xs sm:hidden">{t('Neu')}</span>
                   </Button>
                   <Button
                     variant="ghost"
                     size="icon"
                     className="h-10 w-auto gap-1.5 px-2 sm:size-9 sm:px-0"
-                    title="Löschen"
-                    onClick={() => confirm('Link löschen? Bereits abgegebene Antworten bleiben erhalten.') && remove.mutate(l.id)}
+                    title={t('Löschen')}
+                    onClick={() => confirm(t('Link löschen? Bereits abgegebene Antworten bleiben erhalten.')) && remove.mutate(l.id)}
                   >
                     <Trash2 className="size-4 text-destructive" />
-                    <span className="text-xs text-destructive sm:hidden">Löschen</span>
+                    <span className="text-xs text-destructive sm:hidden">{t('Löschen')}</span>
                   </Button>
                 </div>
               </TableCell>
@@ -176,8 +177,8 @@ function PinDialog({ link, onClose, onSaved }: { link: InviteLink | null; onClos
           className="space-y-4"
         >
           <DialogHeader>
-            <DialogTitle>{link?.hasPin ? 'PIN ändern' : 'PIN setzen'}</DialogTitle>
-            <DialogDescription>Gäste müssen die PIN eingeben, bevor sie antworten können. 4–64 Zeichen.</DialogDescription>
+            <DialogTitle>{link?.hasPin ? t('PIN ändern') : t('PIN setzen')}</DialogTitle>
+            <DialogDescription>{t('Gäste müssen die PIN eingeben, bevor sie antworten können. 4–64 Zeichen.')}</DialogDescription>
           </DialogHeader>
           <div className="space-y-2">
             <Label htmlFor="pin">PIN</Label>
@@ -186,13 +187,13 @@ function PinDialog({ link, onClose, onSaved }: { link: InviteLink | null; onClos
           <DialogFooter className="gap-2 sm:justify-between">
             {link?.hasPin ? (
               <Button type="button" variant="outline" onClick={() => save.mutate('')} disabled={save.isPending}>
-                PIN entfernen
+                {t('PIN entfernen')}
               </Button>
             ) : (
               <span />
             )}
             <Button type="submit" disabled={save.isPending || pin.length < 4}>
-              Speichern
+              {t('Speichern')}
             </Button>
           </DialogFooter>
         </form>

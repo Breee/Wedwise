@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { t } from '@/lib/i18n'
 import { createFileRoute } from '@tanstack/react-router'
 import { useMutation } from '@tanstack/react-query'
 import { toast } from 'sonner'
@@ -23,7 +24,7 @@ function BroadcastPage() {
     onSuccess: (r) => {
       setTitle('')
       setBody('')
-      toast.success(`An ${r.sent} Geräte gesendet.`)
+      toast.success(t('An {n} Geräte gesendet.', { n: r.sent }))
     },
     onError: (e) => toast.error(errorMessage(e)),
   })
@@ -31,8 +32,8 @@ function BroadcastPage() {
   return (
     <div className="mx-auto max-w-2xl px-6 py-10">
       <PageHeader
-        title="Nachricht an alle"
-        description="Geht als Benachrichtigung an alle Gäste, die Neuigkeiten aktiviert haben."
+        title={t('Nachricht an alle')}
+        description={t('Geht als Benachrichtigung an alle Gäste, die Neuigkeiten aktiviert haben.')}
       />
       <Card>
         <CardContent>
@@ -40,19 +41,19 @@ function BroadcastPage() {
             className="space-y-4"
             onSubmit={(e) => {
               e.preventDefault()
-              if (window.confirm('Nachricht jetzt an alle senden?')) broadcast.mutate()
+              if (window.confirm(t('Nachricht jetzt an alle senden?'))) broadcast.mutate()
             }}
           >
             <div className="space-y-2">
-              <Label htmlFor="b-title">Titel</Label>
+              <Label htmlFor="b-title">{t('Titel')}</Label>
               <Input id="b-title" value={title} onChange={(e) => setTitle(e.target.value)} maxLength={100} required />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="b-body">Text</Label>
+              <Label htmlFor="b-body">{t('Text')}</Label>
               <Textarea id="b-body" value={body} onChange={(e) => setBody(e.target.value)} maxLength={500} required />
             </div>
             <Button type="submit" disabled={broadcast.isPending}>
-              Senden
+              {t('Senden')}
             </Button>
           </form>
         </CardContent>

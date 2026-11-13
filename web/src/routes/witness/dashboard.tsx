@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { t } from '@/lib/i18n'
 import { createFileRoute } from '@tanstack/react-router'
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { cn } from '@/lib/utils'
@@ -39,24 +40,24 @@ function WitnessDashboard() {
 
   return (
     <>
-      <PageHeader title="Beiträge" description="Programmbeiträge der Gäste koordinieren." />
+      <PageHeader title={t('Beiträge')} description={t('Programmbeiträge der Gäste koordinieren.')} />
       <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
-        <Stat label="Beiträge" value={contributions.length} />
-        <Stat label="Offen" value={open} hint="neu oder mit Rückfrage" />
-        <Stat label="Bestätigt" value={confirmed.length} hint={`${minutes} Min. Programm`} />
-        <Stat label="Eingeplant" value={scheduled} hint={`von ${summary.attendeesAttending} Gästen mit Zusage`} />
+        <Stat label={t('Beiträge')} value={contributions.length} />
+        <Stat label={t('Offen')} value={open} hint={t('neu oder mit Rückfrage')} />
+        <Stat label={t('Bestätigt')} value={confirmed.length} hint={t('{n} Min. Programm', { n: minutes })} />
+        <Stat label={t('Eingeplant')} value={scheduled} hint={t('von {n} Gästen mit Zusage', { n: summary.attendeesAttending })} />
       </div>
 
       <Tabs defaultValue="board" className="mt-8">
         <TabsList>
           <TabsTrigger value="board">Board</TabsTrigger>
-          <TabsTrigger value="list">Liste</TabsTrigger>
-          <TabsTrigger value="schedule">Ablaufplan</TabsTrigger>
-          <TabsTrigger value="responses">Rückmeldungen</TabsTrigger>
+          <TabsTrigger value="list">{t('Liste')}</TabsTrigger>
+          <TabsTrigger value="schedule">{t('Ablaufplan')}</TabsTrigger>
+          <TabsTrigger value="responses">{t('Rückmeldungen')}</TabsTrigger>
         </TabsList>
         <TabsContent value="board" className="mt-4">
           {contributions.length === 0 ? (
-            <p className="text-muted-foreground">Noch keine Beiträge.</p>
+            <p className="text-muted-foreground">{t('Noch keine Beiträge.')}</p>
           ) : (
             <Board items={contributions} onOpen={setSelected} />
           )}
@@ -82,24 +83,24 @@ function WitnessDashboard() {
 }
 
 function ContributionTable({ items, onOpen }: { items: Contribution[]; onOpen: (c: Contribution) => void }) {
-  if (items.length === 0) return <p className="text-muted-foreground">Noch keine Beiträge.</p>
+  if (items.length === 0) return <p className="text-muted-foreground">{t('Noch keine Beiträge.')}</p>
   return (
     <div className="rounded-xl border bg-card">
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Beitrag</TableHead>
-            <TableHead>Von</TableHead>
-            <TableHead>Benötigt</TableHead>
-            <TableHead>Uhrzeit</TableHead>
+            <TableHead>{t('Beitrag')}</TableHead>
+            <TableHead>{t('Von')}</TableHead>
+            <TableHead>{t('Benötigt')}</TableHead>
+            <TableHead>{t('Uhrzeit')}</TableHead>
             <TableHead>Status</TableHead>
-            <TableHead>Eingereicht</TableHead>
+            <TableHead>{t('Eingereicht')}</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {items.map((c) => (
             <TableRow key={c.id} className="cursor-pointer" onClick={() => onOpen(c)}>
-              <TableCell className="font-medium">{c.title || 'Ohne Titel'}</TableCell>
+              <TableCell className="font-medium">{c.title || t('Ohne Titel')}</TableCell>
               <TableCell>
                 {c.contactName}
                 <ContactLinks phone={c.phone} messengers={c.messengers} className="mt-1" />
@@ -107,7 +108,7 @@ function ContributionTable({ items, onOpen }: { items: Contribution[]; onOpen: (
               <TableCell className="max-w-56 truncate text-muted-foreground">{c.needs || '–'}</TableCell>
               <TableCell className="tabular-nums">
                 {c.slotTime || '–'}
-                {c.durationMinutes > 0 && <span className="text-muted-foreground"> · {c.durationMinutes} Min.</span>}
+                {c.durationMinutes > 0 && <span className="text-muted-foreground"> · {c.durationMinutes} {t('Min.')}</span>}
               </TableCell>
               <TableCell>
                 <span className={cn('rounded-full px-2 py-0.5 text-xs', STATUS_TONE[c.status])}>
