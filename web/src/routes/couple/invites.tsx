@@ -93,7 +93,7 @@ function InvitesPage() {
             </TableRow>
           )}
           {links.map((l) => (
-            <TableRow key={l.id} className={`flex flex-wrap items-center gap-x-4 gap-y-1 p-3 sm:table-row sm:p-0 ${l.active ? '' : 'opacity-60'}`}>
+            <TableRow key={l.id} className={`mb-3 flex flex-wrap items-center gap-x-4 gap-y-1 rounded-lg border bg-card p-3 sm:mb-0 sm:table-row sm:rounded-none sm:bg-transparent sm:p-0 ${l.active ? '' : 'opacity-60'}`}>
               <TableCell className="w-full min-w-0 p-0 sm:w-auto sm:p-2">
                 <div className="flex items-center gap-1 font-mono text-xs">
                   <span className="truncate">{revealed === l.id ? linkUrl(l.token) : `${window.location.origin}/rsvp/••••••••••••`}</span>

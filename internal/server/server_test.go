@@ -1283,6 +1283,50 @@ func TestImageUpload(t *testing.T) {
 	}
 }
 
+func TestUserDelete(t *testing.T) {
+	app, _ := newTestAppWithUsers(t)
+	admin, _ := app.login("admin_user", "TestPass123!")
+	couple, _ := app.login("couple_user", "TestPass123!")
+
+	var users struct {
+		Users []struct {
+			ID       int64  `json:"id"`
+			Username string `json:"username"`
+		} `json:"users"`
+	}
+	resp := app.do(http.MethodGet, "/api/users/", nil, admin)
+	if err := json.NewDecoder(resp.Body).Decode(&users); err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	ids := map[string]int64{}
+	for _, u := range users.Users {
+		ids[u.Username] = u.ID
+	}
+	path := func(name string) string { return fmt.Sprintf("/api/users/%d", ids[name]) }
+
+	for _, tc := range []struct {
+		name   string
+		path   string
+		cookie *http.Cookie
+		want   int
+	}{
+		{"couple forbidden", path("witness_user"), couple, http.StatusForbidden},
+		{"not yourself", path("admin_user"), admin, http.StatusBadRequest},
+		{"delete", path("witness_user"), admin, http.StatusNoContent},
+		{"gone", path("witness_user"), admin, http.StatusNotFound},
+	} {
+		resp := app.do(http.MethodDelete, tc.path, nil, tc.cookie)
+		resp.Body.Close()
+		if resp.StatusCode != tc.want {
+			t.Errorf("%s: got %d, want %d", tc.name, resp.StatusCode, tc.want)
+		}
+	}
+	if _, status := app.login("witness_user", "TestPass123!"); status != http.StatusUnauthorized {
+		t.Errorf("deleted user login: got %d", status)
+	}
+}
+
 func TestUserManagement(t *testing.T) {
 	app, _ := newTestAppWithUsers(t)
 	admin, _ := app.login("admin_user", "TestPass123!")

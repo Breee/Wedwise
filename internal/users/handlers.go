@@ -49,6 +49,7 @@ func (h *Handler) Routes() http.Handler {
 		r.Put("/{id}/password", h.setPassword)
 		r.Post("/{id}/setup-link", h.setupLink)
 		r.Put("/{id}/active", h.setActive)
+		r.Delete("/{id}", h.remove)
 	})
 	return r
 }
@@ -316,6 +317,22 @@ func (h *Handler) setActive(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := h.store.SetActive(r.Context(), user.Username, req.Active); err != nil {
+		httpx.Internal(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *Handler) remove(w http.ResponseWriter, r *http.Request) {
+	user, ok := h.target(w, r)
+	if !ok {
+		return
+	}
+	if identity, ok := auth.IdentityFrom(r.Context()); ok && identity.ID == user.ID {
+		httpx.WriteError(w, http.StatusBadRequest, httpx.CodeBadRequest, "You cannot delete your own account.")
+		return
+	}
+	if err := h.store.Delete(r.Context(), user.ID); err != nil {
 		httpx.Internal(w, err)
 		return
 	}

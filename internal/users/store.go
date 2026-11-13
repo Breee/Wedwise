@@ -129,6 +129,15 @@ func (s *Store) SetActive(ctx context.Context, username string, active bool) err
 	return checkAffected(res)
 }
 
+// Delete removes a user; sessions, second factors and setup links go with it.
+func (s *Store) Delete(ctx context.Context, id int64) error {
+	res, err := s.db.ExecContext(ctx, "DELETE FROM users WHERE id = ?", id)
+	if err != nil {
+		return fmt.Errorf("delete user: %w", err)
+	}
+	return checkAffected(res)
+}
+
 // SetPassword replaces the password of a user.
 func (s *Store) SetPassword(ctx context.Context, username, password string) error {
 	if err := auth.ValidatePassword(password); err != nil {

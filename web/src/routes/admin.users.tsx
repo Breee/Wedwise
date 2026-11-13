@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQueryClient, useSuspenseQuery } from '@tanstack/react-query'
-import { Copy, KeyRound, Plus, ShieldOff } from 'lucide-react'
+import { Copy, KeyRound, Plus, ShieldOff, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { api, errorMessage } from '@/lib/api'
 import { requireRole } from '@/lib/auth'
@@ -36,6 +36,15 @@ function UsersPage() {
   const setActive = useMutation({
     mutationFn: ({ id, active }: { id: number; active: boolean }) => api.put(`/users/${id}/active`, { active }),
     onSuccess: refresh,
+    onError: (e) => toast.error(errorMessage(e)),
+  })
+
+  const remove = useMutation({
+    mutationFn: (u: User) => api.delete(`/users/${u.id}`),
+    onSuccess: () => {
+      toast.success('Benutzer gelöscht.')
+      refresh()
+    },
     onError: (e) => toast.error(errorMessage(e)),
   })
 
@@ -77,7 +86,7 @@ function UsersPage() {
           {users.map((u) => (
             <TableRow
               key={u.id}
-              className={`flex flex-wrap items-center gap-x-4 gap-y-1 p-3 sm:table-row sm:p-0 ${u.active ? '' : 'opacity-60'}`}
+              className={`mb-3 flex flex-wrap items-center gap-x-4 gap-y-1 rounded-lg border bg-card p-3 sm:mb-0 sm:table-row sm:rounded-none sm:bg-transparent sm:p-0 ${u.active ? '' : 'opacity-60'}`}
             >
               <TableCell className="w-full p-0 font-medium sm:w-auto sm:p-2">{u.username}</TableCell>
               <TableCell className="p-0 text-muted-foreground sm:p-2">{u.displayName || '–'}</TableCell>
@@ -118,6 +127,21 @@ function UsersPage() {
                   <ShieldOff className="size-4" />
                   <span className="text-xs sm:hidden">2FA zurücksetzen</span>
                 </Button>
+                {u.id !== me.id && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-10 w-auto gap-1.5 px-2 text-destructive sm:size-9 sm:px-0"
+                    onClick={() => {
+                      if (window.confirm(`${u.username} endgültig löschen?`)) remove.mutate(u)
+                    }}
+                    title="Benutzer löschen"
+                    aria-label={`${u.username} löschen`}
+                  >
+                    <Trash2 className="size-4" />
+                    <span className="text-xs sm:hidden">Löschen</span>
+                  </Button>
+                )}
               </TableCell>
             </TableRow>
           ))}
