@@ -11,6 +11,7 @@ const coupleLinks = [
   { to: '/couple/dashboard', label: 'Übersicht' },
   { to: '/couple/invites', label: 'Einladungslinks' },
   { to: '/couple/content', label: 'Inhalte' },
+  { to: '/couple/broadcast', label: 'Nachricht' },
 ] as const
 
 const witnessLinks = [{ to: '/witness/dashboard', label: 'Beiträge' }] as const

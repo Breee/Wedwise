@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { QRCodeSVG } from 'qrcode.react'
-import { Bell, Copy, KeyRound, Megaphone, ShieldCheck, Trash2 } from 'lucide-react'
+import { Bell, Copy, KeyRound, ShieldCheck, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { ApiError, api, errorMessage } from '@/lib/api'
 import { requireRole } from '@/lib/auth'
@@ -11,7 +11,6 @@ import { createKey, webauthnSupported } from '@/lib/webauthn'
 import { pushSupported, type PushTopic } from '@/lib/push'
 import { toggled, usePushTopics } from '@/components/public/Notifications'
 import { Switch } from '@/components/ui/switch'
-import { Textarea } from '@/components/ui/textarea'
 import { PageHeader } from '@/components/admin/PageHeader'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -69,11 +68,16 @@ function AccountPage() {
 
   return (
     <div className="mx-auto max-w-2xl px-6 py-10">
-      <PageHeader title="Konto" description="Sichert eure Anmeldung zusätzlich ab." />
-      <Card>
+      <PageHeader title="Konto" description="Anmeldung absichern und Benachrichtigungen für dieses Gerät." />
+      <h2 className="mb-1 text-2xl">Anmeldung & Sicherheit</h2>
+      <p className="mb-4 text-sm text-muted-foreground">
+        Beides ist freiwillig. Am einfachsten ist ein Passkey – der Code aus einer App ist die Alternative.
+      </p>
+      <SecurityKeys keys={status?.keys ?? []} />
+      <Card className="mt-6">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-2xl">
-            <ShieldCheck className="size-5 text-primary" /> Zwei-Faktor-Anmeldung
+            <ShieldCheck className="size-5 text-primary" /> Code aus einer App
           </CardTitle>
           <CardDescription>
             Zusätzlich zum Passwort fragt die Anmeldung einen Code aus einer Authenticator-App ab.
@@ -160,7 +164,7 @@ function AccountPage() {
           )}
         </CardContent>
       </Card>
-      <SecurityKeys keys={status?.keys ?? []} />
+      <h2 className="mt-10 mb-4 text-2xl">Benachrichtigungen</h2>
       <StaffNotifications />
     </div>
   )
@@ -197,11 +201,11 @@ function SecurityKeys({ keys }: { keys: SecurityKey[] }) {
   })
 
   return (
-    <Card className="mt-6">
+    <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-2xl">
           <KeyRound className="size-5 text-primary" />
-          Passkeys & Sicherheitsschlüssel
+          Passkey oder Sicherheitsschlüssel
         </CardTitle>
         <CardDescription>
           Fingerabdruck, Gesichtserkennung oder ein Hardware-Schlüssel (z. B. YubiKey) als zweiter Schritt bei der
@@ -260,27 +264,14 @@ function SecurityKeys({ keys }: { keys: SecurityKey[] }) {
 function StaffNotifications() {
   const { data: me } = useQuery(meQuery)
   const { topics, ready, save } = usePushTopics()
-  const [title, setTitle] = useState('')
-  const [body, setBody] = useState('')
   const role = me?.role ?? ''
-  const canBroadcast = role === 'couple' || role === 'admin'
-
-  const broadcast = useMutation({
-    mutationFn: () => api.post<{ sent: number }>('/push/broadcast', { title, body, url: '/' }),
-    onSuccess: (r) => {
-      setTitle('')
-      setBody('')
-      toast.success(`An ${r.sent} Geräte gesendet.`)
-    },
-    onError: (e) => toast.error(errorMessage(e)),
-  })
 
   return (
     <>
-      <Card className="mt-6">
+      <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-2xl">
-            <Bell className="size-5 text-primary" /> Benachrichtigungen
+            <Bell className="size-5 text-primary" /> Auf diesem Gerät
           </CardTitle>
           <CardDescription>Gilt für dieses Gerät. Auf dem iPhone nur in der installierten App.</CardDescription>
         </CardHeader>
@@ -302,38 +293,6 @@ function StaffNotifications() {
           )}
         </CardContent>
       </Card>
-
-      {canBroadcast && (
-        <Card className="mt-6">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-2xl">
-              <Megaphone className="size-5 text-primary" /> Nachricht an alle
-            </CardTitle>
-            <CardDescription>Geht an alle Gäste, die Benachrichtigungen aktiviert haben.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form
-              className="space-y-4"
-              onSubmit={(e) => {
-                e.preventDefault()
-                if (window.confirm('Nachricht jetzt an alle senden?')) broadcast.mutate()
-              }}
-            >
-              <div className="space-y-2">
-                <Label htmlFor="b-title">Titel</Label>
-                <Input id="b-title" value={title} onChange={(e) => setTitle(e.target.value)} maxLength={100} required />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="b-body">Text</Label>
-                <Textarea id="b-body" value={body} onChange={(e) => setBody(e.target.value)} maxLength={500} required />
-              </div>
-              <Button type="submit" disabled={broadcast.isPending}>
-                Senden
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
-      )}
     </>
   )
 }
