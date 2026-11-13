@@ -6,8 +6,7 @@ RSVP through shareable invite links, and a private area where witnesses plan
 surprise contributions. Go backend, embedded SQLite, React frontend — no
 third-party SaaS required.
 
-> The guest-facing UI is currently German only. English is planned
-> ([#20](https://github.com/Breee/Wedwise/issues/20)).
+> The UI is available in German (default) and English – set `event.language`.
 
 ## Contents
 
@@ -103,6 +102,7 @@ Settings come from a YAML file (`CONFIG_PATH`, default
 |---------|----------|---------|---------|
 | `SESSION_SECRET` | `sessionSecret` | — | **Required**, at least 16 characters. Signs PIN cookies. Generate with `openssl rand -hex 32`. |
 | `BASE_URL` | `baseUrl` | `http://localhost:8080` | The address people open. Logins from any other origin are rejected. |
+| – | `event.language` | `de` | UI language: `de` or `en`. Your own content is not translated. |
 | – | `event.timezone` | `Europe/Berlin` | Time zone of the calendar entry. |
 | – | `event.contributionMinutes` | `15` | Time limit suggested for guest contributions. |
 | – | `event.musicGenres` | Pop, Rock, … | Genres guests can pick in their response. |

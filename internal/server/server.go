@@ -83,15 +83,25 @@ func New(cfg configuration.Config, db *sql.DB) (*Server, error) {
 		return nil, err
 	}
 	pushHandler := push.NewHandler(pushService)
+	english := cfg.Event.Language == "en"
 	rsvpHandler.OnResponse(func(response rsvp.Response, withContribution bool) {
-		body := response.ContactName + " hat zugesagt."
+		title, body := "Neue Rückmeldung", response.ContactName+" hat zugesagt."
 		if response.Status != rsvp.StatusYes {
 			body = response.ContactName + " hat abgesagt."
 		}
-		pushService.Notify(push.TopicResponses, push.Message{Title: "Neue Rückmeldung", Body: body, URL: "/dashboard"})
+		if english {
+			title, body = "New response", response.ContactName+" is coming."
+			if response.Status != rsvp.StatusYes {
+				body = response.ContactName + " cannot come."
+			}
+		}
+		pushService.Notify(push.TopicResponses, push.Message{Title: title, Body: body, URL: "/dashboard"})
 		if withContribution {
-			pushService.Notify(push.TopicContributions, push.Message{
-				Title: "Neuer Beitrag", Body: response.ContactName + " möchte etwas beitragen.", URL: "/witness/dashboard"})
+			title, body = "Neuer Beitrag", response.ContactName+" möchte etwas beitragen."
+			if english {
+				title, body = "New contribution", response.ContactName+" would like to contribute."
+			}
+			pushService.Notify(push.TopicContributions, push.Message{Title: title, Body: body, URL: "/witness/dashboard"})
 		}
 	})
 	inviteHandler := invites.NewHandler(inviteStore, authService)
