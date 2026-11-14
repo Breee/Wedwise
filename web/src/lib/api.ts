@@ -25,6 +25,7 @@ const MESSAGES: Record<string, string> = {
   internal_error: 'Auf dem Server ist etwas schiefgelaufen.',
   two_factor_required: 'Bitte gebt euren Anmeldecode ein.',
   invalid_code: 'Der Code stimmt nicht.',
+  invalid_password: 'Das aktuelle Passwort stimmt nicht.',
   invalid_pin: 'Die PIN stimmt nicht.',
   link_full: 'Über diesen Link sind keine weiteren Antworten möglich.',
 }

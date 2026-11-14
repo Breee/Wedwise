@@ -497,4 +497,12 @@ export const en: Record<string, string> = {
   'Beitrag geändert': 'Contribution changed',
   'Zwei-Faktor geändert': 'Two-factor changed',
   'Bild hochgeladen': 'Image uploaded',
+  'Passwort ändern': 'Change password',
+  'Passwort geändert. Alle anderen Geräte wurden abgemeldet.': 'Password changed. All other devices were signed out.',
+  'Mindestens 10 Zeichen. Danach seid ihr auf allen anderen Geräten abgemeldet.': 'At least 10 characters. Afterwards you are signed out on all other devices.',
+  'Aktuelles Passwort': 'Current password',
+  'Neues Passwort': 'New password',
+  'Neues Passwort wiederholen': 'Repeat new password',
+  'Das aktuelle Passwort stimmt nicht.': 'The current password is not correct.',
+  'Eigenes Passwort geändert': 'Own password changed',
 }

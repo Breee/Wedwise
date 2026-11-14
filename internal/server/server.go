@@ -223,6 +223,7 @@ func New(cfg configuration.Config, db *sql.DB) (*Server, error) {
 			protected.Mount("/content", contentHandler.Routes())
 			protected.Mount("/users", userHandler.Routes())
 			protected.Mount("/account/2fa", twoFactorHandler.Routes())
+			protected.Mount("/account", userHandler.AccountRoutes(loginLimit))
 			protected.With(authService.RequirePermission(auth.PermUserManage)).
 				Delete("/two-factor/{id}", twoFactorHandler.Reset)
 			protected.Mount("/invite-links", inviteHandler.Routes())

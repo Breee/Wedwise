@@ -4,7 +4,7 @@ import { t } from '@/lib/i18n'
 import { createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query'
 import { QRCodeSVG } from 'qrcode.react'
-import { Bell, Copy, KeyRound, MonitorSmartphone, ShieldCheck, Trash2 } from 'lucide-react'
+import { Bell, Copy, KeyRound, Lock, MonitorSmartphone, ShieldCheck, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { ApiError, api, errorMessage } from '@/lib/api'
 import { requireRole } from '@/lib/auth'
@@ -177,6 +177,7 @@ function AccountPage() {
           )}
         </CardContent>
       </Card>
+      <Password />
       <Sessions />
       <h2 className="mt-10 mb-4 text-2xl">{t('Benachrichtigungen')}</h2>
       <StaffNotifications />
@@ -194,6 +195,62 @@ function refreshSecurity(queryClient: QueryClient) {
   queryClient.invalidateQueries({ queryKey: statusKey })
   queryClient.invalidateQueries({ queryKey: sessionsKey })
   queryClient.invalidateQueries({ queryKey: meQuery.queryKey })
+}
+
+function Password() {
+  const queryClient = useQueryClient()
+  const [current, setCurrent] = useState('')
+  const [password, setPassword] = useState('')
+  const [repeat, setRepeat] = useState('')
+  const mismatch = repeat !== '' && repeat !== password
+  const change = useMutation({
+    mutationFn: () => api.put('/account/password', { current, password }),
+    onSuccess: () => {
+      setCurrent('')
+      setPassword('')
+      setRepeat('')
+      refreshSecurity(queryClient)
+      toast.success(t('Passwort geändert. Alle anderen Geräte wurden abgemeldet.'))
+    },
+    onError: (e) => toast.error(errorMessage(e)),
+  })
+
+  return (
+    <Card className="mt-6">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-2xl">
+          <Lock className="size-5 text-primary" /> {t('Passwort ändern')}
+        </CardTitle>
+        <CardDescription>{t('Mindestens 10 Zeichen. Danach seid ihr auf allen anderen Geräten abgemeldet.')}</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <form
+          className="space-y-4"
+          onSubmit={(e) => {
+            e.preventDefault()
+            if (!mismatch) change.mutate()
+          }}
+        >
+          <div className="space-y-2">
+            <Label htmlFor="pw-current">{t('Aktuelles Passwort')}</Label>
+            <Input id="pw-current" type="password" autoComplete="current-password" required value={current} onChange={(e) => setCurrent(e.target.value)} />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="pw-new">{t('Neues Passwort')}</Label>
+            <Input id="pw-new" type="password" autoComplete="new-password" required minLength={10} value={password} onChange={(e) => setPassword(e.target.value)} />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="pw-repeat">{t('Neues Passwort wiederholen')}</Label>
+            <Input id="pw-repeat" type="password" autoComplete="new-password" required aria-invalid={mismatch} value={repeat} onChange={(e) => setRepeat(e.target.value)} />
+            {mismatch && <p className="text-sm text-destructive">{t('Die Passwörter stimmen nicht überein.')}</p>}
+          </div>
+          <Button type="submit" disabled={change.isPending || mismatch}>
+            {t('Passwort ändern')}
+          </Button>
+        </form>
+      </CardContent>
+    </Card>
+  )
 }
 
 function Sessions() {

@@ -315,3 +315,51 @@ func TestProductionSessionCookie(t *testing.T) {
 		t.Fatal("production cookie not accepted")
 	}
 }
+
+func TestStaffChangeOwnPassword(t *testing.T) {
+	app, _ := newTestAppWithUsers(t)
+	witness, _ := app.login("witness_user", "TestPass123!")
+	elsewhere, _ := app.login("witness_user", "TestPass123!")
+
+	change := func(current, password string, cookie *http.Cookie) *http.Response {
+		return app.do(http.MethodPut, "/api/account/password",
+			map[string]string{"current": current, "password": password}, cookie)
+	}
+	if resp := change("TestPass123!", "NewPass12345!", nil); resp.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("anonymous: %d", resp.StatusCode)
+	}
+	if resp := change("wrong-password", "NewPass12345!", witness); resp.StatusCode != http.StatusBadRequest {
+		t.Fatalf("wrong current password: %d", resp.StatusCode)
+	}
+	if resp := change("TestPass123!", "short", witness); resp.StatusCode != http.StatusBadRequest {
+		t.Fatalf("weak password: %d", resp.StatusCode)
+	}
+	if !app.authenticated(elsewhere) {
+		t.Fatal("failed attempts must not end sessions")
+	}
+
+	resp := change("TestPass123!", "NewPass12345!", witness)
+	if resp.StatusCode != http.StatusNoContent {
+		t.Fatalf("change password: %d", resp.StatusCode)
+	}
+	renewed := sessionCookie(resp)
+	if renewed == nil || renewed.Value == witness.Value {
+		t.Fatal("no new session after a password change")
+	}
+	if app.authenticated(witness) || app.authenticated(elsewhere) || !app.authenticated(renewed) {
+		t.Fatal("password change must replace every session")
+	}
+	if _, status := app.login("witness_user", "TestPass123!"); status != http.StatusUnauthorized {
+		t.Fatalf("old password still works: %d", status)
+	}
+	if _, status := app.login("witness_user", "NewPass12345!"); status != http.StatusOK {
+		t.Fatalf("new password rejected: %d", status)
+	}
+
+	admin, _ := app.login("admin_user", "TestPass123!")
+	log := app.do(http.MethodGet, "/api/audit-log/", nil, admin)
+	defer log.Body.Close()
+	if body := readBody(t, log); !strings.Contains(body, "PUT /api/account/password") {
+		t.Fatalf("password change missing from the audit log: %s", body)
+	}
+}

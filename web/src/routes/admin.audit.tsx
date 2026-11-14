@@ -34,6 +34,7 @@ const LABELS: [RegExp, string][] = [
   [/^POST \/api\/push\/broadcast$/, 'Nachricht gesendet'],
   [/^DELETE \/api\/messages\//, 'Nachricht gelöscht'],
   [/^(PUT|POST) \/api\/contributions/, 'Beitrag geändert'],
+  [/\/api\/account\/password/, 'Eigenes Passwort geändert'],
   [/\/api\/(account\/2fa|two-factor)/, 'Zwei-Faktor geändert'],
   [/^POST \/api\/uploads$/, 'Bild hochgeladen'],
 ]

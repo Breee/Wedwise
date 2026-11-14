@@ -311,6 +311,53 @@ func (h *Handler) setPassword(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// CodeInvalidPassword marks a wrong current password.
+const CodeInvalidPassword = "invalid_password"
+
+// AccountRoutes are open to every signed-in user and only ever touch their own account.
+func (h *Handler) AccountRoutes(middlewares ...func(http.Handler) http.Handler) http.Handler {
+	r := chi.NewRouter()
+	r.With(middlewares...).Put("/password", h.changeOwnPassword)
+	return r
+}
+
+func (h *Handler) changeOwnPassword(w http.ResponseWriter, r *http.Request) {
+	identity, ok := auth.IdentityFrom(r.Context())
+	if !ok {
+		httpx.Unauthorized(w)
+		return
+	}
+	var req struct {
+		Current  string `json:"current"`
+		Password string `json:"password"`
+	}
+	if !httpx.DecodeJSON(w, r, &req) {
+		return
+	}
+	user, err := h.store.GetByID(r.Context(), identity.ID)
+	if err != nil {
+		httpx.Internal(w, err)
+		return
+	}
+	if ok, err := auth.VerifyPassword(req.Current, user.PasswordHash); err != nil || !ok {
+		httpx.WriteError(w, http.StatusBadRequest, CodeInvalidPassword, "The current password is not correct.")
+		return
+	}
+	if !validPassword(w, req.Password) {
+		return
+	}
+	if err := h.store.SetPassword(r.Context(), user.Username, req.Password); err != nil {
+		httpx.Internal(w, err)
+		return
+	}
+	// Every other device is signed out; this one continues with a fresh session.
+	if err := h.auth.RenewSession(w, r); err != nil {
+		httpx.Internal(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
 func (h *Handler) setActive(w http.ResponseWriter, r *http.Request) {
 	user, ok := h.target(w, r)
 	if !ok {

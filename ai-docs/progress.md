@@ -57,3 +57,4 @@ Open work is tracked in GitHub issues and milestones (M1 Staff tools, M2 Accommo
 - 2026-11-14 #51: distroless runtime image pinned by digest, `healthcheck` command, read-only/no-capability compose, chart `image.digest` + optional NetworkPolicy, digest in release notes.
 - 2026-11-14 #52: SECURITY.md, docs/threat-model.md, docs/security-review.md (ASVS L2); findings filed as #57–#60.
 - 2026-11-14: Removed stored map geometry (lines, stop walk, hotel routes) from content; routes come from the routing API and are cached.
+- 2026-11-14 #59: Staff change their own password under "Konto" (`PUT /api/account/password`), session renewed, audited.
