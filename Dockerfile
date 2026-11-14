@@ -16,8 +16,8 @@ COPY --from=frontend /app/web/dist ./web/dist
 RUN CGO_ENABLED=0 go build -ldflags="-s -w" -o wedding ./cmd/wedding
 
 # Stage 3: Runtime
-FROM alpine:3.19
-RUN apk add --no-cache ca-certificates tzdata && \
+FROM alpine:3.24
+RUN apk upgrade --no-cache && apk add --no-cache ca-certificates tzdata && \
     adduser -D -s /bin/sh -u 1000 wedding
 WORKDIR /app
 COPY --from=backend /app/wedding /app/wedding

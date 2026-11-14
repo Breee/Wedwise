@@ -199,7 +199,7 @@ Always set your own `SESSION_SECRET` and `DATA_KEY`, set `BASE_URL` to your publ
 ### Docker
 
 Released images are published to `ghcr.io/breee/wedwise` (amd64 and arm64,
-signed with cosign).
+signed with cosign). Every release carries an SBOM (`wedwise-<tag>.spdx.json`).
 
 ```bash
 docker run -d --name wedwise -p 8080:8080 \
@@ -366,6 +366,12 @@ The frontend lives in `web/` (React, TanStack Router/Query, Tailwind,
 shadcn/ui), the backend in `cmd/` and `internal/`, SQL migrations in
 `migrations/`. CI runs Go tests, the frontend build, a container build and
 `helm lint` on every push.
+
+Security checks run on every push, weekly and before each release:
+`govulncheck`, `gosec`, `npm audit`, a Trivy scan of the image and CodeQL. A
+high or critical finding in the first four stops the release; CodeQL results
+show up under the repository's *Security* tab. Dependabot proposes updates for
+Go, npm, the base image and the workflow actions every week.
 
 Open work is tracked in
 [GitHub issues](https://github.com/Breee/Wedwise/issues), grouped by

@@ -20,8 +20,14 @@ jobs:
   ci:
     uses: ./.github/workflows/ci.yml
 
+  security:
+    permissions:
+      contents: read
+      security-events: write
+    uses: ./.github/workflows/security.yml
+
   release:
-    needs: ci
+    needs: [ci, security]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -80,6 +86,13 @@ jobs:
           subject-digest: ${{ steps.build.outputs.digest }}
           push-to-registry: true
 
+      - name: Generate SBOM
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: ${{ steps.image.outputs.name }}@${{ steps.build.outputs.digest }}
+          format: spdx-json
+          output: wedwise-${{ github.ref_name }}.spdx.json
+
       - name: Package and push Helm chart
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
@@ -94,4 +107,4 @@ jobs:
         run: |
           FLAGS="--generate-notes"
           if [[ "$GITHUB_REF_NAME" == *-* ]]; then FLAGS="$FLAGS --prerelease"; fi
-          gh release create "$GITHUB_REF_NAME" $FLAGS
+          gh release create "$GITHUB_REF_NAME" $FLAGS "wedwise-$GITHUB_REF_NAME.spdx.json"
