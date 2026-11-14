@@ -9,10 +9,12 @@ import (
 	"flag"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -95,11 +97,17 @@ func runHealthcheck() error {
 	if address == "" {
 		address = configuration.Default().ListenAddress
 	}
-	if strings.HasPrefix(address, ":") {
-		address = "127.0.0.1" + address
+	_, portText, err := net.SplitHostPort(address)
+	if err != nil {
+		return err
+	}
+	port, err := strconv.ParseUint(portText, 10, 16)
+	if err != nil {
+		return err
 	}
 	client := http.Client{Timeout: 3 * time.Second}
-	resp, err := client.Get("http://" + address + "/healthz")
+	// Always the local server; only the port comes from the environment.
+	resp, err := client.Get(fmt.Sprintf("http://127.0.0.1:%d/healthz", port)) // #nosec G704
 	if err != nil {
 		return err
 	}
