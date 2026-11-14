@@ -41,7 +41,7 @@ function ContentPage() {
 
   const dirty = JSON.stringify(draft) !== JSON.stringify(data)
   const set = <K extends keyof Content>(key: K, value: Content[K]) => setDraft((d) => ({ ...d, [key]: value }))
-  const travel = draft.travel ?? { lat: 0, lng: 0, stops: [], lines: [] }
+  const travel = draft.travel ?? { lat: 0, lng: 0, stops: [] }
   const current = themes.find((t) => t.name === draft.theme) ?? themes[0]
   const stay = draft.accommodation ?? { checkIn: '', checkOut: '', hotels: [] }
 

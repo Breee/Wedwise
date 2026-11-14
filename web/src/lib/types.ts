@@ -53,36 +53,12 @@ export interface Stop {
   line: string
   lat: number
   lng: number
-  walk?: Walk
-}
-
-export interface Walk {
-  minutes: number
-  meters: number
-  coords: [number, number][]
-}
-
-export interface LineStop {
-  name: string
-  lat: number
-  lng: number
-}
-
-export type LineKind = 'tram' | 'bike'
-
-export interface TransitLine {
-  name: string
-  kind: LineKind
-  color: string
-  coords: [number, number][]
-  stops: LineStop[]
 }
 
 export interface Travel {
   lat: number
   lng: number
   stops: Stop[]
-  lines: TransitLine[]
 }
 
 export type StayKind = 'hotel' | 'apartment'
@@ -97,7 +73,6 @@ export interface Hotel {
   note: string
   url: string
   bookingUrl: string
-  routes?: { foot?: Walk; bike?: Walk; car?: Walk; toStop?: Walk }
 }
 
 export interface Accommodation {

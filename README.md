@@ -32,7 +32,7 @@ third-party SaaS required.
   "Konto"). Needs HTTPS (or localhost); on iOS only in the installed app.
   The VAPID keys are generated on first start and kept in the database.
 - 🗺️ **Arrival & stay maps** — MapLibre maps on OpenFreeMap tiles (no API
-  key): tram line, walking and bike routes to the venue, and recommended
+  key): stops, parking and walking routes to the venue, and recommended
   hotels / holiday flats with price tier, filters and Booking.com links
   pre-filled with your dates.
 - 🎨 **Themes** — pick one in the editor; add your own as a YAML file.
@@ -88,10 +88,12 @@ These passwords are for local testing only. For a real deployment see
 4. **Responses** — the couple dashboard shows attendance, diets, allergies and
    music wishes. Witnesses see contributions on a board and plan the running
    order. Staff can edit or delete responses.
-5. **Routes on the maps (optional)** — walking/bike/car routes are stored with
-   the content. For missing ones, set `ROUTING_API_KEY` to a free
-   [OpenRouteService](https://openrouteservice.org/dev/#/signup) key. Results
-   are cached in the database, so each route is fetched once.
+5. **Routes on the maps** — you only enter coordinates for the venue, stops
+   and hotels. Routes and travel times are looked up with a free
+   [OpenRouteService](https://openrouteservice.org/dev/#/signup) key
+   (`ROUTING_API_KEY`) and cached in the database, so each route is fetched
+   once; they are looked up in the background whenever the content changes.
+   Without a key the maps show estimated times only.
 
 ## Configuration reference
 
@@ -119,7 +121,7 @@ Settings come from a YAML file (`CONFIG_PATH`, default
 | `REQUIRE_TWO_FACTOR` | `auth.requireTwoFactor` | — | Roles that must use two-factor login, e.g. `admin,witness` (`admin`, `couple`, `witness`). |
 | `SESSION_MAX_AGE` | `auth.sessionMaxAge` | `24h` | A login ends after this time, whatever happens. |
 | `SESSION_IDLE_TIMEOUT` | `auth.sessionIdleTimeout` | `2h` | A login ends after this time without activity. |
-| `ROUTING_API_KEY` | `routingApiKey` | — | Optional OpenRouteService key. |
+| `ROUTING_API_KEY` | `routingApiKey` | — | OpenRouteService key for routes and travel times on the maps. |
 | `THEME_PATH` | `themePath` | — | Optional custom theme file. |
 | `CONTENT_PATH` | `contentPath` | — | Optional JSON content file (shape of `examples/content.json`). Applied at startup whenever the file changes; editor changes are kept until then. |
 | `USERS_PATH` | `usersPath` | — | Optional YAML list of users (`username`, `role`, `password`, optional `email`, `displayName`) created at startup. Existing users are kept; a changed password is applied. |
@@ -342,7 +344,7 @@ overview can count them. Backups are encrypted as a whole with the same key.
   shown again. Tokens from older versions are converted on the first start;
   backups made before that still contain them in plain text.
 - Rate limits per client IP and minute: login 10, public RSVP endpoints 30,
-  route and song lookups 60. Over the limit returns `429` with `Retry-After`.
+  route and song lookups 300. Over the limit returns `429` with `Retry-After`.
   Counters live in the database with hashed keys, so they survive restarts
   and no IP address is stored.
 - After 5 wrong logins an account is locked for 1 minute, doubling with every

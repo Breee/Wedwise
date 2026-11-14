@@ -45,8 +45,10 @@ type Handler struct {
 	client  *http.Client
 	db      *sql.DB
 
-	mu    sync.Mutex
-	cache map[string]Route
+	mu        sync.Mutex
+	cache     map[string]Route
+	warmRun   int
+	warmPause time.Duration
 }
 
 // NewHandler creates a handler. An empty key disables the endpoint. A nil db
@@ -58,6 +60,8 @@ func NewHandler(key string, db *sql.DB) *Handler {
 		client:  &http.Client{Timeout: 8 * time.Second},
 		db:      db,
 		cache:   map[string]Route{},
+		// The free routing plan allows 40 lookups a minute.
+		warmPause: 2 * time.Second,
 	}
 }
 
@@ -76,30 +80,79 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	route, err := h.lookup(r.Context(), profile, from, to)
+	if err != nil {
+		slog.Warn("route lookup failed", "error", err)
+		httpx.WriteError(w, http.StatusBadGateway, httpx.CodeInternal, "Routing is unavailable.")
+		return
+	}
+	writeRoute(w, route)
+}
+
+// lookup answers from the cache and asks the routing service otherwise.
+func (h *Handler) lookup(ctx context.Context, profile string, from, to [2]float64) (Route, error) {
 	cacheKey := fmt.Sprintf("%s|%.5f,%.5f|%.5f,%.5f", profile, from[0], from[1], to[0], to[1])
 	h.mu.Lock()
 	cached, hit := h.cache[cacheKey]
 	h.mu.Unlock()
-	if !hit {
-		cached, hit = h.load(r.Context(), cacheKey)
-		if hit {
-			h.remember(cacheKey, cached)
-		}
-	}
 	if hit {
-		writeRoute(w, cached)
-		return
+		return cached, nil
 	}
-
-	route, err := h.fetch(r.Context(), profile, from, to)
+	if cached, hit = h.load(ctx, cacheKey); hit {
+		h.remember(cacheKey, cached)
+		return cached, nil
+	}
+	route, err := h.fetch(ctx, profile, from, to)
 	if err != nil {
-		httpx.WriteError(w, http.StatusBadGateway, httpx.CodeInternal, "Routing is unavailable.")
+		return Route{}, err
+	}
+	h.remember(cacheKey, route)
+	h.store(ctx, cacheKey, route)
+	return route, nil
+}
+
+// Leg is one route to look up ahead of time. Points are lng, lat.
+type Leg struct {
+	Profile  string // foot, bike or car
+	From, To [2]float64
+}
+
+// Warm looks up the given routes in the background so visitors find them in
+// the cache. Lookups are spaced out to stay within the routing service's
+// rate limit. A newer call replaces a running one.
+func (h *Handler) Warm(legs []Leg) {
+	if h.key == "" {
 		return
 	}
+	h.mu.Lock()
+	h.warmRun++
+	run := h.warmRun
+	h.mu.Unlock()
 
-	h.remember(cacheKey, route)
-	h.store(r.Context(), cacheKey, route)
-	writeRoute(w, route)
+	go func() {
+		for _, leg := range legs {
+			h.mu.Lock()
+			current := h.warmRun
+			h.mu.Unlock()
+			if current != run {
+				return
+			}
+			profile, ok := profiles[leg.Profile]
+			if !ok {
+				continue
+			}
+			started := time.Now()
+			ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+			_, err := h.lookup(ctx, profile, leg.From, leg.To)
+			cancel()
+			if err != nil {
+				slog.Warn("route warm-up failed", "error", err)
+			}
+			if time.Since(started) > 5*time.Millisecond {
+				time.Sleep(h.warmPause)
+			}
+		}
+	}()
 }
 
 func writeRoute(w http.ResponseWriter, route Route) {

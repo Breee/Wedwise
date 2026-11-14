@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/Breee/Wedwise/internal/database"
 )
@@ -117,6 +118,35 @@ func TestRouteCacheSurvivesRestart(t *testing.T) {
 		if rec := get(h, query); rec.Code != http.StatusOK {
 			t.Fatalf("status = %d", rec.Code)
 		}
+	}
+	if calls != 1 {
+		t.Fatalf("upstream calls = %d, want 1", calls)
+	}
+}
+
+func TestWarmFillsTheCache(t *testing.T) {
+	calls := 0
+	h := NewHandler("secret", nil)
+	h.baseURL = upstream(t, &calls).URL
+	h.warmPause = 0
+
+	h.Warm([]Leg{{Profile: "foot", From: [2]float64{7.85, 47.99}, To: [2]float64{7.87, 47.98}}})
+	deadline := time.Now().Add(2 * time.Second)
+	for {
+		h.mu.Lock()
+		filled := len(h.cache)
+		h.mu.Unlock()
+		if filled == 1 {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("route was not warmed")
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	if rec := get(h, "profile=foot&from=7.85,47.99&to=7.87,47.98"); rec.Code != http.StatusOK {
+		t.Fatalf("status = %d", rec.Code)
 	}
 	if calls != 1 {
 		t.Fatalf("upstream calls = %d, want 1", calls)

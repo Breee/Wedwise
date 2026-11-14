@@ -56,3 +56,4 @@ Open work is tracked in GitHub issues and milestones (M1 Staff tools, M2 Accommo
 - 2026-11-14: #50 security scanning in CI (govulncheck, gosec, npm audit, Trivy, CodeQL, Dependabot), SBOM on releases, base image alpine 3.24 + apk upgrade.
 - 2026-11-14 #51: distroless runtime image pinned by digest, `healthcheck` command, read-only/no-capability compose, chart `image.digest` + optional NetworkPolicy, digest in release notes.
 - 2026-11-14 #52: SECURITY.md, docs/threat-model.md, docs/security-review.md (ASVS L2); findings filed as #57–#60.
+- 2026-11-14: Removed stored map geometry (lines, stop walk, hotel routes) from content; routes come from the routing API and are cached.

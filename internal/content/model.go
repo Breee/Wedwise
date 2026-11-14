@@ -52,32 +52,6 @@ type Stop struct {
 	Line string  `json:"line"`
 	Lat  float64 `json:"lat"`
 	Lng  float64 `json:"lng"`
-	// Walk is the precomputed walking route from the stop to the venue so the
-	// public page does not depend on an external router.
-	Walk *Walk `json:"walk,omitempty"`
-}
-
-// Walk is a stored walking route.
-type Walk struct {
-	Minutes int          `json:"minutes"`
-	Meters  int          `json:"meters"`
-	Coords  [][2]float64 `json:"coords"` // lng, lat
-}
-
-// LineStop is a stop along a transit line.
-type LineStop struct {
-	Name string  `json:"name"`
-	Lat  float64 `json:"lat"`
-	Lng  float64 `json:"lng"`
-}
-
-// Line is the track geometry of a transit line, used to draw tram legs.
-type Line struct {
-	Name   string       `json:"name"`
-	Kind   string       `json:"kind"` // tram (default) or bike
-	Color  string       `json:"color"`
-	Coords [][2]float64 `json:"coords"` // [lng, lat]
-	Stops  []LineStop   `json:"stops"`
 }
 
 // Travel holds the venue coordinates and the stops shown on the arrival map.
@@ -85,7 +59,6 @@ type Travel struct {
 	Lat   float64 `json:"lat"`
 	Lng   float64 `json:"lng"`
 	Stops []Stop  `json:"stops"`
-	Lines []Line  `json:"lines"`
 }
 
 // Hotel is one recommended place to stay.
@@ -98,18 +71,7 @@ type Hotel struct {
 	PriceTier  int     `json:"priceTier"` // 1..3
 	Note       string  `json:"note"`
 	URL        string  `json:"url"`
-	BookingURL string  `json:"bookingUrl"`       // property page on a booking portal; dates are appended
-	Routes     *Routes `json:"routes,omitempty"` // precomputed routes to the venue
-}
-
-// Routes holds precomputed routes from a hotel to the venue so the public
-// page does not depend on an external router.
-type Routes struct {
-	Foot *Walk `json:"foot,omitempty"`
-	Bike *Walk `json:"bike,omitempty"`
-	Car  *Walk `json:"car,omitempty"`
-	// ToStop is the walk from the hotel to its nearest tram stop.
-	ToStop *Walk `json:"toStop,omitempty"`
+	BookingURL string  `json:"bookingUrl"` // property page on a booking portal; dates are appended
 }
 
 // Accommodation is the stay section: dates for booking links plus hotels.

@@ -10,7 +10,7 @@ import { DirectionsLinks } from './DirectionsLinks'
 import { cn } from '@/lib/utils'
 import { BaseMap, markerElement } from './BaseMap'
 import { drawRoutes,
-  drawBikeLines, drawTransitLines, fitPadding, venueMarker } from './mapParts'
+  fitPadding, venueMarker } from './mapParts'
 
 export const KIND = {
   tram: { label: 'Tram', color: '#c2554a', Icon: TramFront },
@@ -28,7 +28,6 @@ export const ICON_SVG: Record<StopKind, string> = {
 
 // Parking this close to the venue are "at the location" – no own marker or route.
 const AT_VENUE_METERS = 150
-const BIKE_COLOR = '#5e7f63'
 const isAtVenue = (stop: Stop, venue: LngLat) => distanceMeters([stop.lng, stop.lat], venue) <= AT_VENUE_METERS
 const hasLeg = (kind: StopKind) => kind !== 'parking'
 
@@ -49,15 +48,12 @@ export function TravelMap({ travel, venueName, mode = 'transit' }: { travel: Tra
   const stops = useMemo(() => travel.stops.filter((s) => MODE_KINDS[mode].includes(s.kind)), [travel.stops, mode])
   // Only transit stops have a walking leg to draw.
   const routed = useMemo(() => stops.filter((s) => hasLeg(s.kind)), [stops])
-  // Stored walking routes win; the external router is only a fallback.
   const routes = useQueries({
-    queries: routed.map((s) => ({ ...routeQuery('foot', [s.lng, s.lat], venue), enabled: !s.walk })),
+    queries: routed.map((s) => routeQuery('foot', [s.lng, s.lat], venue)),
   })
   const [map, setMap] = useState<MapLibreMap | null>(null)
   const [active, setActive] = useState<number | null>(null)
-  const resolved: (Route | undefined)[] = routed.map((s, i) =>
-    s.walk ? { coordinates: s.walk.coords, minutes: s.walk.minutes, meters: s.walk.meters, estimated: false } : routes[i].data,
-  )
+  const resolved: (Route | undefined)[] = routes.map((r) => r.data)
 
   useEffect(() => {
     if (!map) return
@@ -75,18 +71,6 @@ export function TravelMap({ travel, venueName, mode = 'transit' }: { travel: Tra
     setActive(null)
     return () => markers.forEach((m) => m.remove())
   }, [map, stops, venue, mode])
-
-  useEffect(() => {
-    if (!map) return
-    drawTransitLines(map, mode === 'transit' ? travel.lines : [], KIND.tram.color)
-    const clear = drawBikeLines(map, mode === 'bike' ? travel.lines : [], BIKE_COLOR)
-    if (mode === 'bike' && travel.lines.some((l) => l.kind === 'bike')) {
-      const bounds = new maplibregl.LngLatBounds(venue, venue)
-      travel.lines.filter((l) => l.kind === 'bike').forEach((l) => l.coords.forEach((c) => bounds.extend(c)))
-      map.fitBounds(bounds, { padding: fitPadding(map), maxZoom: 15, duration: 0 })
-    }
-    return clear
-  }, [map, mode, travel.lines, venue])
 
   useEffect(() => {
     if (!map) return

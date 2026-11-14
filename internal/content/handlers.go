@@ -18,6 +18,8 @@ type Handler struct {
 	auth   *auth.Service
 	event  configuration.EventConfig
 	themes *theme.Registry
+	// OnChange is called with the stored content after every update.
+	OnChange func(Content)
 }
 
 // NewHandler creates a content handler.
@@ -84,6 +86,9 @@ func (h *Handler) replace(w http.ResponseWriter, r *http.Request) {
 		}
 		httpx.Internal(w, err)
 		return
+	}
+	if h.OnChange != nil {
+		h.OnChange(updated)
 	}
 	httpx.WriteJSON(w, http.StatusOK, updated)
 }

@@ -41,7 +41,7 @@ import (
 const (
 	loginRateLimit = 10
 	rsvpRateLimit  = 30
-	routeRateLimit = 60
+	routeRateLimit = 300
 )
 
 // Server holds the application dependencies.
@@ -169,6 +169,11 @@ func New(cfg configuration.Config, db *sql.DB) (*Server, error) {
 		}
 	}
 	contentHandler := content.NewHandler(contentStore, authService, cfg.Event, themes)
+	routeHandler := routing.NewHandler(cfg.RoutingAPIKey, db)
+	contentHandler.OnChange = func(c content.Content) { routeHandler.Warm(mapLegs(c)) }
+	if current, err := contentStore.Get(context.Background()); err == nil {
+		contentHandler.OnChange(current)
+	}
 
 	auditStore := audit.NewStore(db)
 	authService.SetRecorder(auditStore)
@@ -207,7 +212,7 @@ func New(cfg configuration.Config, db *sql.DB) (*Server, error) {
 		api.With(rsvpLimit).Post("/push/status", pushHandler.Status)
 		api.Get("/content/public", contentHandler.PublicHandler)
 		api.Get("/themes", contentHandler.ThemesHandler)
-		api.With(routeLimit).Method(http.MethodGet, "/route", routing.NewHandler(cfg.RoutingAPIKey, db))
+		api.With(routeLimit).Method(http.MethodGet, "/route", routeHandler)
 		api.With(routeLimit).Method(http.MethodGet, "/songs", songs.NewHandler())
 
 		api.Group(func(protected chi.Router) {
@@ -333,4 +338,35 @@ func imagesHandler(dir string) http.Handler {
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		files.ServeHTTP(w, r)
 	})
+}
+
+// mapLegs lists the routes the public maps ask for, so they can be looked up
+// before the first visitor arrives.
+func mapLegs(c content.Content) []routing.Leg {
+	venue := [2]float64{c.Travel.Lng, c.Travel.Lat}
+	if venue == [2]float64{} {
+		return nil
+	}
+	var legs []routing.Leg
+	var stop *[2]float64
+	for _, s := range c.Travel.Stops {
+		if s.Kind == "parking" {
+			continue
+		}
+		point := [2]float64{s.Lng, s.Lat}
+		if stop == nil {
+			stop = &point
+		}
+		legs = append(legs, routing.Leg{Profile: "foot", From: point, To: venue})
+	}
+	for _, h := range c.Accommodation.Hotels {
+		from := [2]float64{h.Lng, h.Lat}
+		for _, profile := range []string{"foot", "bike", "car"} {
+			legs = append(legs, routing.Leg{Profile: profile, From: from, To: venue})
+		}
+		if stop != nil {
+			legs = append(legs, routing.Leg{Profile: "foot", From: from, To: *stop})
+		}
+	}
+	return legs
 }
