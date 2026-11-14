@@ -6,8 +6,10 @@ import (
 	"log/slog"
 	"net/http"
 	"runtime/debug"
+	"strings"
 	"time"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 
 	"github.com/Breee/Wedwise/internal/httpx"
@@ -78,13 +80,31 @@ func Logging(next http.Handler) http.Handler {
 		slog.Info("http request",
 			"requestId", RequestIDFrom(r.Context()),
 			"method", r.Method,
-			"path", r.URL.Path,
+			"path", loggedPath(r),
 			"status", rec.status,
 			"bytes", rec.bytes,
 			"duration", time.Since(start).String(),
 			"remote", r.RemoteAddr,
 		)
 	})
+}
+
+// loggedPath is the path written to the request log. Invite and edit tokens
+// travel in the path, so API requests are logged by their route pattern and
+// the guest pages with the token removed.
+func loggedPath(r *http.Request) string {
+	if routes := chi.RouteContext(r.Context()); routes != nil {
+		if pattern := routes.RoutePattern(); pattern != "" && !strings.HasSuffix(pattern, "*") {
+			return pattern
+		}
+	}
+	path := r.URL.Path
+	for _, prefix := range []string{"/api/rsvp/", "/rsvp/"} {
+		if strings.HasPrefix(path, prefix) && len(path) > len(prefix) {
+			return prefix + "[redacted]"
+		}
+	}
+	return path
 }
 
 // Recoverer converts panics into 500 responses.
