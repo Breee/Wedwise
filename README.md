@@ -115,6 +115,7 @@ Settings come from a YAML file (`CONFIG_PATH`, default
 | `DATABASE_PATH` | `databasePath` | `/data/wedding.db` | SQLite file. |
 | `CONFIG_PATH` | `configPath` | `/config/config.yaml` | This file. |
 | `TRUST_PROXY_HEADERS` | `trustProxyHeaders` | – | Required in production. `true` behind a reverse proxy, so rate limits use `X-Forwarded-For`; `false` when clients connect directly. |
+| `IMAGE_HOSTS` | `imageHosts` | – | Extra origins images may load from, comma separated, e.g. `https://photos.example.org`. Uploaded images need no entry. |
 | `REQUIRE_TWO_FACTOR` | `auth.requireTwoFactor` | — | Roles that must use two-factor login, e.g. `admin,witness` (`admin`, `couple`, `witness`). |
 | `SESSION_MAX_AGE` | `auth.sessionMaxAge` | `24h` | A login ends after this time, whatever happens. |
 | `SESSION_IDLE_TIMEOUT` | `auth.sessionIdleTimeout` | `2h` | A login ends after this time without activity. |
@@ -339,6 +340,12 @@ overview can count them. Backups are encrypted as a whole with the same key.
   signed-in user goes into an append-only audit log (user, action, target,
   time — never the content). Admins read it under **Protokoll**
   (`GET /api/audit-log`); the table rejects updates and deletes.
+- Browser policy: scripts, styles and fonts load only from the app itself.
+  Images load from the app and from the hosts in `IMAGE_HOSTS`; an image URL
+  on any other host stays blank. Style attributes in markup are refused,
+  pages cannot be framed, and `Cross-Origin-Opener-Policy` and
+  `Cross-Origin-Resource-Policy` are `same-origin`. API responses carry
+  `Cache-Control: no-store`, apart from song search and route lookups.
 - Song search and route lookups are proxied by the backend, so guests'
   browsers do not contact those services and the routing key stays private.
   Map tiles are loaded from OpenFreeMap by the browser.

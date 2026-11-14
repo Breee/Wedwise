@@ -104,30 +104,54 @@ func Recoverer(next http.Handler) http.Handler {
 	})
 }
 
-// contentSecurityPolicy allows the app itself plus the map tiles, the public
-// router fallback. Fonts are self-hosted. Images may come from any https origin
-// because content can reference external photos.
-const contentSecurityPolicy = "default-src 'self'; " +
-	"script-src 'self'; " +
-	"style-src 'self' 'unsafe-inline'; " +
-	"font-src 'self'; " +
-	"img-src 'self' data: blob: https:; " +
-	"connect-src 'self' https://tiles.openfreemap.org https://routing.openstreetmap.de; " +
-	"worker-src 'self' blob:; " +
-	"object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
+// contentSecurityPolicy allows the app itself plus the map tiles and the
+// public router fallback. Fonts are self-hosted. Images load from the app and
+// from the hosts the operator lists. Style attributes are refused; the style
+// elements some UI libraries inject are still allowed.
+func contentSecurityPolicy(imageHosts []string) string {
+	images := "img-src 'self' data: blob:"
+	for _, host := range imageHosts {
+		images += " " + host
+	}
+	return "default-src 'self'; " +
+		"script-src 'self'; " +
+		"style-src 'self' 'unsafe-inline'; " +
+		"style-src-attr 'none'; " +
+		"font-src 'self'; " +
+		images + "; " +
+		"connect-src 'self' https://tiles.openfreemap.org https://routing.openstreetmap.de; " +
+		"worker-src 'self' blob:; " +
+		"manifest-src 'self'; " +
+		"object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
+}
 
 // SecurityHeaders sets conservative security headers on every response.
-func SecurityHeaders(next http.Handler) http.Handler {
+// imageHosts are the extra origins images may load from.
+func SecurityHeaders(imageHosts []string) func(http.Handler) http.Handler {
+	policy := contentSecurityPolicy(imageHosts)
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			header := w.Header()
+			header.Set("X-Content-Type-Options", "nosniff")
+			header.Set("X-Frame-Options", "DENY")
+			header.Set("Referrer-Policy", "same-origin")
+			header.Set("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=()")
+			header.Set("Content-Security-Policy", policy)
+			header.Set("Cross-Origin-Opener-Policy", "same-origin")
+			header.Set("Cross-Origin-Resource-Policy", "same-origin")
+			if r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https" {
+				header.Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
+// NoStore keeps API responses out of browser and proxy caches. Handlers that
+// serve public, cacheable data set their own Cache-Control.
+func NoStore(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		header := w.Header()
-		header.Set("X-Content-Type-Options", "nosniff")
-		header.Set("X-Frame-Options", "DENY")
-		header.Set("Referrer-Policy", "same-origin")
-		header.Set("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=()")
-		header.Set("Content-Security-Policy", contentSecurityPolicy)
-		if r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https" {
-			header.Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
-		}
+		w.Header().Set("Cache-Control", "no-store")
 		next.ServeHTTP(w, r)
 	})
 }

@@ -5,6 +5,7 @@ package configuration
 import (
 	"errors"
 	"fmt"
+	"net/url"
 	"os"
 	"strings"
 	"time"
@@ -109,6 +110,10 @@ type Config struct {
 	// "uploads" directory next to the database.
 	UploadsPath string `yaml:"uploadsPath" json:"uploadsPath"`
 	Environment string `yaml:"environment" json:"environment"`
+	// ImageHosts lists the extra origins images may load from, such as
+	// "https://photos.example.org". Uploaded images need no entry.
+	ImageHosts []string `yaml:"imageHosts" json:"imageHosts"`
+
 	// TrustProxyHeaders enables X-Forwarded-For for client IP detection. Only
 	// enable when a reverse proxy in front of the app sets the header.
 	TrustProxyHeaders *bool `yaml:"trustProxyHeaders" json:"trustProxyHeaders"`
@@ -234,6 +239,14 @@ func applyEnv(cfg *Config) {
 			}
 		}
 	}
+	if value, ok := os.LookupEnv("IMAGE_HOSTS"); ok && value != "" {
+		cfg.ImageHosts = nil
+		for _, host := range strings.Split(value, ",") {
+			if host = strings.TrimSpace(host); host != "" {
+				cfg.ImageHosts = append(cfg.ImageHosts, host)
+			}
+		}
+	}
 	if value, ok := os.LookupEnv("TRUST_PROXY_HEADERS"); ok {
 		trust := strings.EqualFold(value, "true") || value == "1"
 		cfg.TrustProxyHeaders = &trust
@@ -267,6 +280,12 @@ func (c Config) Validate() error {
 	}
 	if c.DataKeyPrevious != "" && len(c.DataKeyPrevious) < sealed.MinKeyLength {
 		return fmt.Errorf("dataKeyPrevious must be at least %d characters", sealed.MinKeyLength)
+	}
+	for _, host := range c.ImageHosts {
+		parsed, err := url.Parse(host)
+		if err != nil || parsed.Scheme != "https" || parsed.Host == "" || strings.TrimSuffix(host, "/") != "https://"+parsed.Host {
+			return fmt.Errorf("imageHosts entry %q must look like https://host", host)
+		}
 	}
 	for _, role := range c.Auth.RequireTwoFactor {
 		if role != "admin" && role != "couple" && role != "witness" {

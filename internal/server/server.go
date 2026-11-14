@@ -187,7 +187,7 @@ func New(cfg configuration.Config, db *sql.DB) (*Server, error) {
 	r.Use(middleware.RequestID)
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.Logging)
-	r.Use(middleware.SecurityHeaders)
+	r.Use(middleware.SecurityHeaders(cfg.ImageHosts))
 	r.Use(middleware.LimitBody)
 	r.Use(authService.Authenticate)
 	r.Use(authService.CSRF)
@@ -197,6 +197,7 @@ func New(cfg configuration.Config, db *sql.DB) (*Server, error) {
 	r.Get("/manifest.webmanifest", manifestHandler(cfg.Event))
 
 	r.Route("/api", func(api chi.Router) {
+		api.Use(middleware.NoStore)
 		api.Mount("/auth", authService.Routes(loginLimit))
 		api.Mount("/setup", userHandler.SetupRoutes(loginLimit))
 		api.Mount("/rsvp", rsvpHandler.PublicRoutes(rsvpLimit))

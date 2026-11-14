@@ -13,6 +13,11 @@ configPath: "/config/config.yaml"
 # Env: TRUST_PROXY_HEADERS=true
 trustProxyHeaders: false
 
+# Extra origins images may load from. Uploaded images need no entry.
+# Env: IMAGE_HOSTS=https://photos.example.org,https://cdn.example.org
+# imageHosts:
+#   - https://photos.example.org
+
 # Optional login hardening.
 # auth:
 #   requireTwoFactor: [admin, witness]
