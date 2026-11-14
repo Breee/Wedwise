@@ -58,3 +58,4 @@ Open work is tracked in GitHub issues and milestones (M1 Staff tools, M2 Accommo
 - 2026-11-14 #52: SECURITY.md, docs/threat-model.md, docs/security-review.md (ASVS L2); findings filed as #57–#60.
 - 2026-11-14: Removed stored map geometry (lines, stop walk, hotel routes) from content; routes come from the routing API and are cached.
 - 2026-11-14 #59: Staff change their own password under "Konto" (`PUT /api/account/password`), session renewed, audited.
+- 2026-11-14 #60: TOTP secrets sealed with the data key (legacy rows converted at startup and by `rekey`).

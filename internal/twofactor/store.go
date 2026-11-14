@@ -15,6 +15,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Breee/Wedwise/internal/sealed"
 	"github.com/pquerna/otp/totp"
 )
 
@@ -30,10 +31,13 @@ const (
 	stepSeconds       = 30
 )
 
+// SealedColumns lists the columns encrypted with the data key.
+var SealedColumns = []sealed.Columns{{Table: "user_totp", Columns: []string{"secret_enc"}}}
+
 // Store keeps TOTP secrets encrypted and recovery codes hashed.
 type Store struct {
 	db     *sql.DB
-	aead   cipher.AEAD
+	box    *sealed.Box
 	issuer string
 	now    func() time.Time
 	keys   *Keys
@@ -42,39 +46,74 @@ type Store struct {
 // SetKeys adds passkeys and hardware tokens as a second factor.
 func (s *Store) SetKeys(keys *Keys) { s.keys = keys }
 
-// NewStore derives the encryption key for TOTP secrets from secret.
-func NewStore(db *sql.DB, secret, issuer string) (*Store, error) {
-	key := sha256.Sum256([]byte("wedwise-totp:" + secret))
+// NewStore keeps TOTP secrets sealed with the data key.
+func NewStore(db *sql.DB, box *sealed.Box, issuer string) *Store {
+	return &Store{db: db, box: box, issuer: issuer, now: time.Now}
+}
+
+// ConvertLegacy re-seals secrets that older versions encrypted with a key
+// derived from the session secret. It must run before the data key box
+// protects the column, and returns how many secrets were converted. Secrets
+// that the session secret no longer opens stay unusable until an admin
+// resets the second factor; they are never dropped silently.
+func ConvertLegacy(ctx context.Context, db *sql.DB, sessionSecret string, box *sealed.Box) (int, error) {
+	key := sha256.Sum256([]byte("wedwise-totp:" + sessionSecret))
 	block, err := aes.NewCipher(key[:])
 	if err != nil {
-		return nil, err
+		return 0, err
 	}
 	aead, err := cipher.NewGCM(block)
 	if err != nil {
-		return nil, err
+		return 0, err
 	}
-	return &Store{db: db, aead: aead, issuer: issuer, now: time.Now}, nil
-}
-
-func (s *Store) encrypt(plain string) (string, error) {
-	nonce := make([]byte, s.aead.NonceSize())
-	if _, err := rand.Read(nonce); err != nil {
-		return "", err
-	}
-	return base64.RawStdEncoding.EncodeToString(s.aead.Seal(nonce, nonce, []byte(plain), nil)), nil
-}
-
-func (s *Store) decrypt(enc string) (string, error) {
-	raw, err := base64.RawStdEncoding.DecodeString(enc)
-	if err != nil || len(raw) < s.aead.NonceSize() {
-		return "", errors.New("corrupt totp secret")
-	}
-	n := s.aead.NonceSize()
-	plain, err := s.aead.Open(nil, raw[:n], raw[n:], nil)
+	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
-		return "", err
+		return 0, err
 	}
-	return string(plain), nil
+	defer func() { _ = tx.Rollback() }()
+
+	rows, err := tx.QueryContext(ctx, `SELECT user_id, secret_enc FROM user_totp`)
+	if err != nil {
+		return 0, err
+	}
+	legacy := map[int64]string{}
+	for rows.Next() {
+		var id int64
+		var enc string
+		if err := rows.Scan(&id, &enc); err != nil {
+			_ = rows.Close()
+			return 0, err
+		}
+		if !sealed.Sealed(enc) {
+			legacy[id] = enc
+		}
+	}
+	if err := errors.Join(rows.Err(), rows.Close()); err != nil {
+		return 0, err
+	}
+	converted := 0
+	for id, enc := range legacy {
+		raw, err := base64.RawStdEncoding.DecodeString(enc)
+		n := aead.NonceSize()
+		var plain []byte
+		if err == nil && len(raw) >= n {
+			plain, err = aead.Open(nil, raw[:n], raw[n:], nil)
+		} else if err == nil {
+			err = errors.New("corrupt totp secret")
+		}
+		if err != nil {
+			continue
+		}
+		converted++
+		value, err := box.Seal(string(plain))
+		if err != nil {
+			return 0, err
+		}
+		if _, err := tx.ExecContext(ctx, `UPDATE user_totp SET secret_enc = ? WHERE user_id = ?`, value, id); err != nil {
+			return 0, err
+		}
+	}
+	return converted, tx.Commit()
 }
 
 func hashCode(code string) string {
@@ -149,7 +188,7 @@ func (s *Store) Begin(ctx context.Context, userID int64, account string) (secret
 	if err != nil {
 		return "", "", err
 	}
-	enc, err := s.encrypt(key.Secret())
+	enc, err := s.box.Seal(key.Secret())
 	if err != nil {
 		return "", "", err
 	}
@@ -179,7 +218,7 @@ func (s *Store) checkTOTP(ctx context.Context, userID int64, code string, confir
 	if (confirmedAt != "") != confirmed {
 		return false, nil
 	}
-	secret, err := s.decrypt(enc)
+	secret, err := s.box.Open(enc)
 	if err != nil {
 		return false, err
 	}

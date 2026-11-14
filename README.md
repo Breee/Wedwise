@@ -104,7 +104,7 @@ Settings come from a YAML file (`CONFIG_PATH`, default
 
 | Env var | YAML key | Default | Purpose |
 |---------|----------|---------|---------|
-| `SESSION_SECRET` | `sessionSecret` | — | **Required**, at least 16 characters. Signs PIN cookies and encrypts stored secrets and link tokens. Generate with `openssl rand -hex 32`. |
+| `SESSION_SECRET` | `sessionSecret` | — | **Required**, at least 16 characters. Signs PIN cookies and encrypts stored link tokens. Generate with `openssl rand -hex 32`. |
 | `DATA_KEY` | `dataKey` | — | **Required**, at least 32 characters, different from `SESSION_SECRET`. Encrypts guest data and backups – see [Data key](#data-key). Generate with `openssl rand -hex 32`. |
 | `DATA_KEY_PREVIOUS` | `dataKeyPrevious` | — | The old key, only while rotating. |
 | `BASE_URL` | `baseUrl` | `http://localhost:8080` | The address people open. Logins from any other origin are rejected. |
@@ -149,8 +149,7 @@ stored as argon2id hashes. Signed-in users change their own password under
 "Konto"; this needs the current password and signs out all other devices.
 
 Every user can switch on two-factor login under "Konto" (TOTP authenticator
-app). The TOTP secret is stored AES-GCM encrypted with a key derived from
-`SESSION_SECRET` (changing that secret invalidates enrolments), recovery
+app). The TOTP secret is stored encrypted with the [data key](#data-key), recovery
 codes are stored as hashes and shown once. Admins can reset a user's second
 factor in the user list. Set `REQUIRE_TWO_FACTOR` to make it mandatory per
 role: those users can only reach "Konto" until they have set up a passkey or
@@ -311,8 +310,8 @@ Uploaded images live in `/data/uploads`; copy that directory as well.
 
 `DATA_KEY` encrypts what guests tell you in confidence – allergies, children's
 ages, e-mail, phone, messenger handles, messages, and what they offer to
-contribute including the witnesses' notes – with AES-256-GCM before it is
-written to the database. Names, attendance and diet stay readable so the
+contribute including the witnesses' notes – and the staff's authenticator
+secrets with AES-256-GCM before they are written to the database. Names, attendance and diet stay readable so the
 overview can count them. Backups are encrypted as a whole with the same key.
 
 - **Keep a copy of the key outside the server** (password manager). Without it

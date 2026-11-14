@@ -49,7 +49,7 @@ func (b *Box) Protect(ctx context.Context, db *sql.DB, targets []Columns) (int, 
 }
 
 func (b *Box) protect(ctx context.Context, tx *sql.Tx, target Columns) (int, error) {
-	rows, err := tx.QueryContext(ctx, "SELECT id, "+strings.Join(target.Columns, ", ")+" FROM "+target.Table)
+	rows, err := tx.QueryContext(ctx, "SELECT rowid, "+strings.Join(target.Columns, ", ")+" FROM "+target.Table)
 	if err != nil {
 		return 0, err
 	}
@@ -94,7 +94,7 @@ func (b *Box) protect(ctx context.Context, tx *sql.Tx, target Columns) (int, err
 		return 0, err
 	}
 	for _, c := range changes {
-		if _, err := tx.ExecContext(ctx, "UPDATE "+target.Table+" SET "+c.column+" = ? WHERE id = ?", c.value, c.id); err != nil {
+		if _, err := tx.ExecContext(ctx, "UPDATE "+target.Table+" SET "+c.column+" = ? WHERE rowid = ?", c.value, c.id); err != nil {
 			return 0, err
 		}
 	}

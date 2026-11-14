@@ -320,11 +320,11 @@ func runRekey(args []string) error {
 	if err != nil {
 		return err
 	}
-	count, err := box.Protect(ctx, db, server.SealedColumns())
+	count, err := server.Protect(ctx, db, cfg.SessionSecret, box)
 	if err != nil {
 		return err
 	}
-	slog.Info("guest data is encrypted with the current data key", "rewritten", count)
+	slog.Info("stored data is encrypted with the current data key", "rewritten", count)
 	return nil
 }
 

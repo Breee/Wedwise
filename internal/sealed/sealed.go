@@ -85,6 +85,9 @@ func (b *Box) OpenBytes(data []byte) ([]byte, bool, error) {
 	return nil, false, ErrKey
 }
 
+// Sealed reports whether value was written by Seal.
+func Sealed(value string) bool { return strings.HasPrefix(value, prefix) }
+
 // Seal encrypts a value. Empty values stay empty.
 func (b *Box) Seal(value string) (string, error) {
 	if value == "" {

@@ -3,7 +3,12 @@ package server_test
 import (
 	"bytes"
 	"context"
+	"crypto/aes"
+	"crypto/cipher"
+	"crypto/sha256"
+	"encoding/base64"
 	"errors"
+	"github.com/pquerna/otp/totp"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -163,5 +168,73 @@ func TestLegacyDataSealedAndRekeyed(t *testing.T) {
 	}
 	if _, _, err := read(box); !errors.Is(err, sealed.ErrKey) {
 		t.Fatalf("old key still opens the data: %v", err)
+	}
+}
+
+// legacyTOTP encrypts a secret the way versions before the data key did.
+func legacyTOTP(t *testing.T, sessionSecret, secret string) string {
+	t.Helper()
+	key := sha256.Sum256([]byte("wedwise-totp:" + sessionSecret))
+	block, err := aes.NewCipher(key[:])
+	if err != nil {
+		t.Fatal(err)
+	}
+	aead, err := cipher.NewGCM(block)
+	if err != nil {
+		t.Fatal(err)
+	}
+	nonce := make([]byte, aead.NonceSize())
+	return base64.RawStdEncoding.EncodeToString(aead.Seal(nonce, nonce, []byte(secret), nil))
+}
+
+func TestLegacySecondFactorMovesToDataKey(t *testing.T) {
+	ctx := context.Background()
+	app, dbPath := newTestAppWithUsers(t)
+	_ = app
+	db, err := database.Open(dbPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+
+	const sessionSecret = "test-secret-32-bytes-long-padding"
+	key, err := totp.Generate(totp.GenerateOpts{Issuer: "Wedwise", AccountName: "witness_user"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`INSERT INTO user_totp (user_id, secret_enc, confirmed_at, last_step, created_at)
+		SELECT id, ?, '2026-01-01T00:00:00Z', 0, '2026-01-01T00:00:00Z' FROM users WHERE username = 'witness_user'`,
+		legacyTOTP(t, sessionSecret, key.Secret())); err != nil {
+		t.Fatal(err)
+	}
+
+	box, _ := sealed.New(testDataKey)
+	if n, err := server.Protect(ctx, db, sessionSecret, box); err != nil || n != 1 {
+		t.Fatalf("first run: %d, %v", n, err)
+	}
+	if n, err := server.Protect(ctx, db, sessionSecret, box); err != nil || n != 0 {
+		t.Fatalf("second run must not change anything: %d, %v", n, err)
+	}
+	var stored string
+	if err := db.QueryRow(`SELECT secret_enc FROM user_totp`).Scan(&stored); err != nil {
+		t.Fatal(err)
+	}
+	if plain, err := box.Open(stored); err != nil || plain != key.Secret() || !sealed.Sealed(stored) {
+		t.Fatalf("secret not sealed with the data key: %v", err)
+	}
+
+	// The session secret alone no longer opens it; a rotated data key does.
+	const nextKey = "next-data-key-with-at-least-32-bytes!"
+	next, _ := sealed.New(nextKey, testDataKey)
+	if n, err := server.Protect(ctx, db, "another-session-secret-32-bytes!!", next); err != nil || n != 1 {
+		t.Fatalf("rotation: %d, %v", n, err)
+	}
+	db.QueryRow(`SELECT secret_enc FROM user_totp`).Scan(&stored)
+	if _, err := box.Open(stored); err == nil {
+		t.Fatal("old data key still opens the secret")
+	}
+	only, _ := sealed.New(nextKey)
+	if plain, err := only.Open(stored); err != nil || plain != key.Secret() {
+		t.Fatalf("new data key cannot open the secret: %v", err)
 	}
 }

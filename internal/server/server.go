@@ -54,7 +54,20 @@ type Server struct {
 
 // SealedColumns lists every column that is encrypted with the data key.
 func SealedColumns() []sealed.Columns {
-	return append(append([]sealed.Columns{}, rsvp.SealedColumns...), contributions.SealedColumns...)
+	columns := append([]sealed.Columns{}, rsvp.SealedColumns...)
+	columns = append(columns, contributions.SealedColumns...)
+	return append(columns, twofactor.SealedColumns...)
+}
+
+// Protect seals every sensitive column with the current data key and returns
+// how many values it rewrote. Wrong keys leave the data untouched.
+func Protect(ctx context.Context, db *sql.DB, sessionSecret string, box *sealed.Box) (int, error) {
+	converted, err := twofactor.ConvertLegacy(ctx, db, sessionSecret, box)
+	if err != nil {
+		return 0, err
+	}
+	count, err := box.Protect(ctx, db, SealedColumns())
+	return count + converted, err
 }
 
 // New creates a fully wired server.
@@ -74,10 +87,14 @@ func New(cfg configuration.Config, db *sql.DB) (*Server, error) {
 	authService.RequireTwoFactor(cfg.Auth.RequireTwoFactor)
 	authService.SetLockouts(auth.NewLockouts(db))
 
-	twoFactorStore, err := twofactor.NewStore(db, cfg.SessionSecret, "Wedwise")
+	box, err := sealed.New(cfg.DataKey, cfg.DataKeyPrevious)
 	if err != nil {
 		return nil, err
 	}
+	if _, err := Protect(context.Background(), db, cfg.SessionSecret, box); err != nil {
+		return nil, fmt.Errorf("protect stored data: %w", err)
+	}
+	twoFactorStore := twofactor.NewStore(db, box, "Wedwise")
 	keys, err := twofactor.NewKeys(db, cfg.BaseURL, cfg.Event.Title)
 	if err != nil {
 		return nil, err
@@ -86,13 +103,6 @@ func New(cfg configuration.Config, db *sql.DB) (*Server, error) {
 	authService.SetSecondFactor(twoFactorStore)
 	twoFactorHandler := twofactor.NewHandler(twoFactorStore, authService)
 
-	box, err := sealed.New(cfg.DataKey, cfg.DataKeyPrevious)
-	if err != nil {
-		return nil, err
-	}
-	if _, err := box.Protect(context.Background(), db, SealedColumns()); err != nil {
-		return nil, fmt.Errorf("protect guest data: %w", err)
-	}
 	contributionStore := contributions.NewStore(db, box)
 	inviteVault, err := tokens.NewVault(cfg.SessionSecret, "invite-token")
 	if err != nil {
