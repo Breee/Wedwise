@@ -8,6 +8,7 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"net/netip"
 	"net/url"
 	"strings"
 	"time"
@@ -49,11 +50,12 @@ type Service struct {
 	publicKey  string
 	privateKey string
 	send       sendFunc
+	client     *http.Client
 }
 
 // NewService loads the VAPID key pair, creating it on first use.
 func NewService(ctx context.Context, db *sql.DB, subscriber string) (*Service, error) {
-	s := &Service{db: db, subscriber: subscriber}
+	s := &Service{db: db, subscriber: subscriber, client: newClient()}
 	s.send = s.deliver
 	var err error
 	if s.privateKey, err = s.setting(ctx, "vapid_private"); err != nil {
@@ -89,10 +91,29 @@ func (s *Service) setting(ctx context.Context, key string) (string, error) {
 // PublicKey is the VAPID key browsers need to subscribe.
 func (s *Service) PublicKey() string { return s.publicKey }
 
+// validEndpoint accepts https URLs on the default port whose host is a name
+// or a public address. Names are checked again when the connection is made.
+func validEndpoint(endpoint string) bool {
+	u, err := url.Parse(endpoint)
+	if err != nil || u.Scheme != "https" || u.Hostname() == "" || u.User != nil || len(endpoint) > 2000 {
+		return false
+	}
+	if port := u.Port(); port != "" && port != "443" {
+		return false
+	}
+	host := strings.ToLower(u.Hostname())
+	if host == "localhost" || strings.HasSuffix(host, ".localhost") || !strings.Contains(host, ".") && !strings.Contains(host, ":") {
+		return false
+	}
+	if addr, err := netip.ParseAddr(host); err == nil {
+		return publicAddress(addr)
+	}
+	return true
+}
+
 // Subscribe stores or replaces a subscription.
 func (s *Service) Subscribe(ctx context.Context, sub Subscription) error {
-	u, err := url.Parse(sub.Endpoint)
-	if err != nil || u.Scheme != "https" || u.Host == "" || len(sub.Endpoint) > 2000 ||
+	if !validEndpoint(sub.Endpoint) ||
 		sub.P256dh == "" || sub.Auth == "" || len(sub.P256dh) > 500 || len(sub.Auth) > 500 {
 		return ErrValidation
 	}
@@ -100,7 +121,7 @@ func (s *Service) Subscribe(ctx context.Context, sub Subscription) error {
 	if sub.UserID != 0 {
 		userID = sub.UserID
 	}
-	_, err = s.db.ExecContext(ctx,
+	_, err := s.db.ExecContext(ctx,
 		`INSERT INTO push_subscriptions (endpoint, p256dh, auth, user_id, topics, created_at)
 		 VALUES (?, ?, ?, ?, ?, ?)
 		 ON CONFLICT(endpoint) DO UPDATE SET p256dh = excluded.p256dh, auth = excluded.auth,
@@ -197,6 +218,7 @@ func (s *Service) deliver(ctx context.Context, payload []byte, sub Subscription)
 		Endpoint: sub.Endpoint,
 		Keys:     webpush.Keys{P256dh: sub.P256dh, Auth: sub.Auth},
 	}, &webpush.Options{
+		HTTPClient:      s.client,
 		Subscriber:      s.subscriber,
 		VAPIDPublicKey:  s.publicKey,
 		VAPIDPrivateKey: s.privateKey,

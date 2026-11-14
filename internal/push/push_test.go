@@ -2,6 +2,9 @@ package push
 
 import (
 	"context"
+	"errors"
+	"net/http"
+	"net/http/httptest"
 	"path/filepath"
 	"testing"
 
@@ -57,5 +60,52 @@ func TestSendByTopicAndCleanup(t *testing.T) {
 	}
 	if topics, _ := s.Topics(ctx, "https://push.example/gone"); len(topics) != 0 {
 		t.Fatal("gone subscription must be removed")
+	}
+}
+
+func TestValidEndpoint(t *testing.T) {
+	cases := map[string]bool{
+		"https://fcm.googleapis.com/fcm/send/abc":    true,
+		"https://updates.push.services.mozilla.com/": true,
+		"https://web.push.apple.com:443/x":           true,
+		"https://8.8.8.8/x":                          true,
+		"http://fcm.googleapis.com/x":                false,
+		"https://localhost/x":                        false,
+		"https://db/x":                               false,
+		"https://127.0.0.1/x":                        false,
+		"https://10.0.0.5/x":                         false,
+		"https://192.168.1.1/x":                      false,
+		"https://169.254.169.254/latest/meta-data":   false,
+		"https://100.64.0.1/x":                       false,
+		"https://[::1]/x":                            false,
+		"https://[fd00::1]/x":                        false,
+		"https://[::ffff:10.0.0.1]/x":                false,
+		"https://example.org:8443/x":                 false,
+		"https://user:pw@example.org/x":              false,
+	}
+	for endpoint, want := range cases {
+		if got := validEndpoint(endpoint); got != want {
+			t.Errorf("validEndpoint(%q) = %v, want %v", endpoint, got, want)
+		}
+	}
+}
+
+func TestClientRefusesInternalAddresses(t *testing.T) {
+	internal := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Error("internal server was reached")
+	}))
+	defer internal.Close()
+
+	_, err := newClient().Get(internal.URL)
+	if !errors.Is(err, errPrivateAddress) {
+		t.Fatalf("error = %v, want errPrivateAddress", err)
+	}
+}
+
+func TestClientDoesNotFollowRedirects(t *testing.T) {
+	client := newClient()
+	req, _ := http.NewRequest(http.MethodGet, "https://example.org/", nil)
+	if err := client.CheckRedirect(req, nil); !errors.Is(err, http.ErrUseLastResponse) {
+		t.Fatalf("CheckRedirect = %v", err)
 	}
 }
