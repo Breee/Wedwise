@@ -368,6 +368,11 @@ overview can count them. Backups are encrypted as a whole with the same key.
   Map tiles are loaded from OpenFreeMap by the browser.
 - Request bodies are capped at 1 MB; unknown JSON fields are rejected.
 
+To report a vulnerability see [SECURITY.md](SECURITY.md). The
+[threat model](docs/threat-model.md) and the
+[review against OWASP ASVS level 2](docs/security-review.md) describe what is
+protected, what is not, and what is still open.
+
 ## Development
 
 Requirements: Go 1.24+, Node 22+.
