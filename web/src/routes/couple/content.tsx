@@ -8,6 +8,7 @@ import { api, errorMessage } from '@/lib/api'
 import { contentQuery, themesQuery } from '@/lib/queries'
 import type { Content, FAQEntry, Hotel, ScheduleEntry, Stop } from '@/lib/types'
 import { PageHeader } from '@/components/admin/PageHeader'
+import { PlacePicker } from '@/components/admin/PlacePicker'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -29,7 +30,11 @@ function ContentPage() {
   const queryClient = useQueryClient()
 
   const save = useMutation({
-    mutationFn: () => api.put<Content>('/content', normalize(draft)),
+    mutationFn: () => {
+      const unplaced = [...(draft.travel?.stops ?? []), ...(draft.accommodation?.hotels ?? [])].find((p) => p.lat === 0 && p.lng === 0)
+      if (unplaced) throw new Error(t('Bitte wählt für „{name}“ noch einen Ort auf der Karte.', { name: unplaced.name || t('Neuer Eintrag') }))
+      return api.put<Content>('/content', normalize(draft))
+    },
     onSuccess: (saved) => {
       queryClient.setQueryData(contentQuery.queryKey, saved)
       queryClient.invalidateQueries({ queryKey: ['content', 'public'] })
@@ -146,20 +151,23 @@ function ContentPage() {
         <TabsContent value="travel" className="mt-4 space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>{t('Koordinaten der Location')}</CardTitle>
+              <CardTitle>{t('Wo ist die Location?')}</CardTitle>
             </CardHeader>
-            <CardContent className="grid gap-4 sm:grid-cols-2">
-              <NumberField label={t('Breitengrad (lat)')} value={travel.lat} onChange={(v) => set('travel', { ...travel, lat: v })} />
-              <NumberField label={t('Längengrad (lng)')} value={travel.lng} onChange={(v) => set('travel', { ...travel, lng: v })} />
-              <p className="text-sm text-muted-foreground sm:col-span-2">
-                {t('Koordinaten findet ihr z. B. per Rechtsklick in Google Maps. Ohne Koordinaten wird keine Karte angezeigt.')}
+            <CardContent className="space-y-3">
+              <PlacePicker
+                value={travel}
+                query={[draft.location.name, draft.location.address].filter(Boolean).join(', ')}
+                onChange={(p) => set('travel', { ...travel, lat: p.lat, lng: p.lng })}
+              />
+              <p className="text-sm text-muted-foreground">
+                {t('Ohne gesetzten Ort wird keine Karte angezeigt. Wege und Zeiten werden automatisch berechnet.')}
               </p>
             </CardContent>
           </Card>
           <ListEditor<Stop>
             items={travel.stops}
             onChange={(items) => set('travel', { ...travel, stops: items })}
-            create={() => ({ name: '', kind: 'tram', line: '', lat: travel.lat, lng: travel.lng })}
+            create={() => ({ name: '', kind: 'tram', line: '', lat: 0, lng: 0 })}
             addLabel={t('Haltestelle / Parkplatz hinzufügen')}
             render={(item, update) => (
               <div className="grid flex-1 gap-3 sm:grid-cols-4">
@@ -177,8 +185,13 @@ function ContentPage() {
                   </Select>
                 </div>
                 <Field label={t('Linie')} value={item.line} onChange={(v) => update({ ...item, line: v })} />
-                <NumberField label={t('Breitengrad (lat)')} value={item.lat} onChange={(v) => update({ ...item, lat: v })} className="sm:col-span-2" />
-                <NumberField label={t('Längengrad (lng)')} value={item.lng} onChange={(v) => update({ ...item, lng: v })} className="sm:col-span-2" />
+                <PlacePicker
+                  className="sm:col-span-4"
+                  value={item}
+                  near={travel}
+                  query={item.name}
+                  onChange={(p, place) => update({ ...item, lat: p.lat, lng: p.lng, name: item.name || place?.name || '' })}
+                />
               </div>
             )}
           />
@@ -197,7 +210,7 @@ function ContentPage() {
           <ListEditor<Hotel>
             items={stay.hotels}
             onChange={(items) => set('accommodation', { ...stay, hotels: items })}
-            create={() => ({ name: '', area: '', lat: travel.lat, lng: travel.lng, priceTier: 2, note: '', url: '', bookingUrl: '' })}
+            create={() => ({ name: '', area: '', lat: 0, lng: 0, priceTier: 2, note: '', url: '', bookingUrl: '' })}
             addLabel={t('Unterkunft hinzufügen')}
             render={(item, update) => (
               <div className="grid flex-1 gap-3 sm:grid-cols-4">
@@ -224,8 +237,13 @@ function ContentPage() {
                     </SelectContent>
                   </Select>
                 </div>
-                <NumberField label={t('Breitengrad (lat)')} value={item.lat} onChange={(v) => update({ ...item, lat: v })} className="sm:col-span-2" />
-                <NumberField label={t('Längengrad (lng)')} value={item.lng} onChange={(v) => update({ ...item, lng: v })} className="sm:col-span-2" />
+                <PlacePicker
+                  className="sm:col-span-4"
+                  value={item}
+                  near={travel}
+                  query={item.name}
+                  onChange={(p, place) => update({ ...item, lat: p.lat, lng: p.lng, name: item.name || place?.name || '' })}
+                />
                 <Field label={t('Website')} value={item.url} onChange={(v) => update({ ...item, url: v })} className="sm:col-span-2" />
                 <Field label={t('Booking-Link (Hotelseite)')} value={item.bookingUrl ?? ''} onChange={(v) => update({ ...item, bookingUrl: v })} className="sm:col-span-2" />
                 <Field label={t('Hinweis')} value={item.note} onChange={(v) => update({ ...item, note: v })} className="sm:col-span-2" />
@@ -311,15 +329,6 @@ function Field({
       ) : (
         <Input value={value ?? ''} onChange={(e) => onChange(e.target.value)} />
       )}
-    </div>
-  )
-}
-
-function NumberField({ label, value, onChange, className }: { label: string; value: number; onChange: (v: number) => void; className?: string }) {
-  return (
-    <div className={className ? `space-y-2 ${className}` : 'space-y-2'}>
-      <Label>{label}</Label>
-      <Input type="number" step="any" value={Number.isFinite(value) ? value : ''} onChange={(e) => onChange(e.target.value === '' ? 0 : Number(e.target.value))} />
     </div>
   )
 }

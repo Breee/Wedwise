@@ -121,7 +121,7 @@ Settings come from a YAML file (`CONFIG_PATH`, default
 | `REQUIRE_TWO_FACTOR` | `auth.requireTwoFactor` | — | Roles that must use two-factor login, e.g. `admin,witness` (`admin`, `couple`, `witness`). |
 | `SESSION_MAX_AGE` | `auth.sessionMaxAge` | `24h` | A login ends after this time, whatever happens. |
 | `SESSION_IDLE_TIMEOUT` | `auth.sessionIdleTimeout` | `2h` | A login ends after this time without activity. |
-| `ROUTING_API_KEY` | `routingApiKey` | — | OpenRouteService key for routes and travel times on the maps. |
+| `ROUTING_API_KEY` | `routingApiKey` | — | OpenRouteService key for routes and travel times on the maps and for the place search in the editor. |
 | `THEME_PATH` | `themePath` | — | Optional custom theme file. |
 | `CONTENT_PATH` | `contentPath` | — | Optional JSON content file (shape of `examples/content.json`). Applied at startup whenever the file changes; editor changes are kept until then. |
 | `USERS_PATH` | `usersPath` | — | Optional YAML list of users (`username`, `role`, `password`, optional `email`, `displayName`) created at startup. Existing users are kept; a changed password is applied. |

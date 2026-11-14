@@ -242,6 +242,8 @@ func New(cfg configuration.Config, db *sql.DB) (*Server, error) {
 			protected.With(authService.RequirePermission(auth.PermContentWrite)).
 				Method(http.MethodPost, "/uploads", uploads.NewHandler(uploadsDir))
 			protected.Mount("/responses", rsvpHandler.StaffRoutes(authService))
+			protected.With(authService.RequirePermission(auth.PermContentWrite), routeLimit).
+				Get("/places", routeHandler.Places)
 			protected.With(authService.RequirePermission(auth.PermContentWrite)).
 				Post("/push/broadcast", pushHandler.Broadcast)
 			protected.With(authService.RequirePermission(auth.PermContentWrite)).

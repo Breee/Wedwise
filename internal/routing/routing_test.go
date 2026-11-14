@@ -152,3 +152,44 @@ func TestWarmFillsTheCache(t *testing.T) {
 		t.Fatalf("upstream calls = %d, want 1", calls)
 	}
 }
+
+func TestPlaces(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/geocode/search" || r.Header.Get("Authorization") != "secret" ||
+			r.URL.Query().Get("text") != "Musikhochschule" || r.URL.Query().Get("focus.point.lon") != "7.87" {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		_, _ = w.Write([]byte(`{"features":[{"geometry":{"coordinates":[7.873,47.988]},"properties":{"name":"Musikhochschule","label":"Musikhochschule, Freiburg"}},{"geometry":{"coordinates":[]}}]}`))
+	}))
+	t.Cleanup(srv.Close)
+	h := NewHandler("secret", nil)
+	h.baseURL = srv.URL
+
+	search := func(h *Handler, query string) *httptest.ResponseRecorder {
+		rec := httptest.NewRecorder()
+		h.Places(rec, httptest.NewRequest(http.MethodGet, "/api/places?"+query, nil))
+		return rec
+	}
+
+	rec := search(h, "q=Musikhochschule&near=7.87,47.98")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d", rec.Code)
+	}
+	var body struct{ Places []Place }
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	if len(body.Places) != 1 || body.Places[0].Lat != 47.988 || body.Places[0].Label != "Musikhochschule, Freiburg" {
+		t.Fatalf("places = %+v", body.Places)
+	}
+	if rec := search(h, "q=ab"); rec.Code != http.StatusBadRequest {
+		t.Fatalf("short query status = %d", rec.Code)
+	}
+	if rec := search(h, "q=Unbekannt"); rec.Code != http.StatusBadGateway {
+		t.Fatalf("upstream failure status = %d", rec.Code)
+	}
+	if rec := search(NewHandler("", nil), "q=Musikhochschule"); rec.Code != http.StatusNotFound {
+		t.Fatalf("disabled status = %d", rec.Code)
+	}
+}
