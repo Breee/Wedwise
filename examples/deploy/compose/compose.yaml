@@ -5,8 +5,13 @@
 # 4. docker compose exec wedwise /app/wedding user create --username admin --role admin
 services:
   wedwise:
+    # For a fixed build, pin a digest: ghcr.io/breee/wedwise@sha256:...
     image: ghcr.io/breee/wedwise:${WEDWISE_VERSION:-latest}
     restart: unless-stopped
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    tmpfs: [/tmp]
     environment:
       BASE_URL: "https://${DOMAIN:?set DOMAIN in .env}"
       SESSION_SECRET: "${SESSION_SECRET:?set SESSION_SECRET in .env}"

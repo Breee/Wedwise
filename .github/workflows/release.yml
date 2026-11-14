@@ -108,3 +108,8 @@ jobs:
           FLAGS="--generate-notes"
           if [[ "$GITHUB_REF_NAME" == *-* ]]; then FLAGS="$FLAGS --prerelease"; fi
           gh release create "$GITHUB_REF_NAME" $FLAGS "wedwise-$GITHUB_REF_NAME.spdx.json"
+          {
+            gh release view "$GITHUB_REF_NAME" --json body -q .body
+            printf '\n## Image\n\n`%s@%s`\n' "${{ steps.image.outputs.name }}" "${{ steps.build.outputs.digest }}"
+          } > notes.md
+          gh release edit "$GITHUB_REF_NAME" --notes-file notes.md

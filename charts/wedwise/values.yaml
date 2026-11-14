@@ -2,6 +2,8 @@ image:
   repository: ghcr.io/breee/wedwise
   # Defaults to the chart appVersion.
   tag: ""
+  # Pin the image by digest (sha256:...). Takes precedence over tag.
+  digest: ""
   pullPolicy: IfNotPresent
 
 imagePullSecrets: []
@@ -79,6 +81,22 @@ ingress:
   annotations: {}
   host: wedding.example.com
   tls: []
+
+# Restricts pod traffic: inbound only to the HTTP port, outbound only DNS and
+# HTTPS to public addresses (routing, song search, push services). Needs a
+# network plugin that enforces NetworkPolicy.
+networkPolicy:
+  enabled: false
+  # Peers allowed to reach the app, e.g. the ingress controller namespace.
+  # Empty allows every source.
+  ingressFrom: []
+  #  - namespaceSelector:
+  #      matchLabels:
+  #        kubernetes.io/metadata.name: ingress-nginx
+  # Private ranges the app may not connect to.
+  egressExcept: [10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 169.254.0.0/16, 100.64.0.0/10]
+  # Additional egress rules.
+  extraEgress: []
 
 resources: {}
 podAnnotations: {}

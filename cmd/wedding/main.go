@@ -57,6 +57,8 @@ func run(args []string) error {
 		return runRekey(args)
 	case "user":
 		return runUser(args)
+	case "healthcheck":
+		return runHealthcheck()
 	case "help", "-h", "--help":
 		usage()
 		return nil
@@ -80,10 +82,32 @@ Commands:
   user disable --username U          Deactivate a user
   user enable --username U           Reactivate a user
   user passwd --username U           Change the password of a user
+  healthcheck                        Exit 0 when the local server answers /healthz
 
 Global flags:
   --config <path>   Path to the YAML configuration file (default: $CONFIG_PATH or config.yaml)
 `)
+}
+
+// runHealthcheck lets the container health check work without a shell.
+func runHealthcheck() error {
+	address := os.Getenv("LISTEN_ADDRESS")
+	if address == "" {
+		address = configuration.Default().ListenAddress
+	}
+	if strings.HasPrefix(address, ":") {
+		address = "127.0.0.1" + address
+	}
+	client := http.Client{Timeout: 3 * time.Second}
+	resp, err := client.Get("http://" + address + "/healthz")
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("unhealthy: status %d", resp.StatusCode)
+	}
+	return nil
 }
 
 func loadConfig(args []string, name string) (configuration.Config, []string, error) {

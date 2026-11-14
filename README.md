@@ -210,6 +210,7 @@ docker run -d --name wedwise -p 8080:8080 \
   -e BASE_URL=https://wedding.example.com \
   -e ENVIRONMENT=production \
   -e TRUST_PROXY_HEADERS=true \
+  --read-only --tmpfs /tmp --cap-drop ALL --security-opt no-new-privileges \
   ghcr.io/breee/wedwise:latest
 
 docker exec -it wedwise /app/wedding user create --username admin --role admin --email you@example.com
@@ -218,6 +219,12 @@ docker exec -it wedwise /app/wedding user create --username admin --role admin -
 Put a TLS-terminating reverse proxy (Caddy, Traefik, nginx) in front. Set
 `TRUST_PROXY_HEADERS=false` if there is no proxy; in production Wedwise does
 not start without an explicit choice.
+
+The image contains only the application binary, CA certificates and time zone
+data – no shell or package manager – and runs as user 1000. Use
+`/app/wedding <command>` with `docker exec` for administration. To run a fixed
+build, pin the digest shown in the release notes
+(`ghcr.io/breee/wedwise@sha256:…`).
 
 ### Kubernetes (Helm)
 
@@ -248,6 +255,16 @@ Useful values (see [`values.yaml`](charts/wedwise/values.yaml)):
 | `ingress.*` | Host, class, annotations, TLS. |
 
 SQLite lives on one volume, so the app runs as a single replica.
+
+The pod runs as non-root with a read-only root filesystem, all capabilities
+dropped, the `RuntimeDefault` seccomp profile and no service account token.
+Optional hardening:
+
+- `image.digest=sha256:…` pins the image.
+- `networkPolicy.enabled=true` allows inbound traffic only to the HTTP port
+  (limit the sources with `networkPolicy.ingressFrom`) and outbound traffic
+  only to DNS and to HTTPS on public addresses, which covers the routing, song
+  search and push services.
 
 ### Ready-made examples
 

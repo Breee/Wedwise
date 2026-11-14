@@ -54,3 +54,4 @@ Open work is tracked in GitHub issues and milestones (M1 Staff tools, M2 Accommo
 - 2026-11-13: #46 append-only audit log (logins, staff changes, link copies, broadcasts) with admin view `/admin/audit`.
 - 2026-11-14: #47 stricter browser policy: images only from self and `IMAGE_HOSTS`, style attributes refused, COOP/CORP same-origin, `no-store` on API responses, header tests.
 - 2026-11-14: #50 security scanning in CI (govulncheck, gosec, npm audit, Trivy, CodeQL, Dependabot), SBOM on releases, base image alpine 3.24 + apk upgrade.
+- 2026-11-14 #51: distroless runtime image pinned by digest, `healthcheck` command, read-only/no-capability compose, chart `image.digest` + optional NetworkPolicy, digest in release notes.
