@@ -85,6 +85,9 @@ func VerifyPassword(password, encodedHash string) (bool, error) {
 	return subtle.ConstantTimeCompare(key, candidate) == 1, nil
 }
 
+// maxHashPartLength bounds the salt and key of a stored hash.
+const maxHashPartLength = 1024
+
 func decodeHash(encodedHash string) (Argon2Params, []byte, []byte, error) {
 	parts := strings.Split(encodedHash, "$")
 	if len(parts) != 6 || parts[0] != "" || parts[1] != "argon2id" {
@@ -113,7 +116,10 @@ func decodeHash(encodedHash string) (Argon2Params, []byte, []byte, error) {
 		return Argon2Params{}, nil, nil, ErrInvalidHash
 	}
 
-	params.SaltLength = uint32(len(salt))
-	params.KeyLength = uint32(len(key))
+	if len(salt) > maxHashPartLength || len(key) > maxHashPartLength {
+		return Argon2Params{}, nil, nil, ErrInvalidHash
+	}
+	params.SaltLength = uint32(len(salt)) // #nosec G115 -- bounded above
+	params.KeyLength = uint32(len(key))   // #nosec G115 -- bounded above
 	return params, salt, key, nil
 }
