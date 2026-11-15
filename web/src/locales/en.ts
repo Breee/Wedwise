@@ -522,4 +522,11 @@ export const en: Record<string, string> = {
   'Location setzen': 'Set venue',
   'Ort oder Adresse suchen': 'Search place or address',
   'Location, Haltestellen und Parkplätze': 'Venue, stops and car parks',
+  'Auf der Karte': 'On the map',
+  'Alle Haltestellen und Parkplätze entfernen?': 'Remove all stops and car parks?',
+  'Alle entfernen': 'Remove all',
+  'Noch keine Haltestellen oder Parkplätze.': 'No stops or car parks yet.',
+  'Vorschläge in der Nähe': 'Suggestions nearby',
+  'Location': 'Venue',
+  'Vorschlag': 'Suggestion',
 }

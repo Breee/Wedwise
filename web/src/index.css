@@ -126,6 +126,11 @@
   .wed-marker-suggestion:hover {
     opacity: 1;
   }
+  .wed-marker-stop.is-hovered {
+    z-index: 5;
+    opacity: 1;
+    box-shadow: 0 0 0 3px white, 0 0 0 7px var(--stop-color, var(--primary));
+  }
   .wed-marker-pending {
     width: 14px;
     height: 14px;

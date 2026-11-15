@@ -230,7 +230,7 @@ func TestNearby(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := []NearbyPlace{
-		{Name: "Stadthalle", Kind: "tram", Lat: 47.98, Lng: 7.1},
+		{Name: "Stadthalle", Kind: "tram", Lat: 47.98, Lng: 7.2},
 		{Name: "Gasthaus Schiff", Kind: "bus", Lat: 47.98, Lng: 7.3},
 		{Name: "", Kind: "parking", Lat: 47.98, Lng: 7.5},
 	}

@@ -5,7 +5,7 @@ import { useQueries, useQuery } from '@tanstack/react-query'
 import { Heart, Search, Trash2, X } from 'lucide-react'
 import { t } from '@/lib/i18n'
 import { api } from '@/lib/api'
-import { routeQuery, type LngLat } from '@/lib/geo'
+import { distanceMeters, routeQuery, type LngLat } from '@/lib/geo'
 import type { Stop, StopKind, Travel } from '@/lib/types'
 import { BaseMap, markerElement } from '@/components/public/BaseMap'
 import { ICON_SVG, KIND } from '@/components/public/TravelMap'
@@ -27,6 +27,10 @@ const KINDS: StopKind[] = ['tram', 'bus', 'train', 'parking']
 // A suggestion this close to a stop of the same kind is already on the map.
 const SAME_PLACE = 0.0004
 const isSet = (p: { lat: number; lng: number }) => p.lat !== 0 || p.lng !== 0
+// Unnamed car parks all look alike, so only the nearest few are offered.
+const MAX_PARKING = 3
+const suggestionKey = (s: Suggestion) => `sug:${s.kind}:${s.lat},${s.lng}`
+const formatMeters = (m: number) => (m < 995 ? `${Math.round(m / 10) * 10} m` : `${(m / 1000).toFixed(1).replace('.', ',')} km`)
 const fallbackName = (kind: StopKind) => (kind === 'parking' ? t('Parkplatz') : '')
 
 /** Map editor for the venue and the stops and car parks around it. */
@@ -34,6 +38,8 @@ export function TravelEditor({ travel, query, onChange }: { travel: Travel; quer
   const [map, setMap] = useState<MapLibreMap | null>(null)
   const [selected, setSelected] = useState<number | null>(null)
   const [pending, setPending] = useState<{ lat: number; lng: number } | null>(null)
+  const [hovered, setHovered] = useState<string | null>(null)
+  const elements = useRef(new Map<string, HTMLElement>())
   const hasVenue = isSet(travel)
   const venue = useMemo<LngLat>(() => [travel.lng, travel.lat], [travel.lat, travel.lng])
 
@@ -42,24 +48,40 @@ export function TravelEditor({ travel, query, onChange }: { travel: Travel; quer
   latest.current = { travel, onChange }
   const setStops = (stops: Stop[]) => latest.current.onChange({ ...latest.current.travel, stops })
 
+  // Rounded to about 100 m, so nudging the venue pin reuses the answer.
+  const around = `${travel.lng.toFixed(3)},${travel.lat.toFixed(3)}`
   const nearby = useQuery({
-    queryKey: ['places', 'nearby', travel.lng, travel.lat],
-    queryFn: () => api.get<{ places: Suggestion[] }>(`/places/nearby?at=${travel.lng},${travel.lat}`).then((r) => r.places),
+    queryKey: ['places', 'nearby', around],
+    queryFn: () => api.get<{ places: Suggestion[] }>(`/places/nearby?at=${around}`).then((r) => r.places),
     enabled: hasVenue,
     staleTime: Infinity,
     retry: false,
   })
-  const suggestions = useMemo(
-    () =>
-      (nearby.data ?? []).filter(
-        (s) => !travel.stops.some((stop) => stop.kind === s.kind && Math.abs(stop.lat - s.lat) < SAME_PLACE && Math.abs(stop.lng - s.lng) < SAME_PLACE),
-      ),
-    [nearby.data, travel.stops],
-  )
+  const suggestions = useMemo(() => {
+    let parking = 0
+    return (nearby.data ?? [])
+      .filter(
+        (s) =>
+          !travel.stops.some(
+            (stop) =>
+              stop.kind === s.kind && ((s.name !== '' && stop.name === s.name) || (Math.abs(stop.lat - s.lat) < SAME_PLACE && Math.abs(stop.lng - s.lng) < SAME_PLACE)),
+          ),
+      )
+      .map((s) => ({ ...s, meters: distanceMeters([s.lng, s.lat], venue) }))
+      .sort((a, b) => a.meters - b.meters)
+      .filter((s) => s.kind !== 'parking' || ++parking <= MAX_PARKING)
+  }, [nearby.data, travel.stops, venue])
 
   const routed = useMemo(() => travel.stops.filter((s) => s.kind !== 'parking' && isSet(s)), [travel.stops])
   const routes = useQueries({ queries: routed.map((s) => ({ ...routeQuery('foot', [s.lng, s.lat], venue), enabled: hasVenue })) })
   const resolved = routes.map((r) => r.data)
+
+  function adopt(s: Suggestion) {
+    const stops = latest.current.travel.stops
+    setStops([...stops, { name: s.name || fallbackName(s.kind), kind: s.kind, line: '', lat: s.lat, lng: s.lng }])
+    setPending(null)
+    setSelected(stops.length)
+  }
 
   useEffect(() => {
     if (!map) return
@@ -88,17 +110,22 @@ export function TravelEditor({ travel, query, onChange }: { travel: Travel; quer
     if (!map) return
     const markers: maplibregl.Marker[] = []
     const stop = (e: Event) => e.stopPropagation()
+    const known = elements.current
+    known.clear()
+    const track = (key: string, el: HTMLElement) => {
+      known.set(key, el)
+      el.addEventListener('mouseenter', () => setHovered(key))
+      el.addEventListener('mouseleave', () => setHovered(null))
+    }
 
     for (const s of suggestions) {
       const el = markerElement(ICON_SVG[s.kind], 'wed-marker wed-marker-stop wed-marker-suggestion')
       el.style.setProperty('--stop-color', KIND[s.kind].color)
-      el.title = `${s.name || t(KIND[s.kind].label)} – ${t('hinzufügen')}`
+      el.title = `${s.name || t(KIND[s.kind].label)} · ${formatMeters(s.meters)} – ${t('hinzufügen')}`
+      track(suggestionKey(s), el)
       el.addEventListener('click', (e) => {
         stop(e)
-        const stops = latest.current.travel.stops
-        setStops([...stops, { name: s.name || fallbackName(s.kind), kind: s.kind, line: '', lat: s.lat, lng: s.lng }])
-        setPending(null)
-        setSelected(stops.length)
+        adopt(s)
       })
       markers.push(new maplibregl.Marker({ element: el, anchor: 'center' }).setLngLat([s.lng, s.lat]).addTo(map))
     }
@@ -108,6 +135,7 @@ export function TravelEditor({ travel, query, onChange }: { travel: Travel; quer
       const el = markerElement(ICON_SVG[s.kind], `wed-marker wed-marker-stop${selected === i ? ' is-selected' : ''}`)
       el.style.setProperty('--stop-color', KIND[s.kind].color)
       el.title = s.name
+      track(`stop:${i}`, el)
       el.addEventListener('click', (e) => {
         stop(e)
         setPending(null)
@@ -149,6 +177,12 @@ export function TravelEditor({ travel, query, onChange }: { travel: Travel; quer
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [map, routed, ...resolved])
 
+  useEffect(() => {
+    const el = hovered ? elements.current.get(hovered) : undefined
+    el?.classList.add('is-hovered')
+    return () => el?.classList.remove('is-hovered')
+  }, [hovered, travel.stops, suggestions, selected, pending])
+
   const current = selected !== null ? travel.stops[selected] : undefined
   const update = (patch: Partial<Stop>) => setStops(travel.stops.map((s, i) => (i === selected ? { ...s, ...patch } : s)))
 
@@ -173,7 +207,9 @@ export function TravelEditor({ travel, query, onChange }: { travel: Travel; quer
           ? t('Tippt auf einen blassen Vorschlag, um ihn zu übernehmen, oder auf eine freie Stelle, um dort etwas hinzuzufügen. Alles lässt sich verschieben.')
           : t('Sucht eure Location oder tippt auf die Karte, um sie zu setzen.')}
       </p>
+      <div className="grid gap-4 lg:grid-cols-[1fr_17rem]">
       <BaseMap onReady={setMap} className="h-[70svh] max-h-[640px] min-h-[360px] rounded-xl">
+        <Legend />
         {pending && (
           <Panel onClose={() => setPending(null)} title={hasVenue ? t('Hier hinzufügen') : t('Hier ist die Location?')}>
             <div className="flex flex-wrap gap-2">
@@ -229,31 +265,130 @@ export function TravelEditor({ travel, query, onChange }: { travel: Travel; quer
           </Panel>
         )}
       </BaseMap>
-      {travel.stops.length > 0 && (
-        <ul className="flex flex-wrap gap-2">
-          {travel.stops.map((s, i) => {
-            const { Icon, color } = KIND[s.kind]
-            return (
-              <li key={i}>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant={selected === i ? 'secondary' : 'outline'}
+      <aside className="max-h-[640px] space-y-4 overflow-y-auto text-sm lg:h-[70svh]">
+        <section>
+          <div className="mb-1.5 flex items-center justify-between">
+            <h3 className="font-medium">{t('Auf der Karte')}</h3>
+            {travel.stops.length > 0 && (
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                className="h-7 text-destructive"
+                onClick={() => {
+                  if (!window.confirm(t('Alle Haltestellen und Parkplätze entfernen?'))) return
+                  setStops([])
+                  setSelected(null)
+                }}
+              >
+                <Trash2 /> {t('Alle entfernen')}
+              </Button>
+            )}
+          </div>
+          <ul className="space-y-1">
+            {hasVenue && (
+              <Row icon={<Heart className="size-4 text-primary" />} label={t('Location')} onClick={() => map?.flyTo({ center: venue, zoom: Math.max(map.getZoom(), 15) })} />
+            )}
+            {travel.stops.map((s, i) => {
+              const { Icon, color } = KIND[s.kind]
+              return (
+                <Row
+                  key={i}
+                  active={selected === i || hovered === `stop:${i}`}
+                  onHover={(on) => setHovered(on ? `stop:${i}` : null)}
+                  icon={<Icon className="size-4" style={{ color }} />}
+                  label={s.name || t('Ohne Namen')}
+                  detail={s.line}
                   onClick={() => {
                     setPending(null)
                     setSelected(i)
                     if (isSet(s)) map?.flyTo({ center: [s.lng, s.lat], zoom: Math.max(map.getZoom(), 15) })
                   }}
-                >
-                  <Icon style={{ color }} /> {s.name || t('Ohne Namen')}
-                  {s.line && <span className="text-muted-foreground">· {s.line}</span>}
-                </Button>
-              </li>
-            )
-          })}
-        </ul>
-      )}
+                  onRemove={() => {
+                    setStops(travel.stops.filter((_, j) => j !== i))
+                    setSelected(null)
+                  }}
+                />
+              )
+            })}
+            {travel.stops.length === 0 && <li className="text-muted-foreground">{t('Noch keine Haltestellen oder Parkplätze.')}</li>}
+          </ul>
+        </section>
+        {suggestions.length > 0 && (
+          <section>
+            <h3 className="mb-1.5 font-medium">{t('Vorschläge in der Nähe')}</h3>
+            <ul className="space-y-1">
+              {suggestions.map((s) => {
+                const { Icon, color, label } = KIND[s.kind]
+                return (
+                  <Row
+                    key={suggestionKey(s)}
+                    active={hovered === suggestionKey(s)}
+                    onHover={(on) => setHovered(on ? suggestionKey(s) : null)}
+                    icon={<Icon className="size-4 opacity-60" style={{ color }} />}
+                    label={s.name || t(label)}
+                    detail={formatMeters(s.meters)}
+                    onClick={() => {
+                      adopt(s)
+                      map?.flyTo({ center: [s.lng, s.lat], zoom: Math.max(map.getZoom(), 15) })
+                    }}
+                  />
+                )
+              })}
+            </ul>
+          </section>
+        )}
+      </aside>
+      </div>
     </div>
+  )
+}
+
+function Legend() {
+  return (
+    <div className="pointer-events-none absolute top-3 left-3 space-y-1 rounded-lg border bg-background/90 px-2.5 py-2 text-xs shadow-sm backdrop-blur">
+      <div className="flex items-center gap-1.5">
+        <Heart className="size-3.5 text-primary" /> {t('Location')}
+      </div>
+      {KINDS.map((kind) => {
+        const { Icon, label, color } = KIND[kind]
+        return (
+          <div key={kind} className="flex items-center gap-1.5">
+            <Icon className="size-3.5" style={{ color }} /> {t(label)}
+          </div>
+        )
+      })}
+      <div className="flex items-center gap-1.5 text-muted-foreground">
+        <span className="size-3.5 rounded-full border border-dashed border-current" /> {t('Vorschlag')}
+      </div>
+    </div>
+  )
+}
+
+interface RowProps {
+  icon: React.ReactNode
+  label: string
+  detail?: string
+  active?: boolean
+  onClick: () => void
+  onRemove?: () => void
+  onHover?: (on: boolean) => void
+}
+
+function Row({ icon, label, detail, active, onClick, onRemove, onHover }: RowProps) {
+  return (
+    <li className={`flex items-center rounded-md ${active ? 'bg-secondary' : 'hover:bg-accent'}`} onMouseEnter={() => onHover?.(true)} onMouseLeave={() => onHover?.(false)}>
+      <button type="button" className="flex min-w-0 flex-1 items-center gap-2 px-2 py-1.5 text-left" onClick={onClick} onFocus={() => onHover?.(true)} onBlur={() => onHover?.(false)}>
+        {icon}
+        <span className="truncate">{label}</span>
+        {detail && <span className="shrink-0 text-xs text-muted-foreground">{detail}</span>}
+      </button>
+      {onRemove && (
+        <Button type="button" size="icon" variant="ghost" className="size-7 shrink-0 text-muted-foreground" aria-label={`${label} ${t('Entfernen')}`} onClick={onRemove}>
+          <X />
+        </Button>
+      )}
+    </li>
   )
 }
 

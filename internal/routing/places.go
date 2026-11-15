@@ -2,6 +2,7 @@ package routing
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -40,7 +41,17 @@ func (h *Handler) Places(w http.ResponseWriter, r *http.Request) {
 	}
 
 	query := url.Values{"text": {text}, "size": {fmt.Sprint(maxPlaces)}}
-	if near, ok := parsePoint(r.URL.Query().Get("near")); ok {
+	near, hasNear := parsePoint(r.URL.Query().Get("near"))
+	cacheKey := "places|" + strings.ToLower(text)
+	if hasNear {
+		cacheKey += fmt.Sprintf("|%.2f,%.2f", near[0], near[1])
+	}
+	var cached []Place
+	if h.loadJSON(r.Context(), cacheKey, &cached) {
+		httpx.WriteJSON(w, http.StatusOK, map[string]any{"places": cached})
+		return
+	}
+	if hasNear {
 		query.Set("focus.point.lon", fmt.Sprint(near[0]))
 		query.Set("focus.point.lat", fmt.Sprint(near[1]))
 		// Stops and hotels are near the venue; without a boundary the
@@ -93,11 +104,40 @@ func (h *Handler) Places(w http.ResponseWriter, r *http.Request) {
 			Lat:   f.Geometry.Coordinates[1],
 		})
 	}
+	h.storeJSON(r.Context(), cacheKey, places)
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{"places": places})
 }
 
+// loadJSON and storeJSON keep search answers next to the cached routes, so
+// a repeated search costs no request to the routing service.
+func (h *Handler) loadJSON(ctx context.Context, key string, into any) bool {
+	if h.db == nil {
+		return false
+	}
+	var raw string
+	if err := h.db.QueryRowContext(ctx, `SELECT route FROM route_cache WHERE cache_key = ?`, key).Scan(&raw); err != nil {
+		return false
+	}
+	return json.Unmarshal([]byte(raw), into) == nil
+}
+
+func (h *Handler) storeJSON(ctx context.Context, key string, value any) {
+	if h.db == nil {
+		return
+	}
+	raw, err := json.Marshal(value)
+	if err != nil {
+		return
+	}
+	if _, err := h.db.ExecContext(ctx,
+		`INSERT INTO route_cache (cache_key, route) VALUES (?, ?)
+		 ON CONFLICT(cache_key) DO UPDATE SET route = excluded.route`, key, string(raw)); err != nil {
+		slog.Warn("place cache write failed", "error", err)
+	}
+}
+
 const (
-	nearbyRadiusMeters = 1500
+	nearbyRadiusMeters = 2000
 	maxNearby          = 40
 	transportGroup     = 580
 )
@@ -136,6 +176,13 @@ func (h *Handler) Nearby(w http.ResponseWriter, r *http.Request) {
 	at, ok := parsePoint(r.URL.Query().Get("at"))
 	if !ok {
 		httpx.WriteError(w, http.StatusBadRequest, httpx.CodeBadRequest, "Invalid point.")
+		return
+	}
+	// Rounded to about 100 m: nudging the venue pin reuses the answer.
+	cacheKey := fmt.Sprintf("nearby|%.3f,%.3f", at[0], at[1])
+	var cached []NearbyPlace
+	if h.loadJSON(r.Context(), cacheKey, &cached) {
+		httpx.WriteJSON(w, http.StatusOK, map[string]any{"places": cached})
 		return
 	}
 	payload, _ := json.Marshal(map[string]any{
@@ -210,6 +257,7 @@ func (h *Handler) Nearby(w http.ResponseWriter, r *http.Request) {
 				if stop.rank > ranks[name] {
 					ranks[name] = stop.rank
 					places[i].Kind = stop.kind
+					places[i].Lng, places[i].Lat = f.Geometry.Coordinates[0], f.Geometry.Coordinates[1]
 				}
 			} else if len(places) < maxNearby {
 				stops[name] = len(places)
@@ -218,5 +266,6 @@ func (h *Handler) Nearby(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
+	h.storeJSON(r.Context(), cacheKey, places)
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{"places": places})
 }
