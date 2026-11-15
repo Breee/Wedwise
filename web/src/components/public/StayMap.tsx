@@ -3,7 +3,7 @@ import { locale, t } from '@/lib/i18n'
 import { useQueries, useQuery } from '@tanstack/react-query'
 import * as maplibregl from 'maplibre-gl'
 import type { Map as MapLibreMap } from 'maplibre-gl'
-import { Bike, CalendarDays, Car, ChevronDown, ExternalLink, Footprints, Home, MapPin, TramFront } from 'lucide-react'
+import { Bike, CalendarDays, Car, ChevronDown, ExternalLink, Footprints, Home, Map as MapIcon, MapPin, TramFront, X } from 'lucide-react'
 import type { Accommodation, Hotel, StayKind, Stop, Travel } from '@/lib/types'
 import {
   airbnbUrl,
@@ -28,6 +28,7 @@ import { ICON_SVG, KIND } from './TravelMap'
 
 const INITIAL_VISIBLE = 3
 const MARKER_SIZE = 24
+const DESKTOP = '(min-width: 1024px)'
 
 const TIER = { 1: { label: '€', hint: 'günstig' }, 2: { label: '€€', hint: 'mittel' }, 3: { label: '€€€', hint: 'gehoben' } } as const
 // Up to this walking time we only suggest walking.
@@ -84,7 +85,11 @@ export function StayMap({ accommodation, travel, city }: { accommodation: Accomm
   )
   const hasApartments = allHotels.some((h) => h.kind === 'apartment')
   const toggleTier = (t: number) => setTiers((cur) => (cur.includes(t) ? cur.filter((x) => x !== t) : [...cur, t]))
-  const visible = showAll ? hotels : hotels.slice(0, INITIAL_VISIBLE)
+  // Phones get a plain list; the map opens full screen on request.
+  const desktop = useDesktop()
+  const [mapOpen, setMapOpen] = useState(false)
+  const showMap = desktop || mapOpen
+  const visible = showAll || !desktop ? hotels : hotels.slice(0, INITIAL_VISIBLE)
   const selectedIndex = hotels.findIndex((h) => h.name === selected)
   const active = hover ?? (selectedIndex >= 0 ? selectedIndex : null)
 
@@ -131,6 +136,7 @@ export function StayMap({ accommodation, travel, city }: { accommodation: Accomm
       el.addEventListener('mouseleave', () => setHover(null))
       el.addEventListener('click', () => {
         setSelected(h.name)
+        if (!desktop) return
         if (i >= INITIAL_VISIBLE) setShowAll(true)
         requestAnimationFrame(() => document.getElementById(`hotel-${i}`)?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }))
       })
@@ -147,7 +153,7 @@ export function StayMap({ accommodation, travel, city }: { accommodation: Accomm
       markers.forEach((m) => m.remove())
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [map, hotels, hasVenue, venue])
+  }, [map, hotels, hasVenue, venue, desktop])
 
   useEffect(() => {
     if (!map) return
@@ -158,31 +164,26 @@ export function StayMap({ accommodation, travel, city }: { accommodation: Accomm
   useEffect(() => {
     if (!map) return
     const hotel = selectedIndex >= 0 ? hotels[selectedIndex] : undefined
-    const features: RouteFeature[] = []
-    if (hotel) {
-      if (hotel.walk && hotel.foot) features.push({ route: hotel.foot, color: FOOT_COLOR, id: 0, icon: FOOT_SVG })
-      else if (hotel.transit) {
-        const t = hotel.transit
-        if (t.ride) features.push({ route: t.ride, color: KIND.tram.color, id: 1, icon: ICON_SVG.tram })
-        if (stopWalk) features.push({ route: stopWalk, color: FOOT_COLOR, id: 2, icon: FOOT_SVG })
-      }
-    }
-    const drawable = features.filter((f) => !f.route.estimated)
+    const drawable = hotel ? routeFeatures(hotel, stopWalk) : []
     const cleanup = drawRoutes(map, drawable)
-    if (hotel) {
-      const bounds = new maplibregl.LngLatBounds(venue, venue)
-      bounds.extend([hotel.lng, hotel.lat])
-      drawable.forEach((f) => f.route.coordinates.forEach((c) => bounds.extend(c)))
-      map.fitBounds(bounds, { padding: fitPadding(map), maxZoom: 15, duration: 800 })
-      if (window.innerWidth < 1024) {
-        const top = map.getContainer().getBoundingClientRect().top + window.scrollY - 80
-        window.scrollTo({ top, behavior: 'smooth' })
-      }
-    }
+    if (hotel) map.fitBounds(routeBounds(hotel, venue, drawable), { padding: fitPadding(map), maxZoom: 15, duration: 800 })
     return cleanup
   }, [map, hotels, selectedIndex, stopWalk, venue])
 
+  useEffect(() => {
+    if (!mapOpen || desktop) return
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = ''
+    }
+  }, [mapOpen, desktop])
+
   const stay = formatStayDates(checkIn, checkOut)
+  const chosen = selectedIndex >= 0 ? hotels[selectedIndex] : undefined
+  const openDetails = () => {
+    setMapOpen(false)
+    requestAnimationFrame(() => document.getElementById(`hotel-${selectedIndex}`)?.scrollIntoView({ block: 'center' }))
+  }
 
   return (
     <div className="space-y-8">
@@ -230,18 +231,53 @@ export function StayMap({ accommodation, travel, city }: { accommodation: Accomm
         )}
       </div>
       <div className="grid gap-6 lg:grid-cols-5">
-        <BaseMap onReady={setMap} className="h-[50svh] max-h-[640px] min-h-[300px] lg:sticky lg:top-24 lg:col-span-3 lg:h-[640px]">
-          {selectedIndex < 0 ? (
-            <div className="pointer-events-none absolute top-3 left-3 rounded-full bg-background/90 px-3 py-1.5 text-xs text-muted-foreground shadow backdrop-blur sm:text-sm">
-              {t('Unterkunft auswählen, um den Weg zu sehen')}
-            </div>
-          ) : (
-            <div className="pointer-events-none absolute top-3 left-3 flex items-center gap-3 rounded-full bg-background/90 px-3 py-1.5 text-xs shadow backdrop-blur" aria-label={t('Legende')}>
-              <span className="flex items-center gap-1.5"><span className="inline-block h-1 w-5 rounded-full" style={{ background: KIND.tram.color }} /><TramFront className="size-3.5" /> Tram</span>
-              <span className="flex items-center gap-1.5"><span className="inline-block h-1 w-5 rounded-full" style={{ background: FOOT_COLOR }} /><Footprints className="size-3.5" /> {t('zu Fuß')}</span>
-            </div>
-          )}
-        </BaseMap>
+        {showMap && (
+          <div className={cn(desktop ? 'lg:col-span-3' : 'fixed inset-0 z-50 flex flex-col bg-background')}>
+            {!desktop && (
+              <div className="flex items-center justify-between border-b px-4 py-2">
+                <h3 className="text-xl">{t('Unterkünfte')}</h3>
+                <Button variant="ghost" size="sm" onClick={() => setMapOpen(false)}>
+                  <X className="size-4" /> {t('Schließen')}
+                </Button>
+              </div>
+            )}
+            <BaseMap
+              key={desktop ? 'side' : 'full'}
+              gestures={desktop ? 'cooperative' : 'free'}
+              onReady={(m) => {
+                setMap(m)
+                return () => setMap(null)
+              }}
+              className={desktop ? 'h-[640px] lg:sticky lg:top-24' : 'min-h-0 flex-1 rounded-none border-0'}
+            >
+              {selectedIndex < 0 ? (
+                <div className="pointer-events-none absolute top-3 left-3 rounded-full bg-background/90 px-3 py-1.5 text-xs text-muted-foreground shadow backdrop-blur sm:text-sm">
+                  {t('Unterkunft auswählen, um den Weg zu sehen')}
+                </div>
+              ) : (
+                <div className="pointer-events-none absolute top-3 left-3 flex items-center gap-3 rounded-full bg-background/90 px-3 py-1.5 text-xs shadow backdrop-blur" aria-label={t('Legende')}>
+                  <span className="flex items-center gap-1.5"><span className="inline-block h-1 w-5 rounded-full" style={{ background: KIND.tram.color }} /><TramFront className="size-3.5" /> Tram</span>
+                  <span className="flex items-center gap-1.5"><span className="inline-block h-1 w-5 rounded-full" style={{ background: FOOT_COLOR }} /><Footprints className="size-3.5" /> {t('zu Fuß')}</span>
+                </div>
+              )}
+              {!desktop && chosen && (
+                <div className="absolute inset-x-3 bottom-8 rounded-2xl border bg-card p-4 shadow-xl">
+                  <div className="flex items-start justify-between gap-3">
+                    <h4 className="text-lg leading-tight">{chosen.name}</h4>
+                    <span className="shrink-0 rounded-full bg-gold/20 px-2.5 py-0.5 text-xs font-semibold tracking-wider">{(TIER[chosen.priceTier] ?? TIER[2]).label}</span>
+                  </div>
+                  <p className="mt-1 text-sm text-muted-foreground">{headline(chosen)}</p>
+                  <Button size="sm" className="mt-3 w-full" onClick={openDetails}>{t('Details')}</Button>
+                </div>
+              )}
+            </BaseMap>
+          </div>
+        )}
+        {!desktop && hotels.length > 0 && (
+          <Button variant="outline" className="w-full" onClick={() => setMapOpen(true)}>
+            <MapIcon className="size-4" /> {t('Karte anzeigen')}
+          </Button>
+        )}
         <ol className="space-y-3 lg:col-span-2">
           {hotels.length === 0 && (
             <li className="rounded-2xl border border-dashed p-6 text-center text-sm text-muted-foreground">
@@ -256,6 +292,8 @@ export function StayMap({ accommodation, travel, city }: { accommodation: Accomm
               venue={hasVenue ? venue : null}
               active={active === i}
               selected={selectedIndex === i}
+              expanded={desktop || selectedIndex === i}
+              preview={!desktop && selectedIndex === i ? <RoutePreview hotel={h} venue={venue} stopWalk={stopWalk} onOpen={() => setMapOpen(true)} /> : null}
               city={city}
               checkIn={checkIn}
               checkOut={checkOut}
@@ -300,6 +338,72 @@ export function StayMap({ accommodation, travel, city }: { accommodation: Accomm
   )
 }
 
+function useDesktop() {
+  const [desktop, setDesktop] = useState(() => window.matchMedia(DESKTOP).matches)
+  useEffect(() => {
+    const query = window.matchMedia(DESKTOP)
+    const update = () => setDesktop(query.matches)
+    query.addEventListener('change', update)
+    return () => query.removeEventListener('change', update)
+  }, [])
+  return desktop
+}
+
+// The hotel's best way: walk, or tram plus the walk from the stop. Estimates are not drawn.
+function routeFeatures(hotel: Ranked, stopWalk: Route | undefined): RouteFeature[] {
+  const features: RouteFeature[] = []
+  if (hotel.walk && hotel.foot) features.push({ route: hotel.foot, color: FOOT_COLOR, id: 0, icon: FOOT_SVG })
+  else if (hotel.transit) {
+    if (hotel.transit.ride) features.push({ route: hotel.transit.ride, color: KIND.tram.color, id: 1, icon: ICON_SVG.tram })
+    if (stopWalk) features.push({ route: stopWalk, color: FOOT_COLOR, id: 2, icon: FOOT_SVG })
+  }
+  return features.filter((f) => !f.route.estimated)
+}
+
+function routeBounds(hotel: Ranked, venue: LngLat, features: RouteFeature[]) {
+  const bounds = new maplibregl.LngLatBounds(venue, venue)
+  bounds.extend([hotel.lng, hotel.lat])
+  features.forEach((f) => f.route.coordinates.forEach((c) => bounds.extend(c)))
+  return bounds
+}
+
+function headline(hotel: Ranked): string {
+  if (hotel.walk) return t('{n} Min zu Fuß zur Location', { n: hotel.foot?.minutes ?? '' })
+  if (hotel.transit) return t('ca. {n} Min mit der Tram', { n: hotel.transit.totalMinutes })
+  return ''
+}
+
+// A still picture of the way; tapping it opens the full map.
+function RoutePreview({ hotel, venue, stopWalk, onOpen }: { hotel: Ranked; venue: LngLat; stopWalk: Route | undefined; onOpen: () => void }) {
+  const [map, setMap] = useState<MapLibreMap | null>(null)
+  useEffect(() => {
+    if (!map) return
+    const features = routeFeatures(hotel, stopWalk)
+    const cleanup = drawRoutes(map, features)
+    const markers = [
+      venueMarker(map, venue),
+      new maplibregl.Marker({ element: markerElement('', 'wed-marker wed-marker-hotel is-active'), anchor: 'center' }).setLngLat([hotel.lng, hotel.lat]).addTo(map),
+    ]
+    map.fitBounds(routeBounds(hotel, venue, features), { padding: 36, maxZoom: 15, duration: 0 })
+    return () => {
+      cleanup()
+      markers.forEach((m) => m.remove())
+    }
+  }, [map, hotel, venue, stopWalk])
+  return (
+    <BaseMap
+      gestures="none"
+      onReady={(m) => {
+        setMap(m)
+        return () => setMap(null)
+      }}
+      className="mt-3 h-44 rounded-2xl shadow-none"
+    >
+      <button type="button" aria-label={t('Karte anzeigen')} className="absolute inset-0" onClick={(e) => { e.stopPropagation(); onOpen() }} />
+    </BaseMap>
+  )
+}
+
 function viaStop(from: LngLat, stop: Stop | undefined, venue: LngLat, stopWalk: Route | undefined, toStop: Route | undefined): Transit | null {
   if (!stop) return null
   const at: LngLat = [stop.lng, stop.lat]
@@ -316,6 +420,8 @@ function HotelCard({
   venue,
   active,
   selected,
+  expanded,
+  preview,
   city,
   checkIn,
   checkOut,
@@ -328,6 +434,8 @@ function HotelCard({
   venue: LngLat | null
   active: boolean
   selected: boolean
+  expanded: boolean
+  preview: React.ReactNode
   city: string
   checkIn: string
   checkOut: string
@@ -364,24 +472,30 @@ function HotelCard({
               <MapPin className="size-3.5" /> {hotel.area}
             </p>
           )}
-          {hotel.note && <p className="mt-2 text-sm text-foreground/80">{hotel.note}</p>}
-          {venue && <TravelTimes hotel={hotel} venue={venue} />}
-          <div className="mt-3 flex flex-wrap gap-2" onClick={(e) => e.stopPropagation()}>
-            <Button asChild size="sm">
-              <a href={hotelBookingUrl(hotel, city, checkIn, checkOut)} target="_blank" rel="noreferrer">
-                {t('Verfügbarkeit prüfen')}
-              </a>
-            </Button>
-            {hotel.url && (
-              <Button asChild size="sm" variant="ghost">
-                <a href={hotel.url} target="_blank" rel="noreferrer">
-                  Website <ExternalLink className="size-3.5" />
-                </a>
-              </Button>
-            )}
-          </div>
+          {!expanded && <p className="mt-1 text-sm font-medium">{headline(hotel)}</p>}
+          {expanded && (
+            <>
+              {hotel.note && <p className="mt-2 text-sm text-foreground/80">{hotel.note}</p>}
+              {venue && <TravelTimes hotel={hotel} venue={venue} />}
+              <div className="mt-3 flex flex-wrap gap-2" onClick={(e) => e.stopPropagation()}>
+                <Button asChild size="sm">
+                  <a href={hotelBookingUrl(hotel, city, checkIn, checkOut)} target="_blank" rel="noreferrer">
+                    {t('Verfügbarkeit prüfen')}
+                  </a>
+                </Button>
+                {hotel.url && (
+                  <Button asChild size="sm" variant="ghost">
+                    <a href={hotel.url} target="_blank" rel="noreferrer">
+                      Website <ExternalLink className="size-3.5" />
+                    </a>
+                  </Button>
+                )}
+              </div>
+            </>
+          )}
         </div>
       </div>
+      {expanded && preview}
     </li>
   )
 }

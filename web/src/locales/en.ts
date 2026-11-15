@@ -539,4 +539,6 @@ export const en: Record<string, string> = {
   'Mit Passkey sichern': 'Save with a passkey',
   'Die Anmeldung mit dem Passkey hat nicht geklappt.': 'Signing in with the passkey did not work.',
   'Der Passkey wurde nicht erkannt.': 'The passkey was not recognised.',
+  'Karte anzeigen': 'Show map',
+  'Details': 'Details',
 }

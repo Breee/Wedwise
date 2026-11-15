@@ -14,7 +14,10 @@ export function BaseMap({
   onReady,
   className,
   children,
+  gestures = 'cooperative',
 }: {
+  // cooperative: two fingers / ctrl to move, so the page still scrolls. none: a still picture.
+  gestures?: 'cooperative' | 'free' | 'none'
   onReady: (map: MapLibreMap) => void | (() => void)
   className?: string
   children?: React.ReactNode
@@ -31,22 +34,29 @@ export function BaseMap({
       center: [7.85, 47.99],
       zoom: 12,
       attributionControl: { compact: true },
-      cooperativeGestures: true,
+      cooperativeGestures: gestures === 'cooperative',
+      interactive: gestures !== 'none',
       locale: {
         'CooperativeGesturesHandler.WindowsHelpText': t('Strg + Scrollen zum Zoomen'),
         'CooperativeGesturesHandler.MacHelpText': t('⌘ + Scrollen zum Zoomen'),
         'CooperativeGesturesHandler.MobileHelpText': t('Mit zwei Fingern bewegen'),
       },
     })
-    map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right')
+    if (gestures !== 'none') map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right')
     let cleanup: void | (() => void)
     map.once('load', () => {
+      if (gestures === 'none') {
+        const credit = map.getContainer().querySelector('.maplibregl-ctrl-attrib')
+        credit?.classList.remove('maplibregl-compact-show')
+        credit?.removeAttribute('open')
+      }
       cleanup = ready.current(map)
     })
     return () => {
       cleanup?.()
       map.remove()
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   return (
