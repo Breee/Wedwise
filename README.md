@@ -71,6 +71,28 @@ Log in at `/login`. Stop with `make down`; wipe all data with
 These passwords are for local testing only. For a real deployment see
 [Deployment](#deployment).
 
+### HTTPS in your local network
+
+Installing the app on a phone and push messages need HTTPS. `make https` puts
+Traefik in front of Wedwise and serves it at <https://wedding.local> for every
+device in the same network:
+
+```sh
+make https   # needs openssl and avahi-publish (avahi-utils)
+```
+
+It creates a small certificate authority in `local/certs/` once, announces
+`wedding.local` in the network and starts Traefik on ports 80 and 443. Each
+phone has to trust `local/certs/ca.crt` once:
+
+- **iPhone**: send yourself the file, open it, install the profile, then switch
+  it on under Settings → General → About → Certificate Trust Settings.
+- **Android**: Settings → Security → Encryption & credentials → Install a
+  certificate → CA certificate.
+
+`make down` stops everything. Other name or address: `make https HTTPS_HOST=… LAN_IP=…`
+(delete `local/certs/` first so the certificate matches).
+
 ## Set up your wedding
 
 1. **Event basics** — on first run `make up` copies `examples/` to `local/`

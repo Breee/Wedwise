@@ -1,0 +1,19 @@
+# Traefik routes for `make https`: TLS for wedding.local with the local certificate.
+http:
+  routers:
+    wedwise:
+      rule: "PathPrefix(`/`)"
+      entryPoints: [websecure]
+      service: wedwise
+      tls: {}
+  services:
+    wedwise:
+      loadBalancer:
+        servers:
+          - url: "http://wedwise:8080"
+tls:
+  stores:
+    default:
+      defaultCertificate:
+        certFile: /certs/server.crt
+        keyFile: /certs/server.key
