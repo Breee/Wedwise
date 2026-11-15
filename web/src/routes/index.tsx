@@ -217,7 +217,7 @@ function HomePage() {
       {(location.transport || location.parking || location.bike || hasMap) && (
         <Section id="anreise" eyebrow={t('Anreise')} title={t('So kommt ihr hin')} className="bg-card/50">
           <Tabs value={mode} onValueChange={(v) => setMode(v as TravelMode)} className="space-y-8">
-            <TabsList className="mx-auto grid w-full max-w-md grid-cols-3 sm:flex sm:w-fit">
+            <TabsList className="mx-auto grid w-full max-w-md grid-cols-3 sm:flex sm:w-fit sm:max-w-none">
               {ARRIVAL.map(({ mode: m, label, short, Icon }) => (
                 <TabsTrigger key={m} value={m} className="gap-1.5 px-2 text-xs sm:gap-2 sm:px-4 sm:text-sm">
                   <Icon className="size-4" /> <span className="sm:hidden">{short}</span><span className="hidden sm:inline">{label}</span>

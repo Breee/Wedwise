@@ -45,10 +45,36 @@ export function applyTheme(theme: Theme) {
   }
 }
 
+// Draws the logo in the theme colours so the tab icon follows the chosen style.
+function applyFavicon(theme: Theme) {
+  const image = new Image()
+  image.onload = () => {
+    const size = 64
+    const canvas = document.createElement('canvas')
+    canvas.width = canvas.height = size
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+    ctx.drawImage(image, 4, 4, size - 8, size - 8)
+    ctx.globalCompositeOperation = 'source-in'
+    ctx.fillStyle = theme.colors.primaryForeground
+    ctx.fillRect(0, 0, size, size)
+    ctx.globalCompositeOperation = 'destination-over'
+    ctx.fillStyle = theme.colors.primary
+    ctx.beginPath()
+    ctx.roundRect(0, 0, size, size, 14)
+    ctx.fill()
+    const link = document.querySelector<HTMLLinkElement>('link[rel="icon"]')
+    if (link) link.href = canvas.toDataURL('image/png')
+  }
+  image.src = '/logo.png'
+}
+
 export function ThemeApplier() {
   const { data } = useQuery(publicContentQuery)
   useEffect(() => {
-    if (data?.theme) applyTheme(data.theme)
+    if (!data?.theme) return
+    applyTheme(data.theme)
+    applyFavicon(data.theme)
   }, [data?.theme])
   useEffect(() => {
     if (!data) return

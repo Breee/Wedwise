@@ -63,6 +63,7 @@ export function AppNav() {
         )}
       >
         <Link to="/" className="flex shrink-0 items-center gap-2 font-display text-xl tracking-wide whitespace-nowrap sm:text-2xl">
+          <span aria-hidden className="wed-logo size-7 text-primary" />
           {names.length === 2 ? (
             <>
               {names[0]}
@@ -71,7 +72,6 @@ export function AppNav() {
             </>
           ) : (
             <>
-              <Heart className="size-5 fill-primary/20 text-primary" />
               {content?.event.title ?? t('Unsere Hochzeit')}
             </>
           )}
