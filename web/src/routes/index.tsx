@@ -12,6 +12,7 @@ import { GuestNotifications } from '@/components/public/Notifications'
 import { rememberedToken } from '@/lib/remember'
 import type { DirectionsMode } from '@/lib/geo'
 import { DirectionsLinks } from '@/components/public/DirectionsLinks'
+import { ArrivalSummary } from '@/components/public/ArrivalSummary'
 import { Section } from '@/components/public/Section'
 import { SectionNav } from '@/components/public/SectionNav'
 import { BotanicalCorners } from '@/components/public/Botanical'
@@ -228,6 +229,7 @@ function HomePage() {
                 <Card className="mx-auto max-w-2xl">
                   <CardContent className="space-y-3">
                     <h3 className="flex items-center gap-2 text-2xl"><Icon className="size-5 text-primary" /> {label}</h3>
+                    {hasMap && m === 'transit' && <ArrivalSummary travel={travel} />}
                     {text && <div className="space-y-2 text-muted-foreground"><Paragraphs text={text} /></div>}
                     {hasMap && m === 'bike' && (
                       <DirectionsLinks className="block pt-1" to={[travel.lng, travel.lat]} name={location.name || 'Location'} mode={directions} />

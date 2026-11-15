@@ -148,7 +148,7 @@ function ContentPage() {
                 <ImageUpload onUploaded={(url) => set('location', { ...draft.location, image: url })} />
               </div>
               <Field label={t('Beschreibung')} multiline value={draft.location.description} onChange={(v) => set('location', { ...draft.location, description: v })} className="sm:col-span-2" />
-              <Field label={t('Anreise')} multiline value={draft.location.transport} onChange={(v) => set('location', { ...draft.location, transport: v })} />
+              <Field label={t('Hinweis zu Bus und Bahn (Haltestellen und Gehzeiten ergänzen wir automatisch)')} multiline value={draft.location.transport} onChange={(v) => set('location', { ...draft.location, transport: v })} />
               <Field label={t('Parken')} multiline value={draft.location.parking} onChange={(v) => set('location', { ...draft.location, parking: v })} />
               <Field label={t('Fahrrad')} multiline value={draft.location.bike} onChange={(v) => set('location', { ...draft.location, bike: v })} />
             </CardContent>

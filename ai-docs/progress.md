@@ -66,3 +66,4 @@ Open work is tracked in GitHub issues and milestones (M1 Staff tools, M2 Accommo
 - 2026-11-15: Places to stay are edited on a map too: nearby hotels and holiday flats as suggestions, search, tap to add, details in a panel; the old form list and place picker are gone.
 - 2026-11-15: Logo (cloud couple) in nav and as favicon in theme colours; app icons regenerated; arrival tabs no longer cut off on desktop.
 - 2026-11-15: Mobile review: one 'Route planen' button with app chooser (Google Maps, Apple Karten, Waze, other app on Android), FAQ accordion, smaller install button, card padding, stay filter rows, map fit padding, lining numerals on stats, map editor lists no longer clipped on phones, section nav clears at the top.
+- 2026-11-15: Transit card lists every stop with line and walking time (ArrivalSummary), generated from the map; the couple's text is an optional note.
