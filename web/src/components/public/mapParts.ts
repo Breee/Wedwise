@@ -39,7 +39,7 @@ function beside(map: MapLibreMap, a: LngLat, b: LngLat): [number, number] {
   return [side * nx * 40, side * ny * 22]
 }
 
-export function drawRoutes(map: MapLibreMap, routes: RouteFeature[]): () => void {
+export function drawRoutes(map: MapLibreMap, routes: RouteFeature[], withLabels = true): () => void {
   const data = {
     type: 'FeatureCollection' as const,
     features: routes.map(({ route, color, id }) => ({
@@ -58,7 +58,7 @@ export function drawRoutes(map: MapLibreMap, routes: RouteFeature[]): () => void
     map.addLayer({ id: 'routes-dash', type: 'line', source: 'routes', layout, paint: { 'line-color': ['get', 'color'], 'line-width': 3.5, 'line-dasharray': [0, 4, 3] } })
   }
 
-  const labels = routes.map(({ route, color, icon }) => {
+  const labels = (withLabels ? routes : []).map(({ route, color, icon }) => {
     const c = route.coordinates
     const at = Math.floor(c.length / 2)
     const mid: LngLat = c.length === 2 ? [(c[0][0] + c[1][0]) / 2, (c[0][1] + c[1][1]) / 2] : c[at]

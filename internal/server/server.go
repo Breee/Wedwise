@@ -364,12 +364,12 @@ func imagesHandler(dir string) http.Handler {
 // mapLegs lists the routes the public maps ask for, so they can be looked up
 // before the first visitor arrives.
 //
-// Guests staying further away walk to the nearest stop of the kind that
-// serves the venue; boardKind and boardFrom name those lookups.
-func mapLegs(c content.Content) (legs []routing.Leg, boardKind string, boardFrom [][2]float64) {
+// Guests staying further away walk to a stop of the line that serves the
+// venue; board and boardFrom name those lookups.
+func mapLegs(c content.Content) (legs []routing.Leg, board *routing.Boarding, boardFrom [][2]float64) {
 	venue := [2]float64{c.Travel.Lng, c.Travel.Lat}
 	if venue == [2]float64{} {
-		return nil, "", nil
+		return nil, nil, nil
 	}
 	var stop *[2]float64
 	for _, s := range c.Travel.Stops {
@@ -379,7 +379,7 @@ func mapLegs(c content.Content) (legs []routing.Leg, boardKind string, boardFrom
 		point := [2]float64{s.Lng, s.Lat}
 		if stop == nil {
 			stop = &point
-			boardKind = s.Kind
+			board = &routing.Boarding{Kind: s.Kind, Line: s.Line, To: point}
 		}
 		legs = append(legs, routing.Leg{Profile: "foot", From: point, To: venue})
 	}
@@ -392,5 +392,5 @@ func mapLegs(c content.Content) (legs []routing.Leg, boardKind string, boardFrom
 			boardFrom = append(boardFrom, from)
 		}
 	}
-	return legs, boardKind, boardFrom
+	return legs, board, boardFrom
 }

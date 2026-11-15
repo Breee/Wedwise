@@ -37,7 +37,7 @@ const WALK_ONLY_MINUTES = 15
 const FOOT_COLOR = '#5e7f63'
 const FOOT_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 16v-2.38C4 11.5 2.97 10.5 3 8c.03-2.72 1.49-6 4.5-6C9.37 2 10 3.8 10 5.5c0 3.11-2 5.66-2 8.68V16a2 2 0 1 1-4 0Z"/><path d="M20 20v-2.38c0-2.12 1.03-3.12 1-5.62-.03-2.72-1.49-6-4.5-6C14.63 6 14 7.8 14 9.5c0 3.11 2 5.66 2 8.68V20a2 2 0 1 0 4 0Z"/><path d="M16 17h4M4 13h4"/></svg>'
 
-type Board = { name: string; lat: number; lng: number }
+type Board = { name: string; lat: number; lng: number; track?: { meters: number; coordinates: LngLat[] } }
 // toBoard: the walk to the stop where guests get on; ride: from there to the stop at the location.
 type Transit = { stop: Stop; board?: Board; toBoard?: Route; ride?: Route; totalMinutes: number }
 // walk: walking is realistic (≤ WALK_MAX_MINUTES) and not slower than the tram.
@@ -57,7 +57,10 @@ export function StayMap({ accommodation, travel, city }: { accommodation: Accomm
   const boards = useQueries({
     queries: accommodation.hotels.map((h) => ({
       queryKey: ['route', 'stop', stop?.kind, h.lng, h.lat],
-      queryFn: () => api.get<{ stop: Board }>(`/route/stop?at=${h.lng},${h.lat}&kind=${stop?.kind}`).then((r) => r.stop, () => null),
+      queryFn: () =>
+        api
+          .get<{ stop: Board; ride?: Board['track'] }>(`/route/stop?at=${h.lng},${h.lat}&to=${stop?.lng},${stop?.lat}&kind=${stop?.kind}&line=${encodeURIComponent(stop?.line ?? '')}`)
+          .then((r) => ({ ...r.stop, track: r.ride }), () => null),
       enabled: hasVenue && !!stop,
       staleTime: Infinity,
       retry: false,
@@ -395,7 +398,7 @@ function RoutePreview({ hotel, venue, stopWalk, onOpen }: { hotel: Ranked; venue
   useEffect(() => {
     if (!map) return
     const features = routeFeatures(hotel, stopWalk)
-    const cleanup = drawRoutes(map, features)
+    const cleanup = drawRoutes(map, features, false)
     const markers = [
       venueMarker(map, venue),
       new maplibregl.Marker({ element: markerElement('', 'wed-marker wed-marker-hotel is-active'), anchor: 'center' }).setLngLat([hotel.lng, hotel.lat]).addTo(map),
@@ -435,9 +438,10 @@ function viaStop(from: LngLat, stop: Stop | undefined, venue: LngLat, stopWalk: 
   // The nearest stop is the one at the location: there is nothing to ride.
   if (distanceMeters(start, at) < SAME_STOP_METERS) return null
   const walk = toBoard ?? estimateRoute('foot', from, start)
-  const meters = distanceMeters(start, at)
+  // Along the track when the line is known, else as the crow flies.
+  const meters = board.track?.meters ?? distanceMeters(start, at)
   const minutes = TRAM_WAIT_MINUTES + Math.round(meters / METERS_PER_MINUTE.transit)
-  const ride: Route = { coordinates: [start, at], meters, minutes, estimated: false }
+  const ride: Route = { coordinates: board.track?.coordinates ?? [start, at], meters, minutes, estimated: false }
   return { stop, board, toBoard: walk, ride, totalMinutes: walk.minutes + minutes + walkMinutes }
 }
 

@@ -42,6 +42,7 @@ type Route struct {
 type Handler struct {
 	key     string
 	baseURL string
+	mapURL  string
 	client  *http.Client
 	db      *sql.DB
 
@@ -57,6 +58,7 @@ func NewHandler(key string, db *sql.DB) *Handler {
 	return &Handler{
 		key:     strings.TrimSpace(key),
 		baseURL: defaultBaseURL,
+		mapURL:  defaultMapURL,
 		client:  &http.Client{Timeout: 8 * time.Second},
 		db:      db,
 		cache:   map[string]Route{},
@@ -121,9 +123,9 @@ type Leg struct {
 // the cache. Lookups are spaced out to stay within the routing service's
 // rate limit. A newer call replaces a running one.
 //
-// When boardKind is set, the nearest stop of that kind is also found for
-// every point in boardFrom, together with the walk to it.
-func (h *Handler) Warm(legs []Leg, boardKind string, boardFrom [][2]float64) {
+// When board is set, the stop guests get on at is also found for every
+// point in boardFrom, together with the walk to it.
+func (h *Handler) Warm(legs []Leg, board *Boarding, boardFrom [][2]float64) {
 	if h.key == "" {
 		return
 	}
@@ -159,17 +161,17 @@ func (h *Handler) Warm(legs []Leg, boardKind string, boardFrom [][2]float64) {
 			h.mu.Lock()
 			current := h.warmRun
 			h.mu.Unlock()
-			if current != run || boardKind == "" {
+			if current != run || board == nil {
 				return
 			}
 			started := time.Now()
 			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-			stop, found, err := h.boardingStop(ctx, boardKind, from)
+			found, ok, err := h.boardingStop(ctx, *board, from)
 			if err != nil {
 				slog.Warn("boarding stop lookup failed", "error", err)
 			}
-			if found {
-				if _, err := h.lookup(ctx, profiles["foot"], from, [2]float64{stop.Lng, stop.Lat}); err != nil {
+			if ok {
+				if _, err := h.lookup(ctx, profiles["foot"], from, [2]float64{found.Stop.Lng, found.Stop.Lat}); err != nil {
 					slog.Warn("route warm-up failed", "error", err)
 				}
 			}

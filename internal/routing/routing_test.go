@@ -134,7 +134,7 @@ func TestWarmFillsTheCache(t *testing.T) {
 	h.baseURL = upstream(t, &calls).URL
 	h.warmPause = 0
 
-	h.Warm([]Leg{{Profile: "foot", From: [2]float64{7.85, 47.99}, To: [2]float64{7.87, 47.98}}}, "", nil)
+	h.Warm([]Leg{{Profile: "foot", From: [2]float64{7.85, 47.99}, To: [2]float64{7.87, 47.98}}}, nil, nil)
 	deadline := time.Now().Add(2 * time.Second)
 	for {
 		h.mu.Lock()
@@ -302,20 +302,21 @@ func TestBoardingStop(t *testing.T) {
 	h := NewHandler("secret", db)
 	h.baseURL = srv.URL
 	at := [2]float64{7.15, 47.98}
+	to := [2]float64{7.3, 47.98}
 
 	ask := func(kind string) *httptest.ResponseRecorder {
 		rec := httptest.NewRecorder()
-		h.Stop(rec, httptest.NewRequest(http.MethodGet, "/?at=7.15,47.98&kind="+kind, nil))
+		h.Stop(rec, httptest.NewRequest(http.MethodGet, "/?at=7.15,47.98&to=7.3,47.98&kind="+kind, nil))
 		return rec
 	}
 	if rec := ask("tram"); rec.Code != http.StatusNotFound || calls != 0 {
 		t.Fatalf("guests must not trigger lookups: status %d, calls %d", rec.Code, calls)
 	}
-	stop, found, err := h.boardingStop(context.Background(), "tram", at)
-	if err != nil || !found || stop.Name != "Tram" {
+	stop, found, err := h.boardingStop(context.Background(), Boarding{Kind: "tram", To: to}, at)
+	if err != nil || !found || stop.Stop.Name != "Tram" {
 		t.Fatalf("stop = %+v, %v, %v", stop, found, err)
 	}
-	if _, found, _ := h.boardingStop(context.Background(), "train", at); found {
+	if _, found, _ := h.boardingStop(context.Background(), Boarding{Kind: "train", To: to}, at); found {
 		t.Fatal("no train stop expected")
 	}
 	if rec := ask("tram"); rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"name":"Tram"`) {
@@ -325,8 +326,68 @@ func TestBoardingStop(t *testing.T) {
 		t.Fatalf("status %d", rec.Code)
 	}
 	before := calls
-	_, _, _ = h.boardingStop(context.Background(), "train", at)
+	_, _, _ = h.boardingStop(context.Background(), Boarding{Kind: "train", To: to}, at)
 	if calls != before {
 		t.Fatal("answers, also empty ones, must be cached")
+	}
+}
+
+func TestBoardingStopOnTheLine(t *testing.T) {
+	routes := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, `{"features":[
+			{"geometry":{"coordinates":[7.30,47.98]},"properties":{"osm_id":3,"osm_type":1,"category_ids":{"1":{"category_name":"tram_stop"}},"osm_tags":{"name":"Venue"}}}]}`)
+	}))
+	t.Cleanup(routes.Close)
+	maps := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/node/3/relations.json":
+			fmt.Fprint(w, `{"elements":[
+				{"type":"relation","id":7,"tags":{"type":"route","route":"tram","ref":"7"}},
+				{"type":"relation","id":1,"tags":{"type":"route","route":"tram","ref":"1"}}]}`)
+		case "/relation/1/full.json":
+			// The first way is laid against the direction of travel.
+			fmt.Fprint(w, `{"elements":[
+				{"type":"node","id":1,"lat":47.98,"lon":7.10,"tags":{"name":"Far"}},
+				{"type":"node","id":2,"lat":47.98,"lon":7.20,"tags":{"name":"Near"}},
+				{"type":"node","id":3,"lat":47.98,"lon":7.30,"tags":{"name":"Venue"}},
+				{"type":"node","id":4,"lat":47.98,"lon":7.40,"tags":{"name":"Beyond"}},
+				{"type":"way","id":10,"nodes":[2,1]},
+				{"type":"way","id":11,"nodes":[2,3]},
+				{"type":"way","id":12,"nodes":[4,3]},
+				{"type":"relation","id":1,"members":[
+					{"type":"node","ref":1,"role":"stop"},{"type":"node","ref":2,"role":"stop"},
+					{"type":"node","ref":3,"role":"stop"},{"type":"node","ref":4,"role":"stop_exit_only"},
+					{"type":"way","ref":10,"role":""},{"type":"way","ref":11,"role":""},{"type":"way","ref":12,"role":""}]}]}`)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	t.Cleanup(maps.Close)
+
+	h := NewHandler("secret", nil)
+	h.baseURL, h.mapURL = routes.URL, maps.URL
+	b := Boarding{Kind: "tram", Line: "1 → Somewhere", To: [2]float64{7.30, 47.98}}
+
+	board, found, err := h.boardingStop(context.Background(), b, [2]float64{7.21, 47.99})
+	if err != nil || !found || board.Stop.Name != "Near" || board.Ride == nil {
+		t.Fatalf("board = %+v, %v, %v", board, found, err)
+	}
+	if want := [][2]float64{{7.20, 47.98}, {7.30, 47.98}}; !reflect.DeepEqual(board.Ride.Coordinates, want) {
+		t.Fatalf("ride = %v", board.Ride.Coordinates)
+	}
+	if board.Ride.Meters < 7000 || board.Ride.Meters > 8000 {
+		t.Fatalf("meters = %d", board.Ride.Meters)
+	}
+
+	// Coming from beyond the venue the ride runs the other way.
+	board, _, _ = h.boardingStop(context.Background(), b, [2]float64{7.41, 47.98})
+	if want := [][2]float64{{7.40, 47.98}, {7.30, 47.98}}; board.Stop.Name != "Beyond" || !reflect.DeepEqual(board.Ride.Coordinates, want) {
+		t.Fatalf("board = %+v", board)
+	}
+
+	// At the venue stop itself there is nothing to ride.
+	board, _, _ = h.boardingStop(context.Background(), b, [2]float64{7.31, 47.98})
+	if board.Stop.Name != "Venue" || board.Ride != nil {
+		t.Fatalf("board = %+v", board)
 	}
 }

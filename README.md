@@ -117,7 +117,9 @@ phone has to trust `local/certs/ca.crt` once:
    [OpenRouteService](https://openrouteservice.org/dev/#/signup) key
    (`ROUTING_API_KEY`) and cached in the database, so each route is fetched
    once; they are looked up in the background whenever the content changes.
-   Without a key the maps show estimated times only.
+   Without a key the maps show estimated times only. For the tram or bus leg
+   from a hotel, the line of your venue stop and its track are read once from
+   OpenStreetMap and cached, so guests board at a stop on that line.
 
 ## Configuration reference
 
