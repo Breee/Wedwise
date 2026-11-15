@@ -96,7 +96,17 @@ export function RsvpForm({ initial, link, onDone }: FormProps) {
         message,
         musicGenres: attending ? joinList(genres) : '',
         musicSong: attending ? song : '',
-        attendees: attending ? attendees.filter((a) => a.name.trim()).map(({ id: _id, ...a }) => a) : [],
+        attendees: attending ? attendees
+              .filter((a) => a.name.trim())
+              .map((a) => ({
+                name: a.name,
+                isChild: a.isChild,
+                age: a.age,
+                photoOk: a.photoOk,
+                diet: a.diet,
+                allergies: a.allergies,
+              }))
+          : [],
         contribution: attending && wantsContribution ? { ...contribution, needs: formatNeeds(needs.selected, needs.other) } : null,
       }
       return initial
