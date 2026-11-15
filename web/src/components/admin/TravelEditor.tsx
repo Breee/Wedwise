@@ -14,7 +14,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 
-interface Place {
+export interface Place {
   name: string
   label: string
   lat: number
@@ -26,13 +26,13 @@ type Suggestion = Pick<Stop, 'name' | 'kind' | 'lat' | 'lng'> & { street?: strin
 const KINDS: StopKind[] = ['tram', 'bus', 'train', 'parking']
 // A suggestion this close to a stop of the same kind is already on the map.
 const SAME_PLACE = 0.0004
-const isSet = (p: { lat: number; lng: number }) => p.lat !== 0 || p.lng !== 0
+export const isSet = (p: { lat: number; lng: number }) => p.lat !== 0 || p.lng !== 0
 // Unnamed car parks all look alike, so only the nearest few are offered.
 const MAX_PARKING = 3
 // Suggestions shown per kind before "show more".
 const SHOWN = 4
 const suggestionKey = (s: Suggestion) => `sug:${s.kind}:${s.lat},${s.lng}`
-const formatMeters = (m: number) => (m < 995 ? `${Math.round(m / 10) * 10} m` : `${(m / 1000).toFixed(1).replace('.', ',')} km`)
+export const formatMeters = (m: number) => (m < 995 ? `${Math.round(m / 10) * 10} m` : `${(m / 1000).toFixed(1).replace('.', ',')} km`)
 const suggestionName = (s: Suggestion) => s.name || (s.kind === 'parking' ? [t('Parkplatz'), s.street].filter(Boolean).join(' ') : t(KIND[s.kind].label))
 const fallbackName = (kind: StopKind) => (kind === 'parking' ? t('Parkplatz') : '')
 
@@ -403,7 +403,7 @@ interface RowProps {
   muted?: boolean
 }
 
-function Row({ icon, label, detail, active, onClick, onRemove, onHover, muted }: RowProps) {
+export function Row({ icon, label, detail, active, onClick, onRemove, onHover, muted }: RowProps) {
   return (
     <li className={`flex items-center rounded-md ${active ? 'bg-secondary' : 'hover:bg-accent'}`} onMouseEnter={() => onHover?.(true)} onMouseLeave={() => onHover?.(false)}>
       <button type="button" className="flex min-w-0 flex-1 items-center gap-2 px-2 py-1.5 text-left" onClick={onClick} onFocus={() => onHover?.(true)} onBlur={() => onHover?.(false)}>
@@ -420,9 +420,9 @@ function Row({ icon, label, detail, active, onClick, onRemove, onHover, muted }:
   )
 }
 
-function Panel({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
+export function Panel({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
   return (
-    <div className="absolute inset-x-3 bottom-3 rounded-xl border bg-background/95 p-3 shadow-lg backdrop-blur sm:left-auto sm:w-[26rem]">
+    <div className="absolute inset-x-3 bottom-3 z-10 max-h-[calc(100%-1.5rem)] overflow-y-auto rounded-xl border bg-background/95 p-3 shadow-lg backdrop-blur sm:left-auto sm:w-[26rem]">
       <div className="mb-2 flex items-center justify-between">
         <span className="text-sm font-medium">{title}</span>
         <Button type="button" size="icon" variant="ghost" className="size-7" aria-label={t('Schließen')} onClick={onClose}>
@@ -434,7 +434,7 @@ function Panel({ title, onClose, children }: { title: string; onClose: () => voi
   )
 }
 
-function PlaceSearch({ near, initial, onPick }: { near?: { lat: number; lng: number }; initial: string; onPick: (place: Place) => void }) {
+export function PlaceSearch({ near, initial, onPick }: { near?: { lat: number; lng: number }; initial: string; onPick: (place: Place) => void }) {
   const [text, setText] = useState(initial)
   const [search, setSearch] = useState(initial)
   const [open, setOpen] = useState(initial.length >= 3)

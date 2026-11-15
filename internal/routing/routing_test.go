@@ -248,3 +248,34 @@ func TestNearby(t *testing.T) {
 		t.Fatalf("bad point status = %d", rec.Code)
 	}
 }
+
+func TestNearbyStays(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = fmt.Fprint(w, `{"features":[
+			{"geometry":{"coordinates":[7.1,47.98]},"properties":{"category_ids":{"1":{"category_name":"camp_site"}},"osm_tags":{"name":"Camping"}}},
+			{"geometry":{"coordinates":[7.2,47.98]},"properties":{"category_ids":{"1":{"category_name":"hotel"}},"osm_tags":{"name":"Gasthaus","website":"https://gasthaus.example/"}}},
+			{"geometry":{"coordinates":[7.3,47.98]},"properties":{"category_ids":{"1":{"category_name":"apartment"}},"osm_tags":{"name":"Wohnung","website":"javascript:alert(1)"}}},
+			{"geometry":{"coordinates":[7.4,47.98]},"properties":{"category_ids":{"1":{"category_name":"hotel"}},"osm_tags":{}}}
+		]}`)
+	}))
+	t.Cleanup(srv.Close)
+	h := NewHandler("secret", nil)
+	h.baseURL = srv.URL
+
+	rec := httptest.NewRecorder()
+	h.Nearby(rec, httptest.NewRequest(http.MethodGet, "/api/places/nearby?at=7.87,47.98&kind=stay", nil))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d", rec.Code)
+	}
+	var body struct{ Places []NearbyPlace }
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	want := []NearbyPlace{
+		{Name: "Gasthaus", Kind: "hotel", Website: "https://gasthaus.example/", Lat: 47.98, Lng: 7.2},
+		{Name: "Wohnung", Kind: "apartment", Lat: 47.98, Lng: 7.3},
+	}
+	if !reflect.DeepEqual(body.Places, want) {
+		t.Fatalf("places = %+v", body.Places)
+	}
+}

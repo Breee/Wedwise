@@ -140,19 +140,22 @@ const (
 	nearbyRadiusMeters = 2000
 	maxNearby          = 40
 	transportGroup     = 580
+	stayGroup          = 100
 	// Car parks rarely have a name; a few nearest ones are enough to pick from.
 	maxParking = 4
 )
 
-// NearbyPlace is a stop or car park close to a point, offered to editors as
+// NearbyPlace is a stop, car park or place to sleep close to a point, offered to editors as
 // a suggestion they can add with one click.
 type NearbyPlace struct {
 	Name string `json:"name"`
 	Kind string `json:"kind"`
 	// Street tells unnamed car parks apart.
-	Street string  `json:"street,omitempty"`
-	Lat    float64 `json:"lat"`
-	Lng    float64 `json:"lng"`
+	Street string `json:"street,omitempty"`
+	// Website is set for places to sleep when the map knows it.
+	Website string  `json:"website,omitempty"`
+	Lat     float64 `json:"lat"`
+	Lng     float64 `json:"lng"`
 }
 
 // stopKinds ranks the map categories that say what serves a stop. Platforms
@@ -171,7 +174,72 @@ var stopKinds = map[string]struct {
 	"stop_position": {"bus", 0},
 }
 
-// Nearby answers ?at=lng,lat with the stops and car parks around that point.
+// stayKinds maps the map categories of places to sleep onto the two kinds
+// the site knows. Camp sites and huts are left out.
+var stayKinds = map[string]string{
+	"hotel":       "hotel",
+	"motel":       "hotel",
+	"guest_house": "hotel",
+	"hostel":      "hotel",
+	"apartment":   "apartment",
+	"chalet":      "apartment",
+}
+
+type poi struct {
+	Geometry struct {
+		Coordinates []float64 `json:"coordinates"`
+	} `json:"geometry"`
+	Properties struct {
+		Categories map[string]struct {
+			Name string `json:"category_name"`
+		} `json:"category_ids"`
+		Tags struct {
+			Name    string `json:"name"`
+			Website string `json:"website"`
+		} `json:"osm_tags"`
+	} `json:"properties"`
+}
+
+// pois lists the map entries of one category group around a point, nearest
+// first.
+func (h *Handler) pois(ctx context.Context, at [2]float64, group int) ([]poi, error) {
+	payload, _ := json.Marshal(map[string]any{
+		"request": "pois",
+		"geometry": map[string]any{
+			"geojson": map[string]any{"type": "Point", "coordinates": at},
+			"buffer":  nearbyRadiusMeters,
+		},
+		"filters": map[string]any{"category_group_ids": []int{group}},
+		"limit":   500,
+		"sortby":  "distance",
+	})
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, h.baseURL+"/pois", bytes.NewReader(payload))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Authorization", h.key)
+	req.Header.Set("Content-Type", "application/json")
+
+	res, err := h.client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+
+	var data struct {
+		Features []poi `json:"features"`
+	}
+	if res.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("status %d", res.StatusCode)
+	}
+	if err := json.NewDecoder(res.Body).Decode(&data); err != nil {
+		return nil, err
+	}
+	return data.Features, nil
+}
+
+// Nearby answers ?at=lng,lat with the stops and car parks around that point,
+// or with the places to sleep when ?kind=stay is given.
 func (h *Handler) Nearby(w http.ResponseWriter, r *http.Request) {
 	if h.key == "" {
 		httpx.WriteError(w, http.StatusNotFound, httpx.CodeNotFound, "Place search is not configured.")
@@ -182,67 +250,79 @@ func (h *Handler) Nearby(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, http.StatusBadRequest, httpx.CodeBadRequest, "Invalid point.")
 		return
 	}
+	stay := r.URL.Query().Get("kind") == "stay"
 	// Rounded to about 100 m: nudging the venue pin reuses the answer.
 	cacheKey := fmt.Sprintf("nearby2|%.3f,%.3f", at[0], at[1])
+	group := transportGroup
+	if stay {
+		cacheKey = fmt.Sprintf("stay|%.3f,%.3f", at[0], at[1])
+		group = stayGroup
+	}
 	var cached []NearbyPlace
 	if h.loadJSON(r.Context(), cacheKey, &cached) {
 		httpx.WriteJSON(w, http.StatusOK, map[string]any{"places": cached})
 		return
 	}
-	payload, _ := json.Marshal(map[string]any{
-		"request": "pois",
-		"geometry": map[string]any{
-			"geojson": map[string]any{"type": "Point", "coordinates": at},
-			"buffer":  nearbyRadiusMeters,
-		},
-		"filters": map[string]any{"category_group_ids": []int{transportGroup}},
-		"limit":   500,
-		"sortby":  "distance",
-	})
-	req, err := http.NewRequestWithContext(r.Context(), http.MethodPost, h.baseURL+"/pois", bytes.NewReader(payload))
-	if err != nil {
-		httpx.WriteError(w, http.StatusInternalServerError, httpx.CodeInternal, "Place search failed.")
-		return
-	}
-	req.Header.Set("Authorization", h.key)
-	req.Header.Set("Content-Type", "application/json")
-
-	res, err := h.client.Do(req)
+	features, err := h.pois(r.Context(), at, group)
 	if err != nil {
 		slog.Warn("nearby search failed", "error", err)
 		httpx.WriteError(w, http.StatusBadGateway, httpx.CodeInternal, "Place search is unavailable.")
 		return
 	}
-	defer res.Body.Close()
-
-	var data struct {
-		Features []struct {
-			Geometry struct {
-				Coordinates []float64 `json:"coordinates"`
-			} `json:"geometry"`
-			Properties struct {
-				Categories map[string]struct {
-					Name string `json:"category_name"`
-				} `json:"category_ids"`
-				Tags struct {
-					Name string `json:"name"`
-				} `json:"osm_tags"`
-			} `json:"properties"`
-		} `json:"features"`
+	var places []NearbyPlace
+	if stay {
+		places = stays(features)
+	} else {
+		places = stops(features)
+		for i := range places {
+			if places[i].Kind == "parking" {
+				places[i].Street = h.street(r.Context(), places[i].Lng, places[i].Lat)
+			}
+		}
 	}
-	if res.StatusCode != http.StatusOK || json.NewDecoder(res.Body).Decode(&data) != nil {
-		slog.Warn("nearby search failed", "status", res.StatusCode)
-		httpx.WriteError(w, http.StatusBadGateway, httpx.CodeInternal, "Place search is unavailable.")
-		return
-	}
+	h.storeJSON(r.Context(), cacheKey, places)
+	httpx.WriteJSON(w, http.StatusOK, map[string]any{"places": places})
+}
 
-	// Features arrive nearest first. A stop appears once per platform and
-	// direction, so keep the nearest entry per name with its best kind.
+// stays keeps the named hotels and flats.
+func stays(features []poi) []NearbyPlace {
 	places := make([]NearbyPlace, 0, maxNearby)
-	stops := map[string]int{}
+	for _, f := range features {
+		name := strings.TrimSpace(f.Properties.Tags.Name)
+		if len(f.Geometry.Coordinates) < 2 || name == "" || len(places) == maxNearby {
+			continue
+		}
+		for _, category := range f.Properties.Categories {
+			if kind, known := stayKinds[category.Name]; known {
+				places = append(places, NearbyPlace{
+					Name: name, Kind: kind, Website: webAddress(f.Properties.Tags.Website),
+					Lng: f.Geometry.Coordinates[0], Lat: f.Geometry.Coordinates[1],
+				})
+				break
+			}
+		}
+	}
+	return places
+}
+
+// webAddress keeps a website from the map only when it is a plain web link.
+func webAddress(raw string) string {
+	u, err := url.Parse(strings.TrimSpace(raw))
+	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+		return ""
+	}
+	return u.String()
+}
+
+// stops keeps the stops and a few car parks. Features arrive nearest first.
+// A stop appears once per platform and direction, so keep the nearest entry
+// per name with its best kind.
+func stops(features []poi) []NearbyPlace {
+	places := make([]NearbyPlace, 0, maxNearby)
+	seenAt := map[string]int{}
 	ranks := map[string]int{}
 	parking := 0
-	for _, f := range data.Features {
+	for _, f := range features {
 		if len(f.Geometry.Coordinates) < 2 {
 			continue
 		}
@@ -257,26 +337,20 @@ func (h *Handler) Nearby(w http.ResponseWriter, r *http.Request) {
 			if !known || name == "" {
 				continue
 			}
-			if i, seen := stops[name]; seen {
+			if i, seen := seenAt[name]; seen {
 				if stop.rank > ranks[name] {
 					ranks[name] = stop.rank
 					places[i].Kind = stop.kind
 					places[i].Lng, places[i].Lat = f.Geometry.Coordinates[0], f.Geometry.Coordinates[1]
 				}
 			} else if len(places) < maxNearby {
-				stops[name] = len(places)
+				seenAt[name] = len(places)
 				ranks[name] = stop.rank
 				places = append(places, NearbyPlace{Name: name, Kind: stop.kind, Lng: f.Geometry.Coordinates[0], Lat: f.Geometry.Coordinates[1]})
 			}
 		}
 	}
-	for i := range places {
-		if places[i].Kind == "parking" {
-			places[i].Street = h.street(r.Context(), places[i].Lng, places[i].Lat)
-		}
-	}
-	h.storeJSON(r.Context(), cacheKey, places)
-	httpx.WriteJSON(w, http.StatusOK, map[string]any{"places": places})
+	return places
 }
 
 // street names the street at a point, or returns "" when it is unknown.

@@ -6,9 +6,9 @@ import { ArrowDown, ArrowUp, Plus, Trash2, Upload } from 'lucide-react'
 import { toast } from 'sonner'
 import { api, errorMessage } from '@/lib/api'
 import { contentQuery, themesQuery } from '@/lib/queries'
-import type { Content, FAQEntry, Hotel, ScheduleEntry } from '@/lib/types'
+import type { Content, FAQEntry, ScheduleEntry } from '@/lib/types'
 import { PageHeader } from '@/components/admin/PageHeader'
-import { PlacePicker } from '@/components/admin/PlacePicker'
+import { StayEditor } from '@/components/admin/StayEditor'
 import { TravelEditor } from '@/components/admin/TravelEditor'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -174,49 +174,14 @@ function ContentPage() {
               <DateField label={t('Abreise')} value={stay.checkOut} onChange={(v) => set('accommodation', { ...stay, checkOut: v })} />
             </CardContent>
           </Card>
-          <ListEditor<Hotel>
-            items={stay.hotels}
-            onChange={(items) => set('accommodation', { ...stay, hotels: items })}
-            create={() => ({ name: '', area: '', lat: 0, lng: 0, priceTier: 2, note: '', url: '', bookingUrl: '' })}
-            addLabel={t('Unterkunft hinzufügen')}
-            render={(item, update) => (
-              <div className="grid flex-1 gap-3 sm:grid-cols-4">
-                <Field label={t('Name')} value={item.name} onChange={(v) => update({ ...item, name: v })} className="sm:col-span-2" />
-                <Field label={t('Stadtteil')} value={item.area} onChange={(v) => update({ ...item, area: v })} />
-                <div className="space-y-2">
-                  <Label>{t('Art')}</Label>
-                  <Select value={item.kind ?? 'hotel'} onValueChange={(v) => update({ ...item, kind: v as Hotel['kind'] })}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="hotel">{t('Hotel')}</SelectItem>
-                      <SelectItem value="apartment">{t('Ferienwohnung')}</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>{t('Preisklasse')}</Label>
-                  <Select value={String(item.priceTier)} onValueChange={(v) => update({ ...item, priceTier: Number(v) as Hotel['priceTier'] })}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="1">{t('€ günstig')}</SelectItem>
-                      <SelectItem value="2">{t('€€ mittel')}</SelectItem>
-                      <SelectItem value="3">{t('€€€ gehoben')}</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <PlacePicker
-                  className="sm:col-span-4"
-                  value={item}
-                  near={travel}
-                  query={item.name}
-                  onChange={(p, place) => update({ ...item, lat: p.lat, lng: p.lng, name: item.name || place?.name || '' })}
-                />
-                <Field label={t('Website')} value={item.url} onChange={(v) => update({ ...item, url: v })} className="sm:col-span-2" />
-                <Field label={t('Booking-Link (Hotelseite)')} value={item.bookingUrl ?? ''} onChange={(v) => update({ ...item, bookingUrl: v })} className="sm:col-span-2" />
-                <Field label={t('Hinweis')} value={item.note} onChange={(v) => update({ ...item, note: v })} className="sm:col-span-2" />
-              </div>
-            )}
-          />
+          <Card>
+            <CardHeader>
+              <CardTitle>{t('Unterkünfte')}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <StayEditor hotels={stay.hotels} travel={travel} onChange={(hotels) => set('accommodation', { ...stay, hotels })} />
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="schedule" className="mt-4">

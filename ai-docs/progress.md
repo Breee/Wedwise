@@ -63,3 +63,4 @@ Open work is tracked in GitHub issues and milestones (M1 Staff tools, M2 Accommo
 - 2026-11-15: Map editor for the arrival tab (venue, stops, car parks on one map with nearby suggestions via /api/places/nearby); cycle paths highlighted on the bike tab.
 - 2026-11-15: Arrival editor: sidebar list, clear all, legend, hover highlight between list and map, nearest three car parks with distances; place and nearby lookups cached.
 - 2026-11-15: Arrival editor guided in two steps (venue first, then stops grouped by type with street names for car parks); guest map no longer zooms on hover.
+- 2026-11-15: Places to stay are edited on a map too: nearby hotels and holiday flats as suggestions, search, tap to add, details in a panel; the old form list and place picker are gone.
