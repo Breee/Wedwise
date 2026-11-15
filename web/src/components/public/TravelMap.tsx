@@ -9,8 +9,7 @@ import { distanceMeters, formatKm, routeQuery, type LngLat, type Route } from '@
 import { DirectionsLinks } from './DirectionsLinks'
 import { cn } from '@/lib/utils'
 import { BaseMap, markerElement } from './BaseMap'
-import { drawRoutes,
-  fitPadding, venueMarker } from './mapParts'
+import { drawCycleways, drawRoutes, fitPadding, venueMarker } from './mapParts'
 
 export const KIND = {
   tram: { label: 'Tram', color: '#c2554a', Icon: TramFront },
@@ -67,7 +66,7 @@ export function TravelMap({ travel, venueName, mode = 'transit' }: { travel: Tra
     }
     const bounds = new maplibregl.LngLatBounds(venue, venue)
     stops.forEach((s) => bounds.extend([s.lng, s.lat]))
-    map.fitBounds(bounds, { padding: fitPadding(map), maxZoom: mode === 'car' ? 14 : 16, duration: 0 })
+    map.fitBounds(bounds, { padding: fitPadding(map), maxZoom: mode === 'transit' ? 16 : 14, duration: 0 })
     setActive(null)
     return () => markers.forEach((m) => m.remove())
   }, [map, stops, venue, mode])
@@ -80,6 +79,11 @@ export function TravelMap({ travel, venueName, mode = 'transit' }: { travel: Tra
     )
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [map, routed, ...resolved])
+
+  useEffect(() => {
+    if (!map || mode !== 'bike') return
+    return drawCycleways(map, KIND.train.color)
+  }, [map, mode])
 
   useEffect(() => {
     if (!map || !map.getLayer('routes-line')) return

@@ -111,6 +111,28 @@
     background: var(--stop-color, var(--primary));
     box-shadow: 0 0 0 3px white, 0 6px 16px -4px rgb(0 0 0 / 0.35);
   }
+  .wed-marker-stop.is-selected {
+    box-shadow: 0 0 0 3px white, 0 0 0 6px var(--stop-color, var(--primary));
+  }
+  .wed-marker-suggestion {
+    width: 26px;
+    height: 26px;
+    color: var(--stop-color, var(--primary));
+    background: white;
+    border: 1.5px dashed var(--stop-color, var(--primary));
+    box-shadow: none;
+    opacity: 0.75;
+  }
+  .wed-marker-suggestion:hover {
+    opacity: 1;
+  }
+  .wed-marker-pending {
+    width: 14px;
+    height: 14px;
+    border-radius: 9999px;
+    background: var(--primary);
+    box-shadow: 0 0 0 3px white, 0 0 0 5px var(--primary);
+  }
   .wed-route-label {
     pointer-events: none;
     display: inline-flex;

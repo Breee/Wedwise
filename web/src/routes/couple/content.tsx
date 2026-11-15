@@ -6,9 +6,10 @@ import { ArrowDown, ArrowUp, Plus, Trash2, Upload } from 'lucide-react'
 import { toast } from 'sonner'
 import { api, errorMessage } from '@/lib/api'
 import { contentQuery, themesQuery } from '@/lib/queries'
-import type { Content, FAQEntry, Hotel, ScheduleEntry, Stop } from '@/lib/types'
+import type { Content, FAQEntry, Hotel, ScheduleEntry } from '@/lib/types'
 import { PageHeader } from '@/components/admin/PageHeader'
 import { PlacePicker } from '@/components/admin/PlacePicker'
+import { TravelEditor } from '@/components/admin/TravelEditor'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -151,50 +152,16 @@ function ContentPage() {
         <TabsContent value="travel" className="mt-4 space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>{t('Wo ist die Location?')}</CardTitle>
+              <CardTitle>{t('Location, Haltestellen und Parkplätze')}</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3">
-              <PlacePicker
-                value={travel}
+            <CardContent>
+              <TravelEditor
+                travel={travel}
                 query={[draft.location.name, draft.location.address].filter(Boolean).join(', ')}
-                onChange={(p) => set('travel', { ...travel, lat: p.lat, lng: p.lng })}
+                onChange={(next) => set('travel', next)}
               />
-              <p className="text-sm text-muted-foreground">
-                {t('Ohne gesetzten Ort wird keine Karte angezeigt. Wege und Zeiten werden automatisch berechnet.')}
-              </p>
             </CardContent>
           </Card>
-          <ListEditor<Stop>
-            items={travel.stops}
-            onChange={(items) => set('travel', { ...travel, stops: items })}
-            create={() => ({ name: '', kind: 'tram', line: '', lat: 0, lng: 0 })}
-            addLabel={t('Haltestelle / Parkplatz hinzufügen')}
-            render={(item, update) => (
-              <div className="grid flex-1 gap-3 sm:grid-cols-4">
-                <Field label={t('Name')} value={item.name} onChange={(v) => update({ ...item, name: v })} className="sm:col-span-2" />
-                <div className="space-y-2">
-                  <Label>{t('Art')}</Label>
-                  <Select value={item.kind} onValueChange={(v) => update({ ...item, kind: v as Stop['kind'] })}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="tram">{t('Tram')}</SelectItem>
-                      <SelectItem value="train">{t('S-Bahn / Zug')}</SelectItem>
-                      <SelectItem value="bus">{t('Bus')}</SelectItem>
-                      <SelectItem value="parking">{t('Parkplatz')}</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <Field label={t('Linie')} value={item.line} onChange={(v) => update({ ...item, line: v })} />
-                <PlacePicker
-                  className="sm:col-span-4"
-                  value={item}
-                  near={travel}
-                  query={item.name}
-                  onChange={(p, place) => update({ ...item, lat: p.lat, lng: p.lng, name: item.name || place?.name || '' })}
-                />
-              </div>
-            )}
-          />
         </TabsContent>
 
         <TabsContent value="stay" className="mt-4 space-y-4">

@@ -3,9 +3,12 @@ package routing
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -191,5 +194,53 @@ func TestPlaces(t *testing.T) {
 	}
 	if rec := search(NewHandler("", nil), "q=Musikhochschule"); rec.Code != http.StatusNotFound {
 		t.Fatalf("disabled status = %d", rec.Code)
+	}
+}
+
+func TestNearby(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/pois" || r.Method != http.MethodPost || r.Header.Get("Authorization") != "secret" {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		feature := func(name, category string, lng float64) string {
+			return fmt.Sprintf(`{"geometry":{"coordinates":[%v,47.98]},"properties":{"category_ids":{"1":{"category_name":%q}},"osm_tags":{"name":%q}}}`, lng, category, name)
+		}
+		_, _ = fmt.Fprintf(w, `{"features":[%s]}`, strings.Join([]string{
+			feature("Stadthalle", "platform", 7.1),
+			feature("Stadthalle", "tram_stop", 7.2),
+			feature("Gasthaus Schiff", "platform", 7.3),
+			feature("Gasthaus Schiff", "stop_position", 7.4),
+			feature("", "parking", 7.5),
+			feature("", "platform", 7.6),
+			feature("Shell", "fuel", 7.7),
+		}, ","))
+	}))
+	t.Cleanup(srv.Close)
+	h := NewHandler("secret", nil)
+	h.baseURL = srv.URL
+
+	rec := httptest.NewRecorder()
+	h.Nearby(rec, httptest.NewRequest(http.MethodGet, "/api/places/nearby?at=7.87,47.98", nil))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d", rec.Code)
+	}
+	var body struct{ Places []NearbyPlace }
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	want := []NearbyPlace{
+		{Name: "Stadthalle", Kind: "tram", Lat: 47.98, Lng: 7.1},
+		{Name: "Gasthaus Schiff", Kind: "bus", Lat: 47.98, Lng: 7.3},
+		{Name: "", Kind: "parking", Lat: 47.98, Lng: 7.5},
+	}
+	if !reflect.DeepEqual(body.Places, want) {
+		t.Fatalf("places = %+v", body.Places)
+	}
+
+	rec = httptest.NewRecorder()
+	h.Nearby(rec, httptest.NewRequest(http.MethodGet, "/api/places/nearby?at=nowhere", nil))
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("bad point status = %d", rec.Code)
 	}
 }

@@ -244,6 +244,8 @@ func New(cfg configuration.Config, db *sql.DB) (*Server, error) {
 			protected.Mount("/responses", rsvpHandler.StaffRoutes(authService))
 			protected.With(authService.RequirePermission(auth.PermContentWrite), routeLimit).
 				Get("/places", routeHandler.Places)
+			protected.With(authService.RequirePermission(auth.PermContentWrite), routeLimit).
+				Get("/places/nearby", routeHandler.Nearby)
 			protected.With(authService.RequirePermission(auth.PermContentWrite)).
 				Post("/push/broadcast", pushHandler.Broadcast)
 			protected.With(authService.RequirePermission(auth.PermContentWrite)).
