@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import * as maplibregl from 'maplibre-gl'
 import type { Map as MapLibreMap } from 'maplibre-gl'
 import { useQueries, useQuery } from '@tanstack/react-query'
-import { Heart, Search, Trash2, X } from 'lucide-react'
+import { Check, Heart, Plus, Search, Trash2, X } from 'lucide-react'
 import { t } from '@/lib/i18n'
 import { api } from '@/lib/api'
 import { distanceMeters, routeQuery, type LngLat } from '@/lib/geo'
@@ -21,7 +21,7 @@ interface Place {
   lng: number
 }
 
-type Suggestion = Pick<Stop, 'name' | 'kind' | 'lat' | 'lng'>
+type Suggestion = Pick<Stop, 'name' | 'kind' | 'lat' | 'lng'> & { street?: string }
 
 const KINDS: StopKind[] = ['tram', 'bus', 'train', 'parking']
 // A suggestion this close to a stop of the same kind is already on the map.
@@ -29,8 +29,11 @@ const SAME_PLACE = 0.0004
 const isSet = (p: { lat: number; lng: number }) => p.lat !== 0 || p.lng !== 0
 // Unnamed car parks all look alike, so only the nearest few are offered.
 const MAX_PARKING = 3
+// Suggestions shown per kind before "show more".
+const SHOWN = 4
 const suggestionKey = (s: Suggestion) => `sug:${s.kind}:${s.lat},${s.lng}`
 const formatMeters = (m: number) => (m < 995 ? `${Math.round(m / 10) * 10} m` : `${(m / 1000).toFixed(1).replace('.', ',')} km`)
+const suggestionName = (s: Suggestion) => s.name || (s.kind === 'parking' ? [t('Parkplatz'), s.street].filter(Boolean).join(' ') : t(KIND[s.kind].label))
 const fallbackName = (kind: StopKind) => (kind === 'parking' ? t('Parkplatz') : '')
 
 /** Map editor for the venue and the stops and car parks around it. */
@@ -39,6 +42,7 @@ export function TravelEditor({ travel, query, onChange }: { travel: Travel; quer
   const [selected, setSelected] = useState<number | null>(null)
   const [pending, setPending] = useState<{ lat: number; lng: number } | null>(null)
   const [hovered, setHovered] = useState<string | null>(null)
+  const [expanded, setExpanded] = useState<StopKind[]>([])
   const elements = useRef(new Map<string, HTMLElement>())
   const hasVenue = isSet(travel)
   const venue = useMemo<LngLat>(() => [travel.lng, travel.lat], [travel.lat, travel.lng])
@@ -78,7 +82,7 @@ export function TravelEditor({ travel, query, onChange }: { travel: Travel; quer
 
   function adopt(s: Suggestion) {
     const stops = latest.current.travel.stops
-    setStops([...stops, { name: s.name || fallbackName(s.kind), kind: s.kind, line: '', lat: s.lat, lng: s.lng }])
+    setStops([...stops, { name: suggestionName(s), kind: s.kind, line: '', lat: s.lat, lng: s.lng }])
     setPending(null)
     setSelected(stops.length)
   }
@@ -121,7 +125,7 @@ export function TravelEditor({ travel, query, onChange }: { travel: Travel; quer
     for (const s of suggestions) {
       const el = markerElement(ICON_SVG[s.kind], 'wed-marker wed-marker-stop wed-marker-suggestion')
       el.style.setProperty('--stop-color', KIND[s.kind].color)
-      el.title = `${s.name || t(KIND[s.kind].label)} · ${formatMeters(s.meters)} – ${t('hinzufügen')}`
+      el.title = `${suggestionName(s)} · ${formatMeters(s.meters)} – ${t('hinzufügen')}`
       track(suggestionKey(s), el)
       el.addEventListener('click', (e) => {
         stop(e)
@@ -200,13 +204,26 @@ export function TravelEditor({ travel, query, onChange }: { travel: Travel; quer
   }
 
   return (
-    <div className="space-y-3">
-      <PlaceSearch near={hasVenue ? travel : undefined} initial={hasVenue ? '' : query} onPick={(p) => (hasVenue ? map?.flyTo({ center: [p.lng, p.lat], zoom: 16 }) : setVenue(p, true))} />
-      <p className="text-sm text-muted-foreground">
-        {hasVenue
-          ? t('Tippt auf einen blassen Vorschlag, um ihn zu übernehmen, oder auf eine freie Stelle, um dort etwas hinzuzufügen. Alles lässt sich verschieben.')
-          : t('Sucht eure Location oder tippt auf die Karte, um sie zu setzen.')}
-      </p>
+    <div className="space-y-6">
+      <section className="space-y-2">
+        <StepTitle step={1} done={hasVenue} title={t('Wo ist die Location?')} />
+        <PlaceSearch near={hasVenue ? travel : undefined} initial={hasVenue ? '' : query} onPick={(p) => setVenue(p, true)} />
+        {hasVenue ? (
+          <button type="button" className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground" onClick={() => map?.flyTo({ center: venue, zoom: 16 })}>
+            <Heart className="size-4 text-primary" />
+            {t('Gesetzt – das Herz auf der Karte lässt sich verschieben.')}
+          </button>
+        ) : (
+          <p className="text-sm text-muted-foreground">{t('Sucht eure Location oder tippt auf die Karte, um sie zu setzen.')}</p>
+        )}
+      </section>
+      <section className="space-y-2">
+        <StepTitle step={2} done={travel.stops.length > 0} title={t('Wie kommen eure Gäste hin?')} />
+        <p className="text-sm text-muted-foreground">
+          {hasVenue
+            ? t('Wählt rechts aus den Vorschlägen oder tippt auf die Karte, um selbst etwas hinzuzufügen. Alles lässt sich verschieben.')
+            : t('Setzt zuerst die Location – dann schlagen wir Haltestellen und Parkplätze in der Nähe vor.')}
+        </p>
       <div className="grid gap-4 lg:grid-cols-[1fr_17rem]">
       <BaseMap onReady={setMap} className="h-[70svh] max-h-[640px] min-h-[360px] rounded-xl">
         <Legend />
@@ -266,81 +283,91 @@ export function TravelEditor({ travel, query, onChange }: { travel: Travel; quer
         )}
       </BaseMap>
       <aside className="max-h-[640px] space-y-4 overflow-y-auto text-sm lg:h-[70svh]">
-        <section>
-          <div className="mb-1.5 flex items-center justify-between">
-            <h3 className="font-medium">{t('Auf der Karte')}</h3>
-            {travel.stops.length > 0 && (
-              <Button
-                type="button"
-                size="sm"
-                variant="ghost"
-                className="h-7 text-destructive"
-                onClick={() => {
-                  if (!window.confirm(t('Alle Haltestellen und Parkplätze entfernen?'))) return
-                  setStops([])
-                  setSelected(null)
-                }}
-              >
-                <Trash2 /> {t('Alle entfernen')}
-              </Button>
-            )}
-          </div>
-          <ul className="space-y-1">
-            {hasVenue && (
-              <Row icon={<Heart className="size-4 text-primary" />} label={t('Location')} onClick={() => map?.flyTo({ center: venue, zoom: Math.max(map.getZoom(), 15) })} />
-            )}
-            {travel.stops.map((s, i) => {
-              const { Icon, color } = KIND[s.kind]
-              return (
-                <Row
-                  key={i}
-                  active={selected === i || hovered === `stop:${i}`}
-                  onHover={(on) => setHovered(on ? `stop:${i}` : null)}
-                  icon={<Icon className="size-4" style={{ color }} />}
-                  label={s.name || t('Ohne Namen')}
-                  detail={s.line}
-                  onClick={() => {
-                    setPending(null)
-                    setSelected(i)
-                    if (isSet(s)) map?.flyTo({ center: [s.lng, s.lat], zoom: Math.max(map.getZoom(), 15) })
-                  }}
-                  onRemove={() => {
-                    setStops(travel.stops.filter((_, j) => j !== i))
-                    setSelected(null)
-                  }}
-                />
-              )
-            })}
-            {travel.stops.length === 0 && <li className="text-muted-foreground">{t('Noch keine Haltestellen oder Parkplätze.')}</li>}
-          </ul>
-        </section>
-        {suggestions.length > 0 && (
-          <section>
-            <h3 className="mb-1.5 font-medium">{t('Vorschläge in der Nähe')}</h3>
-            <ul className="space-y-1">
-              {suggestions.map((s) => {
-                const { Icon, color, label } = KIND[s.kind]
-                return (
+        {KINDS.map((kind) => {
+          const { Icon, label, color } = KIND[kind]
+          const offered = suggestions.filter((s) => s.kind === kind)
+          const set = travel.stops.map((s, i) => ({ s, i })).filter(({ s }) => s.kind === kind)
+          if (offered.length === 0 && set.length === 0) return null
+          const all = expanded.includes(kind)
+          return (
+            <section key={kind}>
+              <h3 className="mb-1 flex items-center gap-1.5 font-medium">
+                <Icon className="size-4" style={{ color }} /> {t(label)}
+              </h3>
+              <ul className="space-y-0.5">
+                {set.map(({ s, i }) => (
+                  <Row
+                    key={i}
+                    active={selected === i || hovered === `stop:${i}`}
+                    onHover={(on) => setHovered(on ? `stop:${i}` : null)}
+                    icon={<Check className="size-4 text-primary" />}
+                    label={s.name || t('Ohne Namen')}
+                    detail={s.line}
+                    onClick={() => {
+                      setPending(null)
+                      setSelected(i)
+                      if (isSet(s)) map?.flyTo({ center: [s.lng, s.lat], zoom: Math.max(map.getZoom(), 15) })
+                    }}
+                    onRemove={() => {
+                      setStops(travel.stops.filter((_, j) => j !== i))
+                      setSelected(null)
+                    }}
+                  />
+                ))}
+                {(all ? offered : offered.slice(0, SHOWN)).map((s) => (
                   <Row
                     key={suggestionKey(s)}
                     active={hovered === suggestionKey(s)}
                     onHover={(on) => setHovered(on ? suggestionKey(s) : null)}
-                    icon={<Icon className="size-4 opacity-60" style={{ color }} />}
-                    label={s.name || t(label)}
+                    icon={<Plus className="size-4 text-muted-foreground" />}
+                    label={suggestionName(s)}
                     detail={formatMeters(s.meters)}
+                    muted
                     onClick={() => {
                       adopt(s)
                       map?.flyTo({ center: [s.lng, s.lat], zoom: Math.max(map.getZoom(), 15) })
                     }}
                   />
-                )
-              })}
-            </ul>
-          </section>
+                ))}
+              </ul>
+              {offered.length > SHOWN && (
+                <button type="button" className="mt-1 px-2 text-xs text-muted-foreground underline-offset-2 hover:underline" onClick={() => setExpanded(all ? expanded.filter((k) => k !== kind) : [...expanded, kind])}>
+                  {all ? t('Weniger anzeigen') : `${offered.length - SHOWN} ${t('weitere anzeigen')}`}
+                </button>
+              )}
+            </section>
+          )
+        })}
+        {travel.stops.length > 0 && (
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            className="h-7 text-destructive"
+            onClick={() => {
+              if (!window.confirm(t('Alle Haltestellen und Parkplätze entfernen?'))) return
+              setStops([])
+              setSelected(null)
+            }}
+          >
+            <Trash2 /> {t('Alle entfernen')}
+          </Button>
         )}
       </aside>
       </div>
+      </section>
     </div>
+  )
+}
+
+function StepTitle({ step, done, title }: { step: number; done: boolean; title: string }) {
+  return (
+    <h3 className="flex items-center gap-2 font-medium">
+      <span className={`flex size-6 items-center justify-center rounded-full text-xs ${done ? 'bg-primary text-primary-foreground' : 'border text-muted-foreground'}`}>
+        {done ? <Check className="size-3.5" /> : step}
+      </span>
+      {title}
+    </h3>
   )
 }
 
@@ -373,14 +400,15 @@ interface RowProps {
   onClick: () => void
   onRemove?: () => void
   onHover?: (on: boolean) => void
+  muted?: boolean
 }
 
-function Row({ icon, label, detail, active, onClick, onRemove, onHover }: RowProps) {
+function Row({ icon, label, detail, active, onClick, onRemove, onHover, muted }: RowProps) {
   return (
     <li className={`flex items-center rounded-md ${active ? 'bg-secondary' : 'hover:bg-accent'}`} onMouseEnter={() => onHover?.(true)} onMouseLeave={() => onHover?.(false)}>
       <button type="button" className="flex min-w-0 flex-1 items-center gap-2 px-2 py-1.5 text-left" onClick={onClick} onFocus={() => onHover?.(true)} onBlur={() => onHover?.(false)}>
         {icon}
-        <span className="truncate">{label}</span>
+        <span className={`truncate ${muted ? 'text-muted-foreground' : ''}`}>{label}</span>
         {detail && <span className="shrink-0 text-xs text-muted-foreground">{detail}</span>}
       </button>
       {onRemove && (

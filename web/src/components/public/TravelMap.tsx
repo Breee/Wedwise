@@ -93,17 +93,7 @@ export function TravelMap({ travel, venueName, mode = 'transit' }: { travel: Tra
     map.setPaintProperty('routes-dash', 'line-opacity', highlight(1, 0.2))
   }, [map, active])
 
-  const focus = (i: number | null) => {
-    setActive(i)
-    if (!map) return
-    const bounds = new maplibregl.LngLatBounds(venue, venue)
-    if (i === null) stops.forEach((s) => bounds.extend([s.lng, s.lat]))
-    else {
-      bounds.extend([routed[i].lng, routed[i].lat])
-      resolved[i]?.coordinates.forEach((c) => bounds.extend(c))
-    }
-    map.fitBounds(bounds, { padding: fitPadding(map), maxZoom: 16, duration: 900 })
-  }
+  const focus = setActive
 
   return (
     <div className="space-y-6">

@@ -199,6 +199,10 @@ func TestPlaces(t *testing.T) {
 
 func TestNearby(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/geocode/reverse" {
+			_, _ = fmt.Fprint(w, `{"features":[{"properties":{"street":"Waldseestraße","housenumber":"84"}}]}`)
+			return
+		}
 		if r.URL.Path != "/pois" || r.Method != http.MethodPost || r.Header.Get("Authorization") != "secret" {
 			w.WriteHeader(http.StatusBadRequest)
 			return
@@ -232,7 +236,7 @@ func TestNearby(t *testing.T) {
 	want := []NearbyPlace{
 		{Name: "Stadthalle", Kind: "tram", Lat: 47.98, Lng: 7.2},
 		{Name: "Gasthaus Schiff", Kind: "bus", Lat: 47.98, Lng: 7.3},
-		{Name: "", Kind: "parking", Lat: 47.98, Lng: 7.5},
+		{Name: "", Kind: "parking", Street: "Waldseestraße 84", Lat: 47.98, Lng: 7.5},
 	}
 	if !reflect.DeepEqual(body.Places, want) {
 		t.Fatalf("places = %+v", body.Places)

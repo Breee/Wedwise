@@ -140,15 +140,19 @@ const (
 	nearbyRadiusMeters = 2000
 	maxNearby          = 40
 	transportGroup     = 580
+	// Car parks rarely have a name; a few nearest ones are enough to pick from.
+	maxParking = 4
 )
 
 // NearbyPlace is a stop or car park close to a point, offered to editors as
 // a suggestion they can add with one click.
 type NearbyPlace struct {
-	Name string  `json:"name"`
-	Kind string  `json:"kind"`
-	Lat  float64 `json:"lat"`
-	Lng  float64 `json:"lng"`
+	Name string `json:"name"`
+	Kind string `json:"kind"`
+	// Street tells unnamed car parks apart.
+	Street string  `json:"street,omitempty"`
+	Lat    float64 `json:"lat"`
+	Lng    float64 `json:"lng"`
 }
 
 // stopKinds ranks the map categories that say what serves a stop. Platforms
@@ -179,7 +183,7 @@ func (h *Handler) Nearby(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// Rounded to about 100 m: nudging the venue pin reuses the answer.
-	cacheKey := fmt.Sprintf("nearby|%.3f,%.3f", at[0], at[1])
+	cacheKey := fmt.Sprintf("nearby2|%.3f,%.3f", at[0], at[1])
 	var cached []NearbyPlace
 	if h.loadJSON(r.Context(), cacheKey, &cached) {
 		httpx.WriteJSON(w, http.StatusOK, map[string]any{"places": cached})
@@ -244,7 +248,7 @@ func (h *Handler) Nearby(w http.ResponseWriter, r *http.Request) {
 		}
 		name := strings.TrimSpace(f.Properties.Tags.Name)
 		for _, category := range f.Properties.Categories {
-			if category.Name == "parking" && parking < 8 && len(places) < maxNearby {
+			if category.Name == "parking" && parking < maxParking && len(places) < maxNearby {
 				parking++
 				places = append(places, NearbyPlace{Name: name, Kind: "parking", Lng: f.Geometry.Coordinates[0], Lat: f.Geometry.Coordinates[1]})
 				break
@@ -266,6 +270,45 @@ func (h *Handler) Nearby(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
+	for i := range places {
+		if places[i].Kind == "parking" {
+			places[i].Street = h.street(r.Context(), places[i].Lng, places[i].Lat)
+		}
+	}
 	h.storeJSON(r.Context(), cacheKey, places)
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{"places": places})
+}
+
+// street names the street at a point, or returns "" when it is unknown.
+func (h *Handler) street(ctx context.Context, lng, lat float64) string {
+	query := url.Values{
+		"point.lon": {fmt.Sprint(lng)},
+		"point.lat": {fmt.Sprint(lat)},
+		"size":      {"1"},
+		"layers":    {"address,street"},
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, h.baseURL+"/geocode/reverse?"+query.Encode(), nil)
+	if err != nil {
+		return ""
+	}
+	req.Header.Set("Authorization", h.key)
+	res, err := h.client.Do(req)
+	if err != nil {
+		return ""
+	}
+	defer res.Body.Close()
+
+	var data struct {
+		Features []struct {
+			Properties struct {
+				Street string `json:"street"`
+				Number string `json:"housenumber"`
+			} `json:"properties"`
+		} `json:"features"`
+	}
+	if res.StatusCode != http.StatusOK || json.NewDecoder(res.Body).Decode(&data) != nil || len(data.Features) == 0 {
+		return ""
+	}
+	found := data.Features[0].Properties
+	return strings.TrimSpace(found.Street + " " + found.Number)
 }
