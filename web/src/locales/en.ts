@@ -359,7 +359,7 @@ export const en: Record<string, string> = {
   'Hinweis': 'Note',
   'Einleitung': 'Introduction',
   'Adresse': 'Address',
-  'Navigationslink': 'Navigation link',
+  'In Navi-App öffnen': 'Open in navigation app',
   'Bild-URL': 'Image URL',
   'Beschreibung': 'Description',
   'Fahrrad': 'Bike',
@@ -533,4 +533,5 @@ export const en: Record<string, string> = {
   'Noch keine Unterkünfte.': 'No places to stay yet.',
   'Wählt aus den Vorschlägen, sucht eine Unterkunft oder tippt auf die Karte. Bewertungen, Preise und freie Zimmer kennt die Karte nicht – prüft sie vor dem Empfehlen selbst.': 'Pick from the suggestions, search for a place or tap the map. The map knows nothing about ratings, prices or free rooms – check them yourself before recommending a place.',
   'Setzt zuerst unter „Anreise“ die Location – dann schlagen wir Unterkünfte in der Nähe vor.': 'Set the venue under “Getting there” first – then we suggest places to stay nearby.',
+  'Route planen:': 'Get directions:',
 }

@@ -136,7 +136,6 @@ function ContentPage() {
             <CardContent className="grid gap-4 pt-6 sm:grid-cols-2">
               <Field label={t('Name')} value={draft.location.name} onChange={(v) => set('location', { ...draft.location, name: v })} />
               <Field label={t('Adresse')} value={draft.location.address} onChange={(v) => set('location', { ...draft.location, address: v })} />
-              <Field label={t('Navigationslink')} value={draft.location.navigationUrl} onChange={(v) => set('location', { ...draft.location, navigationUrl: v })} className="sm:col-span-2" />
               <div className="space-y-2 sm:col-span-2">
                 <Field label={t('Bild-URL')} value={draft.location.image ?? ''} onChange={(v) => set('location', { ...draft.location, image: v })} />
                 <ImageUpload onUploaded={(url) => set('location', { ...draft.location, image: url })} />

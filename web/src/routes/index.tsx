@@ -198,7 +198,12 @@ function HomePage() {
               </p>
             )}
             {location.description && <Paragraphs text={location.description} />}
-            {location.navigationUrl && (
+            {hasMap ? (
+              <div className="flex flex-wrap items-center justify-center gap-2 text-sm text-muted-foreground">
+                <Navigation className="size-4" /> <span>{t('Route planen:')}</span>
+                <DirectionsLinks to={[travel.lng, travel.lat]} name={location.name || 'Location'} mode="driving" />
+              </div>
+            ) : location.navigationUrl && (
               <Button asChild>
                 <a href={location.navigationUrl} target="_blank" rel="noreferrer">
                   <Navigation className="size-4" /> {t('Route planen')}
