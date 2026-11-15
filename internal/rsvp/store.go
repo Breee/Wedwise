@@ -477,3 +477,21 @@ func (s *Store) EditTokens(ctx context.Context) (map[int64]string, error) {
 	}
 	return result, rows.Err()
 }
+
+// EditToken returns the edit token of one response. It is ErrNotFound when
+// the token can no longer be read.
+func (s *Store) EditToken(ctx context.Context, id int64) (string, error) {
+	var sealed string
+	err := s.db.QueryRowContext(ctx, "SELECT edit_token_enc FROM responses WHERE id = ?", id).Scan(&sealed)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", ErrNotFound
+	}
+	if err != nil {
+		return "", err
+	}
+	token := s.vault.OpenOrEmpty(sealed)
+	if token == "" {
+		return "", ErrNotFound
+	}
+	return token, nil
+}

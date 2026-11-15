@@ -1,10 +1,9 @@
 import { useEffect, useState } from 'react'
-import { copyText } from '@/lib/clipboard'
 import { t } from '@/lib/i18n'
 import { Link, useNavigate } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { motion, AnimatePresence } from 'motion/react'
-import { CheckCircle2, Clock, Copy, Minus, Plus, Share2 } from 'lucide-react'
+import { CheckCircle2, Clock, KeyRound, Minus, Plus } from 'lucide-react'
 import { toast } from 'sonner'
 import { api, errorMessage } from '@/lib/api'
 import { publicContentQuery, rsvpQuery } from '@/lib/queries'
@@ -22,6 +21,7 @@ import { Separator } from '@/components/ui/separator'
 import { GENRES, NEEDS_OPTIONS, SongSearch, formatNeeds, joinList, parseNeeds, splitList } from '@/components/rsvp/music'
 import { MESSENGERS, MessengerIcon } from '@/lib/contact'
 import { rememberToken } from '@/lib/remember'
+import { createKey, signWithKey, webauthnSupported } from '@/lib/webauthn'
 import { InstallApp } from '@/components/public/InstallApp'
 import { GuestNotifications } from '@/components/public/Notifications'
 
@@ -66,11 +66,24 @@ export function RsvpForm({ initial, link, onDone }: FormProps) {
   const [needs, setNeeds] = useState(() => parseNeeds(initial?.contribution?.needs ?? ''))
 
   const attending = status === 'yes'
-  const stepCount = attending ? 6 : 3
-  const Step = ({ n }: { n: number }) => (
-    <p className="text-xs font-medium tracking-[0.25em] text-primary uppercase">
-      {t('Schritt {n} von {count}', { n, count: stepCount })}
-    </p>
+  const pages = attending
+    ? (['who', 'status', 'people', 'contribution', 'music', 'message'] as const)
+    : (['who', 'status', 'message'] as const)
+  const [index, setIndex] = useState(0)
+  const at = Math.min(index, pages.length - 1)
+  const page = pages[at]
+  const last = at === pages.length - 1
+  const go = (next: number) => {
+    setIndex(next)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+  const Step = (_: { n?: number }) => (
+    <div className="space-y-2">
+      <p className="text-xs font-medium tracking-[0.25em] text-primary uppercase">
+        {t('Schritt {n} von {count}', { n: at + 1, count: pages.length })}
+      </p>
+      <progress className="wed-progress" value={at + 1} max={pages.length} aria-hidden />
+    </div>
   )
 
   const submit = useMutation({
@@ -105,16 +118,21 @@ export function RsvpForm({ initial, link, onDone }: FormProps) {
   return (
     <AnimatePresence mode="wait">
       <motion.form
-        key="form"
+        key={page}
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         className="space-y-6"
         onSubmit={(e) => {
           e.preventDefault()
-          submit.mutate()
+          if (page === 'contribution' && wantsContribution && contribution.messengers.length === 0) {
+            toast.error(t('Bitte mindestens einen Messenger auswählen.'))
+            return
+          }
+          if (last) submit.mutate()
+          else go(at + 1)
         }}
       >
-        <Card>
+        {page === 'who' && <Card>
           <CardHeader>
             <Step n={1} />
             <CardTitle>{t('Wer antwortet?')}</CardTitle>
@@ -126,9 +144,9 @@ export function RsvpForm({ initial, link, onDone }: FormProps) {
               <Input id="contactName" value={contactName} onChange={(e) => setContactName(e.target.value)} required autoComplete="name" />
             </div>
           </CardContent>
-        </Card>
+        </Card>}
 
-        <Card>
+        {page === 'status' && <Card>
           <CardHeader>
             <Step n={2} />
             <CardTitle>{t('Kommt ihr?')}</CardTitle>
@@ -152,9 +170,9 @@ export function RsvpForm({ initial, link, onDone }: FormProps) {
               ))}
             </RadioGroup>
           </CardContent>
-        </Card>
+        </Card>}
 
-        {attending && (
+        {page === 'people' && (
           <Card>
             <CardHeader>
               <Step n={3} />
@@ -239,7 +257,7 @@ export function RsvpForm({ initial, link, onDone }: FormProps) {
           </Card>
         )}
 
-        {attending && (
+        {page === 'contribution' && (
           <Card>
             <CardHeader>
               <Step n={4} />
@@ -349,7 +367,7 @@ export function RsvpForm({ initial, link, onDone }: FormProps) {
           </Card>
         )}
 
-        {attending && (
+        {page === 'music' && (
           <Card>
             <CardHeader>
               <Step n={5} />
@@ -382,9 +400,9 @@ export function RsvpForm({ initial, link, onDone }: FormProps) {
           </Card>
         )}
 
-        <Card>
+        {page === 'message' && <Card>
           <CardHeader>
-            <Step n={attending ? 6 : 3} />
+            <Step n={6} />
             <CardTitle className="flex items-center gap-2">
               {t('Nachricht an uns')} <span className="text-sm font-normal text-muted-foreground">{t('(optional)')}</span>
             </CardTitle>
@@ -392,13 +410,20 @@ export function RsvpForm({ initial, link, onDone }: FormProps) {
           <CardContent>
             <Textarea rows={4} value={message} onChange={(e) => setMessage(e.target.value)} />
           </CardContent>
-        </Card>
+        </Card>}
 
         <div className="sticky bottom-0 -mx-4 bg-gradient-to-t from-background via-background/95 to-transparent px-4 pt-6 pb-4 sm:static sm:mx-0 sm:bg-none sm:p-0">
-          <Button type="submit" size="lg" className="w-full shadow-lg sm:shadow-none" disabled={submit.isPending}>
-            {submit.isPending ? t('Wird gesendet…') : initial ? t('Antwort aktualisieren') : t('Antwort absenden')}
-          </Button>
-          <p className="mt-2 text-center text-xs text-muted-foreground">{t('Eure Angaben sehen nur wir und unsere Trauzeugen.')}</p>
+          <div className="flex gap-3">
+            {at > 0 && (
+              <Button type="button" size="lg" variant="outline" onClick={() => go(at - 1)}>
+                {t('Zurück')}
+              </Button>
+            )}
+            <Button type="submit" size="lg" className="flex-1 shadow-lg sm:shadow-none" disabled={submit.isPending}>
+              {!last ? t('Weiter') : submit.isPending ? t('Wird gesendet…') : initial ? t('Antwort aktualisieren') : t('Antwort absenden')}
+            </Button>
+          </div>
+          {last && <p className="mt-2 text-center text-xs text-muted-foreground">{t('Eure Angaben sehen nur wir und unsere Trauzeugen.')}</p>}
         </div>
       </motion.form>
     </AnimatePresence>
@@ -407,7 +432,6 @@ export function RsvpForm({ initial, link, onDone }: FormProps) {
 
 export function Done({ view, onEdit }: { view: GuestView; onEdit: () => void }) {
   useEffect(() => rememberToken(view.editToken), [view.editToken])
-  const editUrl = `${window.location.origin}/rsvp?token=${encodeURIComponent(view.editToken)}`
   return (
     <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }}>
       <Card className="text-center">
@@ -420,32 +444,7 @@ export function Done({ view, onEdit }: { view: GuestView; onEdit: () => void }) 
               : t('Eure Rückmeldung ist angekommen. Wir freuen uns riesig auf euch!')}
           </p>
           {view.contribution && <p className="text-sm text-muted-foreground">{t('Euer Beitrag wurde an die Trauzeugen weitergeleitet.')}</p>}
-          <div className="mx-auto max-w-md space-y-2 pt-4 text-left">
-            <Label className="text-xs text-muted-foreground">{t('Mit diesem Link könnt ihr eure Antwort später ändern:')}</Label>
-            <div className="flex gap-2">
-              <Input readOnly value={editUrl} onFocus={(e) => e.currentTarget.select()} className="text-xs" />
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                title={t('Link kopieren')}
-                onClick={() => copyText(editUrl, t('Link kopiert.'))}
-              >
-                <Copy className="size-4" />
-              </Button>
-              {typeof navigator.share === 'function' && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  title={t('Link teilen')}
-                  onClick={() => navigator.share({ title: t('Unsere Rückmeldung'), url: editUrl }).catch(() => undefined)}
-                >
-                  <Share2 className="size-4" />
-                </Button>
-              )}
-            </div>
-          </div>
+          <SavePasskey token={view.editToken} />
           <InstallApp />
           <GuestNotifications />
           <div className="flex flex-col items-center gap-3 pt-2">
@@ -460,5 +459,58 @@ export function Done({ view, onEdit }: { view: GuestView; onEdit: () => void }) 
         </CardContent>
       </Card>
     </motion.div>
+  )
+}
+
+type Ceremony = { id: string; options: { publicKey: unknown } }
+
+function SavePasskey({ token }: { token: string }) {
+  const [saved, setSaved] = useState(false)
+  const save = useMutation({
+    mutationFn: async () => {
+      const path = `/rsvp/${encodeURIComponent(token)}/passkey`
+      const { id, options } = await api.post<Ceremony>(`${path}/begin`, {})
+      const credential = await createKey(options)
+      await api.post(path, { id, credential })
+    },
+    onSuccess: () => setSaved(true),
+    onError: (e) => toast.error(errorMessage(e, t('Der Passkey konnte nicht gespeichert werden.'))),
+  })
+  return (
+    <div className="mx-auto max-w-md space-y-3 rounded-lg bg-secondary/40 p-4 text-sm">
+      <p className="text-muted-foreground">
+        {t('Dieses Gerät merkt sich eure Antwort. Mit einem Passkey könnt ihr sie auch später oder auf einem anderen Gerät ändern – sonst sagt uns einfach Bescheid, wenn sich etwas ändert.')}
+      </p>
+      {saved ? (
+        <p className="font-medium text-primary">{t('Passkey gespeichert.')}</p>
+      ) : (
+        webauthnSupported() && (
+          <Button type="button" variant="outline" disabled={save.isPending} onClick={() => save.mutate()}>
+            <KeyRound className="size-4" /> {t('Mit Passkey sichern')}
+          </Button>
+        )
+      )}
+    </div>
+  )
+}
+
+export function PasskeyLogin({ onDone }: { onDone: (view: GuestView) => void }) {
+  const login = useMutation({
+    mutationFn: async () => {
+      const { id, options } = await api.post<Ceremony>('/rsvp/passkey/begin', {})
+      const assertion = await signWithKey(options)
+      return api.post<GuestView>('/rsvp/passkey', { id, assertion })
+    },
+    onSuccess: (view) => {
+      rememberToken(view.editToken)
+      onDone(view)
+    },
+    onError: (e) => toast.error(errorMessage(e, t('Die Anmeldung mit dem Passkey hat nicht geklappt.'))),
+  })
+  if (!webauthnSupported()) return null
+  return (
+    <Button type="button" variant="outline" disabled={login.isPending} onClick={() => login.mutate()}>
+      <KeyRound className="size-4" /> {t('Mit Passkey anmelden')}
+    </Button>
   )
 }

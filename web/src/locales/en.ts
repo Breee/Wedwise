@@ -96,11 +96,9 @@ export const en: Record<string, string> = {
   'Schade, dass ihr nicht dabei sein könnt. Wir denken an euch.': 'A pity you can\'t make it. We\'ll be thinking of you.',
   'Eure Rückmeldung ist angekommen. Wir freuen uns riesig auf euch!': 'Your answer has arrived. We can\'t wait to see you!',
   'Euer Beitrag wurde an die Trauzeugen weitergeleitet.': 'Your contribution was passed on to the witnesses.',
-  'Mit diesem Link könnt ihr eure Antwort später ändern:': 'Use this link to change your answer later:',
   'Link kopieren': 'Copy link',
   'Link kopiert.': 'Link copied.',
   'Link teilen': 'Share link',
-  'Unsere Rückmeldung': 'Our RSVP',
   'Alle Infos zur Hochzeit ansehen': 'See all wedding information',
   'Ablauf, Anreise und Unterkünfte findet ihr dort jederzeit wieder.': 'Schedule, travel and places to stay are always there for you.',
   'Antwort bearbeiten': 'Edit answer',
@@ -534,4 +532,11 @@ export const en: Record<string, string> = {
   'Andere App': 'Other app',
   'bis': 'to',
   'Hinweis zu Bus und Bahn (Haltestellen und Gehzeiten ergänzen wir automatisch)': 'Note on public transport (stops and walking times are added automatically)',
+  'Der Passkey konnte nicht gespeichert werden.': 'The passkey could not be saved.',
+  'Dieses Gerät merkt sich eure Antwort. Mit einem Passkey könnt ihr sie auch später oder auf einem anderen Gerät ändern – sonst sagt uns einfach Bescheid, wenn sich etwas ändert.':
+    'This device remembers your answer. With a passkey you can also change it later or on another device – otherwise just let us know if anything changes.',
+  'Passkey gespeichert.': 'Passkey saved.',
+  'Mit Passkey sichern': 'Save with a passkey',
+  'Die Anmeldung mit dem Passkey hat nicht geklappt.': 'Signing in with the passkey did not work.',
+  'Der Passkey wurde nicht erkannt.': 'The passkey was not recognised.',
 }

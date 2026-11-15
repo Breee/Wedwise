@@ -14,8 +14,10 @@ import '@fontsource/inter/500.css'
 import '@fontsource/inter/600.css'
 import './index.css'
 import { applyManifest } from './lib/remember'
+import { watchInstallOffer } from './lib/install'
 
 applyManifest()
+watchInstallOffer()
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: false, refetchOnWindowFocus: false } },

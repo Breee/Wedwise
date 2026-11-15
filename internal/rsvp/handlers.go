@@ -1,6 +1,7 @@
 package rsvp
 
 import (
+	"encoding/json"
 	"errors"
 	"net/http"
 	"strconv"
@@ -19,6 +20,9 @@ import (
 
 // CodeInvalidPIN is the error code for a wrong or missing invite PIN.
 const CodeInvalidPIN = "invalid_pin"
+
+// CodeInvalidPasskey is the error code for a passkey that failed verification.
+const CodeInvalidPasskey = "invalid_passkey"
 
 // CodeLinkFull is the error code for a link that reached its response cap.
 const CodeLinkFull = "link_full"
@@ -47,6 +51,7 @@ type Handler struct {
 	pinFailures   *middleware.Limiter
 	submissions   *middleware.Limiter
 	notify        func(response Response, withContribution bool)
+	passkeys      *Passkeys
 }
 
 // NewHandler creates an RSVP handler.
@@ -147,6 +152,10 @@ func (h *Handler) PublicRoutes(middlewares ...func(http.Handler) http.Handler) h
 	r.Get("/links/{link}", h.linkStatus)
 	r.Post("/links/{link}/unlock", h.unlock)
 	r.Post("/links/{link}", h.create)
+	r.Post("/passkey/begin", h.passkeyLoginBegin)
+	r.Post("/passkey", h.passkeyLogin)
+	r.Post("/{token}/passkey/begin", h.passkeyRegisterBegin)
+	r.Post("/{token}/passkey", h.passkeyRegister)
 	r.Get("/{token}", h.get)
 	r.Put("/{token}", h.update)
 	r.Delete("/{token}", h.remove)
@@ -455,4 +464,103 @@ func (h *Handler) writeError(w http.ResponseWriter, err error) {
 	default:
 		httpx.Internal(w, err)
 	}
+}
+
+// SetPasskeys lets guests register a passkey for their response and use it
+// to come back later.
+func (h *Handler) SetPasskeys(passkeys *Passkeys) {
+	h.passkeys = passkeys
+}
+
+func (h *Handler) passkeysOrNotFound(w http.ResponseWriter) bool {
+	if h.passkeys == nil {
+		httpx.NotFound(w, "Passkeys are not available.")
+		return false
+	}
+	return true
+}
+
+func writePasskeyError(w http.ResponseWriter, err error) {
+	if errors.Is(err, ErrPasskey) {
+		httpx.WriteError(w, http.StatusBadRequest, CodeInvalidPasskey, "This passkey could not be verified.")
+		return
+	}
+	httpx.Internal(w, err)
+}
+
+func (h *Handler) passkeyRegisterBegin(w http.ResponseWriter, r *http.Request) {
+	if !h.passkeysOrNotFound(w) {
+		return
+	}
+	response, err := h.store.GetByToken(r.Context(), chi.URLParam(r, "token"))
+	if err != nil {
+		h.writeError(w, err)
+		return
+	}
+	options, id, err := h.passkeys.BeginRegister(r.Context(), response)
+	if err != nil {
+		writePasskeyError(w, err)
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, map[string]any{"id": id, "options": options})
+}
+
+func (h *Handler) passkeyRegister(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		ID         string          `json:"id"`
+		Credential json.RawMessage `json:"credential"`
+	}
+	if !httpx.DecodeJSON(w, r, &req) || !h.passkeysOrNotFound(w) {
+		return
+	}
+	response, err := h.store.GetByToken(r.Context(), chi.URLParam(r, "token"))
+	if err != nil {
+		h.writeError(w, err)
+		return
+	}
+	if err := h.passkeys.FinishRegister(r.Context(), response, req.ID, req.Credential); err != nil {
+		writePasskeyError(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *Handler) passkeyLoginBegin(w http.ResponseWriter, r *http.Request) {
+	if !h.passkeysOrNotFound(w) {
+		return
+	}
+	options, id, err := h.passkeys.BeginLogin()
+	if err != nil {
+		httpx.Internal(w, err)
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, map[string]any{"id": id, "options": options})
+}
+
+// passkeyLogin answers with the response a verified passkey belongs to,
+// including its edit token.
+func (h *Handler) passkeyLogin(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		ID        string          `json:"id"`
+		Assertion json.RawMessage `json:"assertion"`
+	}
+	if !httpx.DecodeJSON(w, r, &req) || !h.passkeysOrNotFound(w) {
+		return
+	}
+	responseID, err := h.passkeys.FinishLogin(r.Context(), req.ID, req.Assertion)
+	if err != nil {
+		writePasskeyError(w, err)
+		return
+	}
+	response, err := h.store.GetByID(r.Context(), responseID)
+	if err != nil {
+		h.writeError(w, err)
+		return
+	}
+	token, err := h.store.EditToken(r.Context(), responseID)
+	if err != nil {
+		h.writeError(w, err)
+		return
+	}
+	h.writeGuestView(w, r, http.StatusOK, response, token)
 }

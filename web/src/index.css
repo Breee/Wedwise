@@ -138,6 +138,26 @@
     background: var(--primary);
     box-shadow: 0 0 0 3px white, 0 0 0 5px var(--primary);
   }
+  .wed-progress {
+    display: block;
+    width: 100%;
+    height: 4px;
+    appearance: none;
+    border: 0;
+    border-radius: 999px;
+    overflow: hidden;
+    background: var(--secondary);
+  }
+  .wed-progress::-webkit-progress-bar {
+    background: var(--secondary);
+  }
+  .wed-progress::-webkit-progress-value {
+    background: var(--primary);
+  }
+  .wed-progress::-moz-progress-bar {
+    background: var(--primary);
+  }
+
   .wed-logo {
     display: inline-block;
     background-color: currentColor;

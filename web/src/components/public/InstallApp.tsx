@@ -1,12 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useSyncExternalStore } from 'react'
 import { t } from '@/lib/i18n'
+import { installOffer, onInstallOffer, takeInstallOffer } from '@/lib/install'
 import { Download, Share } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-
-interface InstallPromptEvent extends Event {
-  prompt(): Promise<void>
-}
 
 function isStandalone() {
   return window.matchMedia('(display-mode: standalone)').matches || ('standalone' in navigator && navigator.standalone === true)
@@ -17,30 +14,21 @@ function isIos() {
 }
 
 export function InstallApp() {
-  const [prompt, setPrompt] = useState<InstallPromptEvent | null>(null)
+  const offered = useSyncExternalStore(onInstallOffer, installOffer)
   const [installed, setInstalled] = useState(isStandalone)
   const [help, setHelp] = useState(false)
 
   useEffect(() => {
-    const onPrompt = (e: Event) => {
-      e.preventDefault()
-      setPrompt(e as InstallPromptEvent)
-    }
     const onInstalled = () => setInstalled(true)
-    window.addEventListener('beforeinstallprompt', onPrompt)
     window.addEventListener('appinstalled', onInstalled)
-    return () => {
-      window.removeEventListener('beforeinstallprompt', onPrompt)
-      window.removeEventListener('appinstalled', onInstalled)
-    }
+    return () => window.removeEventListener('appinstalled', onInstalled)
   }, [])
 
   if (installed) return null
 
   const install = () => {
-    if (prompt) {
-      void prompt.prompt()
-      setPrompt(null)
+    if (offered) {
+      void takeInstallOffer()?.prompt()
     } else {
       setHelp(true)
     }

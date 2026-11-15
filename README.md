@@ -25,7 +25,9 @@ third-party SaaS required.
 
 - 📖 **Wedding page** — hero, schedule, location, FAQ, add-to-calendar.
 - 📱 **Installable** — guests can add the site to their home screen; their
-  response is remembered so they can come back and edit it.
+  response is remembered so they can come back and edit it. The response
+  form asks one thing per page; guests can save a passkey to change their
+  answer later or on another device. No edit link is shown to them.
 - 📰 **News feed** — messages sent to all guests also appear under "Neuigkeiten" on the home page.
 - 🔔 **Push notifications** — guests can opt in to announcements; staff choose
   per device whether to hear about new responses and contributions (under

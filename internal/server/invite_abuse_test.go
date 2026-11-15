@@ -169,3 +169,26 @@ func TestStaffBulkDeletesResponses(t *testing.T) {
 		t.Fatalf("contribution of a deleted response is still listed: %s", raw)
 	}
 }
+
+func TestGuestPasskeyRoutes(t *testing.T) {
+	app, _ := newTestAppWithUsers(t)
+	token := submitResponse(t, app, validResponse()).EditToken
+
+	begin := app.do(http.MethodPost, "/api/rsvp/"+token+"/passkey/begin", map[string]any{}, nil)
+	if body := readBody(t, begin); begin.StatusCode != http.StatusOK || !strings.Contains(body, "publicKey") {
+		t.Fatalf("begin = %d %s", begin.StatusCode, body)
+	}
+	if resp := app.do(http.MethodPost, "/api/rsvp/unknown-token/passkey/begin", map[string]any{}, nil); resp.StatusCode != http.StatusNotFound {
+		t.Fatalf("unknown token = %d", resp.StatusCode)
+	}
+	if resp := app.do(http.MethodPost, "/api/rsvp/"+token+"/passkey", map[string]any{"id": "nope", "credential": map[string]any{}}, nil); resp.StatusCode != http.StatusBadRequest {
+		t.Fatalf("bogus registration = %d", resp.StatusCode)
+	}
+	login := app.do(http.MethodPost, "/api/rsvp/passkey/begin", map[string]any{}, nil)
+	if body := readBody(t, login); login.StatusCode != http.StatusOK || !strings.Contains(body, "publicKey") {
+		t.Fatalf("login begin = %d %s", login.StatusCode, body)
+	}
+	if resp := app.do(http.MethodPost, "/api/rsvp/passkey", map[string]any{"id": "nope", "assertion": map[string]any{}}, nil); resp.StatusCode != http.StatusBadRequest {
+		t.Fatalf("bogus login = %d", resp.StatusCode)
+	}
+}

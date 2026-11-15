@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { t } from '@/lib/i18n'
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { api, errorMessage } from '@/lib/api'
@@ -9,7 +9,7 @@ import { forgetToken, rememberedToken } from '@/lib/remember'
 import type { GuestView } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { Done, RsvpForm, RsvpHeader } from '@/components/rsvp/RsvpForm'
+import { Done, PasskeyLogin, RsvpForm, RsvpHeader } from '@/components/rsvp/RsvpForm'
 
 export const Route = createFileRoute('/rsvp/')({
   validateSearch: (search: Record<string, unknown>): { token?: string } => ({
@@ -23,6 +23,7 @@ function EditResponsePage() {
   const [deleted, setDeleted] = useState(false)
   const token = deleted ? undefined : (fromUrl ?? rememberedToken() ?? undefined)
   const [done, setDone] = useState<GuestView | null>(null)
+  const navigate = useNavigate()
 
   return (
     <section className="mx-auto max-w-2xl px-6 py-16">
@@ -34,7 +35,9 @@ function EditResponsePage() {
       ) : token ? (
         <ExistingResponse token={token} onDone={setDone} onDeleted={() => setDeleted(true)} />
       ) : (
-        <Notice text={t('Zum Antworten braucht ihr den Einladungslink aus eurer Einladung.')} />
+        <Notice text={t('Zum Antworten braucht ihr den Einladungslink aus eurer Einladung.')}>
+          <PasskeyLogin onDone={(view) => navigate({ to: '/rsvp', search: { token: view.editToken }, replace: true })} />
+        </Notice>
       )}
     </section>
   )
@@ -81,11 +84,12 @@ function ExistingResponse({
   )
 }
 
-function Notice({ text }: { text: string }) {
+function Notice({ text, children }: { text: string; children?: React.ReactNode }) {
   return (
     <Card className="text-center">
       <CardContent className="py-10 text-muted-foreground">
         {text}
+        {children && <div className="mt-4 flex justify-center">{children}</div>}
         <a href="/" className="mt-4 block text-primary underline underline-offset-4">{t('Zur Hochzeitsseite')}</a>
       </CardContent>
     </Card>
