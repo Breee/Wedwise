@@ -70,21 +70,3 @@ export function drawRoutes(map: MapLibreMap, routes: RouteFeature[]): () => void
     labels.forEach((l) => l.remove())
   }
 }
-
-// Highlights the cycle paths that the base map already carries. Returns a cleanup.
-export function drawCycleways(map: MapLibreMap, color: string): () => void {
-  const source = Object.entries(map.getStyle().sources).find(([, s]) => s.type === 'vector')?.[0]
-  if (!source) return () => {}
-  map.addLayer({
-    id: 'cycleways',
-    type: 'line',
-    source,
-    'source-layer': 'transportation',
-    filter: ['any', ['==', ['get', 'subclass'], 'cycleway'], ['==', ['get', 'bicycle'], 'designated']],
-    layout: { 'line-cap': 'round', 'line-join': 'round' },
-    paint: { 'line-color': color, 'line-width': ['interpolate', ['linear'], ['zoom'], 12, 1.2, 16, 3], 'line-opacity': 0.8 },
-  })
-  return () => {
-    if (map.getLayer('cycleways')) map.removeLayer('cycleways')
-  }
-}

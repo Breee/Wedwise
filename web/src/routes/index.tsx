@@ -60,7 +60,7 @@ function HomePage() {
   const city = event.venue.city || event.venue.name
   const [mode, setMode] = useState<TravelMode>('transit')
   const ARRIVAL: { mode: TravelMode; label: string; short: string; Icon: typeof Car; text: string; directions: DirectionsMode }[] = [
-    { mode: 'transit', label: t('Mit der Tram'), short: t('Tram'), Icon: TramFront, text: location.transport, directions: 'transit' },
+    { mode: 'transit', label: t('Mit dem Nahverkehr'), short: t('ÖPNV'), Icon: TramFront, text: location.transport, directions: 'transit' },
     { mode: 'bike', label: t('Mit dem Rad'), short: t('Rad'), Icon: Bike, text: location.bike ?? '', directions: 'bicycling' },
     { mode: 'car', label: t('Mit dem Auto'), short: t('Auto'), Icon: Car, text: location.parking, directions: 'driving' },
   ]
@@ -233,7 +233,7 @@ function HomePage() {
                     )}
                   </CardContent>
                 </Card>
-                {hasMap && (
+                {hasMap && m !== 'bike' && (
                   <Suspense fallback={<Skeleton className="h-[60svh] max-h-[520px] min-h-[320px] rounded-3xl" />}>
                     <TravelMap travel={travel} venueName={location.name || 'Location'} mode={m} />
                   </Suspense>
