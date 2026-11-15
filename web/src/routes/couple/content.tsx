@@ -1,11 +1,11 @@
 import { useState } from 'react'
 import { t } from '@/lib/i18n'
 import { createFileRoute } from '@tanstack/react-router'
-import { useMutation, useQueryClient, useSuspenseQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient, useSuspenseQuery } from '@tanstack/react-query'
 import { ArrowDown, ArrowUp, Plus, Trash2, Upload } from 'lucide-react'
 import { toast } from 'sonner'
 import { api, errorMessage } from '@/lib/api'
-import { contentQuery, themesQuery } from '@/lib/queries'
+import { contentQuery, publicContentQuery, themesQuery } from '@/lib/queries'
 import type { Content, FAQEntry, ScheduleEntry } from '@/lib/types'
 import { PageHeader } from '@/components/admin/PageHeader'
 import { StayEditor } from '@/components/admin/StayEditor'
@@ -32,6 +32,7 @@ export const Route = createFileRoute('/couple/content')({
 function ContentPage() {
   const { data } = useSuspenseQuery(contentQuery)
   const { data: themes } = useSuspenseQuery(themesQuery)
+  const configured = useQuery(publicContentQuery).data?.event.hero
   const [draft, setDraft] = useState<Content>(() => structuredClone(data))
   const queryClient = useQueryClient()
   const { tab = 'hero' } = Route.useSearch()
@@ -113,10 +114,10 @@ function ContentPage() {
               <p className="text-sm text-muted-foreground">{t('Leere Felder übernehmen die Werte aus der Konfiguration.')}</p>
             </CardHeader>
             <CardContent className="grid gap-4 sm:grid-cols-2">
-              <Field label={t('Kleine Überschrift')} value={draft.hero.eyebrow} onChange={(v) => set('hero', { ...draft.hero, eyebrow: v })} />
-              <Field label={t('Überschrift')} value={draft.hero.headline} onChange={(v) => set('hero', { ...draft.hero, headline: v })} />
-              <Field label={t('Untertitel')} value={draft.hero.subtitle} onChange={(v) => set('hero', { ...draft.hero, subtitle: v })} />
-              <Field label={t('Hinweis')} value={draft.hero.note} onChange={(v) => set('hero', { ...draft.hero, note: v })} />
+              <Field label={t('Kleine Überschrift')} placeholder={configured?.eyebrow} value={draft.hero.eyebrow} onChange={(v) => set('hero', { ...draft.hero, eyebrow: v })} />
+              <Field label={t('Überschrift')} placeholder={configured?.headline} value={draft.hero.headline} onChange={(v) => set('hero', { ...draft.hero, headline: v })} />
+              <Field label={t('Untertitel')} placeholder={configured?.subtitle} value={draft.hero.subtitle} onChange={(v) => set('hero', { ...draft.hero, subtitle: v })} />
+              <Field label={t('Hinweis')} placeholder={configured?.note} value={draft.hero.note} onChange={(v) => set('hero', { ...draft.hero, note: v })} />
             </CardContent>
           </Card>
           <Card>
@@ -252,8 +253,10 @@ function Field({
   onChange,
   multiline,
   className,
+  placeholder,
 }: {
   label: string
+  placeholder?: string
   value: string
   onChange: (v: string) => void
   multiline?: boolean
@@ -263,9 +266,9 @@ function Field({
     <div className={className ? `space-y-2 ${className}` : 'space-y-2'}>
       <Label>{label}</Label>
       {multiline ? (
-        <Textarea rows={4} value={value ?? ''} onChange={(e) => onChange(e.target.value)} />
+        <Textarea rows={4} placeholder={placeholder} value={value ?? ''} onChange={(e) => onChange(e.target.value)} />
       ) : (
-        <Input value={value ?? ''} onChange={(e) => onChange(e.target.value)} />
+        <Input placeholder={placeholder} value={value ?? ''} onChange={(e) => onChange(e.target.value)} />
       )}
     </div>
   )

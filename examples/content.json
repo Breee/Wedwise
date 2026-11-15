@@ -154,5 +154,9 @@
       }
     ]
   },
-  "theme": "sage-botanical"
+  "theme": "sage-botanical",
+  "introduction": {
+    "text": "Wir sagen Ja – und möchten diesen Tag mit den Menschen feiern, die uns am wichtigsten sind.\n\nHier findet ihr alles rund um unsere Hochzeit: den Ablauf, die Anreise, Unterkünfte und die Antworten auf häufige Fragen. Bitte gebt uns über euren Einladungslink Bescheid, ob ihr dabei seid."
+  },
+  "privacy": "Eure Angaben aus der Rückmeldung sehen nur wir und unsere Trauzeugen. Wir nutzen sie ausschließlich für die Planung der Feier und löschen sie danach. Wenn ihr eure Antwort ändern oder löschen möchtet, geht das jederzeit über euren Link."
 }
