@@ -120,7 +120,10 @@ type Leg struct {
 // Warm looks up the given routes in the background so visitors find them in
 // the cache. Lookups are spaced out to stay within the routing service's
 // rate limit. A newer call replaces a running one.
-func (h *Handler) Warm(legs []Leg) {
+//
+// When boardKind is set, the nearest stop of that kind is also found for
+// every point in boardFrom, together with the walk to it.
+func (h *Handler) Warm(legs []Leg, boardKind string, boardFrom [][2]float64) {
 	if h.key == "" {
 		return
 	}
@@ -148,6 +151,29 @@ func (h *Handler) Warm(legs []Leg) {
 			if err != nil {
 				slog.Warn("route warm-up failed", "error", err)
 			}
+			if time.Since(started) > 5*time.Millisecond {
+				time.Sleep(h.warmPause)
+			}
+		}
+		for _, from := range boardFrom {
+			h.mu.Lock()
+			current := h.warmRun
+			h.mu.Unlock()
+			if current != run || boardKind == "" {
+				return
+			}
+			started := time.Now()
+			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			stop, found, err := h.boardingStop(ctx, boardKind, from)
+			if err != nil {
+				slog.Warn("boarding stop lookup failed", "error", err)
+			}
+			if found {
+				if _, err := h.lookup(ctx, profiles["foot"], from, [2]float64{stop.Lng, stop.Lat}); err != nil {
+					slog.Warn("route warm-up failed", "error", err)
+				}
+			}
+			cancel()
 			if time.Since(started) > 5*time.Millisecond {
 				time.Sleep(h.warmPause)
 			}

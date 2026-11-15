@@ -7,7 +7,7 @@ export const HEART_SVG =
   '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>'
 
 const FIT_PADDING_DESKTOP = { top: 80, bottom: 60, left: 60, right: 60 }
-const FIT_PADDING_MOBILE = { top: 64, bottom: 72, left: 32, right: 32 }
+const FIT_PADDING_MOBILE = { top: 88, bottom: 120, left: 72, right: 72 }
 /** Smaller padding on narrow maps so routes stay legible on phones. */
 export function fitPadding(map: MapLibreMap) {
   return map.getContainer().clientWidth < 640 ? FIT_PADDING_MOBILE : FIT_PADDING_DESKTOP
@@ -27,6 +27,18 @@ const DASH_SEQUENCE = [
 ]
 
 // Draws animated routes with a minute label at the midpoint. Returns a cleanup.
+// Pixel offset that puts a label next to the line running from a to b instead of on top of it.
+function beside(map: MapLibreMap, a: LngLat, b: LngLat): [number, number] {
+  const from = map.project(a)
+  const to = map.project(b)
+  const length = Math.hypot(to.x - from.x, to.y - from.y)
+  if (length === 0) return [0, -22]
+  const nx = -(to.y - from.y) / length
+  const ny = (to.x - from.x) / length
+  const side = ny > 0 ? -1 : 1
+  return [side * nx * 40, side * ny * 22]
+}
+
 export function drawRoutes(map: MapLibreMap, routes: RouteFeature[]): () => void {
   const data = {
     type: 'FeatureCollection' as const,
@@ -48,10 +60,13 @@ export function drawRoutes(map: MapLibreMap, routes: RouteFeature[]): () => void
 
   const labels = routes.map(({ route, color, icon }) => {
     const c = route.coordinates
-    const mid: LngLat = c.length === 2 ? [(c[0][0] + c[1][0]) / 2, (c[0][1] + c[1][1]) / 2] : c[Math.floor(c.length / 2)]
+    const at = Math.floor(c.length / 2)
+    const mid: LngLat = c.length === 2 ? [(c[0][0] + c[1][0]) / 2, (c[0][1] + c[1][1]) / 2] : c[at]
     const el = markerElement(`${icon ?? ''}<span>${route.minutes} Min</span>`, 'wed-route-label')
     el.style.setProperty('--stop-color', color)
-    return new maplibregl.Marker({ element: el, anchor: 'center' }).setLngLat(mid).addTo(map)
+    return new maplibregl.Marker({ element: el, anchor: 'center', offset: beside(map, c[Math.max(at - 1, 0)], c[Math.min(at + 1, c.length - 1)]) })
+      .setLngLat(mid)
+      .addTo(map)
   })
 
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches

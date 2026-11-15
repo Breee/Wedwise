@@ -284,6 +284,48 @@ func (h *Handler) Nearby(w http.ResponseWriter, r *http.Request) {
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{"places": places})
 }
 
+func boardKey(kind string, at [2]float64) string {
+	return fmt.Sprintf("board|%s|%.4f,%.4f", kind, at[0], at[1])
+}
+
+// boardingStop finds the nearest stop of one kind around a point and
+// remembers the answer, also when there is none.
+func (h *Handler) boardingStop(ctx context.Context, kind string, at [2]float64) (NearbyPlace, bool, error) {
+	var cached []NearbyPlace
+	if !h.loadJSON(ctx, boardKey(kind, at), &cached) {
+		features, err := h.pois(ctx, at, transportGroup)
+		if err != nil {
+			return NearbyPlace{}, false, err
+		}
+		cached = []NearbyPlace{}
+		for _, place := range stops(features) {
+			if place.Kind == kind {
+				cached = append(cached, place)
+				break
+			}
+		}
+		h.storeJSON(ctx, boardKey(kind, at), cached)
+	}
+	if len(cached) == 0 {
+		return NearbyPlace{}, false, nil
+	}
+	return cached[0], true, nil
+}
+
+// Stop answers ?at=lng,lat&kind=tram with the nearest stop of that kind. It
+// is open to guests, so it only reads what Warm has found before and never
+// asks the map service itself.
+func (h *Handler) Stop(w http.ResponseWriter, r *http.Request) {
+	at, ok := parsePoint(r.URL.Query().Get("at"))
+	var cached []NearbyPlace
+	if !ok || !h.loadJSON(r.Context(), boardKey(r.URL.Query().Get("kind"), at), &cached) || len(cached) == 0 {
+		httpx.WriteError(w, http.StatusNotFound, httpx.CodeNotFound, "No stop known.")
+		return
+	}
+	w.Header().Set("Cache-Control", "public, max-age=86400")
+	httpx.WriteJSON(w, http.StatusOK, map[string]any{"stop": cached[0]})
+}
+
 // stays keeps the named hotels and flats.
 func stays(features []poi) []NearbyPlace {
 	places := make([]NearbyPlace, 0, maxNearby)

@@ -2,6 +2,7 @@ package routing
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -133,7 +134,7 @@ func TestWarmFillsTheCache(t *testing.T) {
 	h.baseURL = upstream(t, &calls).URL
 	h.warmPause = 0
 
-	h.Warm([]Leg{{Profile: "foot", From: [2]float64{7.85, 47.99}, To: [2]float64{7.87, 47.98}}})
+	h.Warm([]Leg{{Profile: "foot", From: [2]float64{7.85, 47.99}, To: [2]float64{7.87, 47.98}}}, "", nil)
 	deadline := time.Now().Add(2 * time.Second)
 	for {
 		h.mu.Lock()
@@ -277,5 +278,55 @@ func TestNearbyStays(t *testing.T) {
 	}
 	if !reflect.DeepEqual(body.Places, want) {
 		t.Fatalf("places = %+v", body.Places)
+	}
+}
+
+func TestBoardingStop(t *testing.T) {
+	calls := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls++
+		_, _ = fmt.Fprint(w, `{"features":[
+			{"geometry":{"coordinates":[7.1,47.98]},"properties":{"category_ids":{"1":{"category_name":"bus_stop"}},"osm_tags":{"name":"Bus"}}},
+			{"geometry":{"coordinates":[7.2,47.98]},"properties":{"category_ids":{"1":{"category_name":"tram_stop"}},"osm_tags":{"name":"Tram"}}}]}`)
+	}))
+	t.Cleanup(srv.Close)
+	db, err := sql.Open("sqlite", ":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
+	db.SetMaxOpenConns(1)
+	if _, err := db.Exec(`CREATE TABLE route_cache (cache_key TEXT PRIMARY KEY, route TEXT NOT NULL)`); err != nil {
+		t.Fatal(err)
+	}
+	h := NewHandler("secret", db)
+	h.baseURL = srv.URL
+	at := [2]float64{7.15, 47.98}
+
+	ask := func(kind string) *httptest.ResponseRecorder {
+		rec := httptest.NewRecorder()
+		h.Stop(rec, httptest.NewRequest(http.MethodGet, "/?at=7.15,47.98&kind="+kind, nil))
+		return rec
+	}
+	if rec := ask("tram"); rec.Code != http.StatusNotFound || calls != 0 {
+		t.Fatalf("guests must not trigger lookups: status %d, calls %d", rec.Code, calls)
+	}
+	stop, found, err := h.boardingStop(context.Background(), "tram", at)
+	if err != nil || !found || stop.Name != "Tram" {
+		t.Fatalf("stop = %+v, %v, %v", stop, found, err)
+	}
+	if _, found, _ := h.boardingStop(context.Background(), "train", at); found {
+		t.Fatal("no train stop expected")
+	}
+	if rec := ask("tram"); rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"name":"Tram"`) {
+		t.Fatalf("status %d body %s", rec.Code, rec.Body)
+	}
+	if rec := ask("train"); rec.Code != http.StatusNotFound {
+		t.Fatalf("status %d", rec.Code)
+	}
+	before := calls
+	_, _, _ = h.boardingStop(context.Background(), "train", at)
+	if calls != before {
+		t.Fatal("answers, also empty ones, must be cached")
 	}
 }

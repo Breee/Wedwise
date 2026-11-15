@@ -45,11 +45,9 @@ export function BaseMap({
     if (gestures !== 'none') map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right')
     let cleanup: void | (() => void)
     map.once('load', () => {
-      if (gestures === 'none') {
-        const credit = map.getContainer().querySelector('.maplibregl-ctrl-attrib')
-        credit?.classList.remove('maplibregl-compact-show')
-        credit?.removeAttribute('open')
-      }
+      const credit = map.getContainer().querySelector('.maplibregl-ctrl-attrib')
+      credit?.classList.remove('maplibregl-compact-show')
+      credit?.removeAttribute('open')
       cleanup = ready.current(map)
     })
     return () => {

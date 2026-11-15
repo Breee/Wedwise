@@ -541,4 +541,5 @@ export const en: Record<string, string> = {
   'Der Passkey wurde nicht erkannt.': 'The passkey was not recognised.',
   'Karte anzeigen': 'Show map',
   'Details': 'Details',
+  '{n} Min zu Fuß bis {stop}, dann Tram bis {to}': '{n} min on foot to {stop}, then tram to {to}',
 }

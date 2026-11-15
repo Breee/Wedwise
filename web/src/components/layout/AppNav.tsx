@@ -63,7 +63,6 @@ export function AppNav() {
         )}
       >
         <Link to="/" className="flex shrink-0 items-center gap-2 font-display text-xl tracking-wide whitespace-nowrap sm:text-2xl">
-          <span aria-hidden className="wed-logo size-7 text-primary" />
           {names.length === 2 ? (
             <>
               {names[0]}

@@ -158,12 +158,6 @@
     background: var(--primary);
   }
 
-  .wed-logo {
-    display: inline-block;
-    background-color: currentColor;
-    mask: url('/logo.png') center / contain no-repeat;
-  }
-
   .wed-route-label {
     pointer-events: none;
     display: inline-flex;

@@ -228,6 +228,7 @@ func New(cfg configuration.Config, db *sql.DB) (*Server, error) {
 		api.Get("/content/public", contentHandler.PublicHandler)
 		api.Get("/themes", contentHandler.ThemesHandler)
 		api.With(routeLimit).Method(http.MethodGet, "/route", routeHandler)
+		api.With(routeLimit).Get("/route/stop", routeHandler.Stop)
 		api.With(routeLimit).Method(http.MethodGet, "/songs", songs.NewHandler())
 
 		api.Group(func(protected chi.Router) {
@@ -362,12 +363,14 @@ func imagesHandler(dir string) http.Handler {
 
 // mapLegs lists the routes the public maps ask for, so they can be looked up
 // before the first visitor arrives.
-func mapLegs(c content.Content) []routing.Leg {
+//
+// Guests staying further away walk to the nearest stop of the kind that
+// serves the venue; boardKind and boardFrom name those lookups.
+func mapLegs(c content.Content) (legs []routing.Leg, boardKind string, boardFrom [][2]float64) {
 	venue := [2]float64{c.Travel.Lng, c.Travel.Lat}
 	if venue == [2]float64{} {
-		return nil
+		return nil, "", nil
 	}
-	var legs []routing.Leg
 	var stop *[2]float64
 	for _, s := range c.Travel.Stops {
 		if s.Kind == "parking" {
@@ -376,6 +379,7 @@ func mapLegs(c content.Content) []routing.Leg {
 		point := [2]float64{s.Lng, s.Lat}
 		if stop == nil {
 			stop = &point
+			boardKind = s.Kind
 		}
 		legs = append(legs, routing.Leg{Profile: "foot", From: point, To: venue})
 	}
@@ -385,8 +389,8 @@ func mapLegs(c content.Content) []routing.Leg {
 			legs = append(legs, routing.Leg{Profile: profile, From: from, To: venue})
 		}
 		if stop != nil {
-			legs = append(legs, routing.Leg{Profile: "foot", From: from, To: *stop})
+			boardFrom = append(boardFrom, from)
 		}
 	}
-	return legs
+	return legs, boardKind, boardFrom
 }

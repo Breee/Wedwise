@@ -20,6 +20,7 @@ import {
   type LngLat,
   type Route,
 } from '@/lib/geo'
+import { api } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { BaseMap, markerElement } from './BaseMap'
@@ -36,8 +37,9 @@ const WALK_ONLY_MINUTES = 15
 const FOOT_COLOR = '#5e7f63'
 const FOOT_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 16v-2.38C4 11.5 2.97 10.5 3 8c.03-2.72 1.49-6 4.5-6C9.37 2 10 3.8 10 5.5c0 3.11-2 5.66-2 8.68V16a2 2 0 1 1-4 0Z"/><path d="M20 20v-2.38c0-2.12 1.03-3.12 1-5.62-.03-2.72-1.49-6-4.5-6C14.63 6 14 7.8 14 9.5c0 3.11 2 5.66 2 8.68V20a2 2 0 1 0 4 0Z"/><path d="M16 17h4M4 13h4"/></svg>'
 
-// ride: the routed way to the stop, timed at tram speed plus waiting.
-type Transit = { stop: Stop; ride?: Route; totalMinutes: number }
+type Board = { name: string; lat: number; lng: number }
+// toBoard: the walk to the stop where guests get on; ride: from there to the stop at the location.
+type Transit = { stop: Stop; board?: Board; toBoard?: Route; ride?: Route; totalMinutes: number }
 // walk: walking is realistic (≤ WALK_MAX_MINUTES) and not slower than the tram.
 type Ranked = Hotel & { foot?: Route; bike?: Route; car?: Route; transit: Transit | null; walk: boolean; minutes: number }
 
@@ -52,8 +54,20 @@ export function StayMap({ accommodation, travel, city }: { accommodation: Accomm
   const footRoutes = useQueries({ queries: accommodation.hotels.map((h) => ({ ...routeQuery('foot', [h.lng, h.lat], venue), enabled: hasVenue })) })
   const bikeRoutes = useQueries({ queries: accommodation.hotels.map((h) => ({ ...routeQuery('bike', [h.lng, h.lat], venue), enabled: hasVenue })) })
   const carRoutes = useQueries({ queries: accommodation.hotels.map((h) => ({ ...routeQuery('car', [h.lng, h.lat], venue), enabled: hasVenue })) })
-  const rideRoutes = useQueries({
-    queries: accommodation.hotels.map((h) => ({ ...routeQuery('foot', [h.lng, h.lat], stop ? [stop.lng, stop.lat] : venue), enabled: hasVenue && !!stop })),
+  const boards = useQueries({
+    queries: accommodation.hotels.map((h) => ({
+      queryKey: ['route', 'stop', stop?.kind, h.lng, h.lat],
+      queryFn: () => api.get<{ stop: Board }>(`/route/stop?at=${h.lng},${h.lat}&kind=${stop?.kind}`).then((r) => r.stop, () => null),
+      enabled: hasVenue && !!stop,
+      staleTime: Infinity,
+      retry: false,
+    })),
+  })
+  const boardRoutes = useQueries({
+    queries: accommodation.hotels.map((h, i) => {
+      const board = boards[i].data
+      return { ...routeQuery('foot', [h.lng, h.lat], board ? [board.lng, board.lat] : venue), enabled: hasVenue && !!board }
+    }),
   })
   const stopWalk = useQuery({ ...routeQuery('foot', stop ? [stop.lng, stop.lat] : venue, venue), enabled: hasVenue && !!stop }).data
 
@@ -64,14 +78,14 @@ export function StayMap({ accommodation, travel, city }: { accommodation: Accomm
       const foot = footRoutes[i].data ?? (hasVenue ? estimateRoute('foot', here, venue) : undefined)
       const bike = bikeRoutes[i].data
       const car = carRoutes[i].data
-      const transit = viaStop(here, stop, venue, stopWalk, rideRoutes[i].data)
+      const transit = viaStop(here, stop, venue, stopWalk, boards[i].data ?? undefined, boardRoutes[i].data)
       const walk = !!foot && (foot.minutes <= WALK_ONLY_MINUTES || (foot.minutes <= WALK_MAX_MINUTES && (!transit || foot.minutes <= transit.totalMinutes)))
       const minutes = walk ? foot!.minutes : (transit?.totalMinutes ?? foot?.minutes ?? 0)
       return { ...h, foot, bike, car, transit, walk, minutes }
     })
     return ranked.sort((a, b) => a.minutes - b.minutes)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [accommodation.hotels, stop, venue, hasVenue, stopWalk, ...rideRoutes.map((r) => r.data), ...footRoutes.map((r) => r.data), ...bikeRoutes.map((r) => r.data), ...carRoutes.map((r) => r.data)])
+  }, [accommodation.hotels, stop, venue, hasVenue, stopWalk, ...boards.map((r) => r.data), ...boardRoutes.map((r) => r.data), ...footRoutes.map((r) => r.data), ...bikeRoutes.map((r) => r.data), ...carRoutes.map((r) => r.data)])
 
   const [map, setMap] = useState<MapLibreMap | null>(null)
   const [hover, setHover] = useState<number | null>(null)
@@ -354,6 +368,7 @@ function routeFeatures(hotel: Ranked, stopWalk: Route | undefined): RouteFeature
   const features: RouteFeature[] = []
   if (hotel.walk && hotel.foot) features.push({ route: hotel.foot, color: FOOT_COLOR, id: 0, icon: FOOT_SVG })
   else if (hotel.transit) {
+    if (hotel.transit.toBoard) features.push({ route: hotel.transit.toBoard, color: FOOT_COLOR, id: 3, icon: FOOT_SVG })
     if (hotel.transit.ride) features.push({ route: hotel.transit.ride, color: KIND.tram.color, id: 1, icon: ICON_SVG.tram })
     if (stopWalk) features.push({ route: stopWalk, color: FOOT_COLOR, id: 2, icon: FOOT_SVG })
   }
@@ -370,6 +385,7 @@ function routeBounds(hotel: Ranked, venue: LngLat, features: RouteFeature[]) {
 function headline(hotel: Ranked): string {
   if (hotel.walk) return t('{n} Min zu Fuß zur Location', { n: hotel.foot?.minutes ?? '' })
   if (hotel.transit) return t('ca. {n} Min mit der Tram', { n: hotel.transit.totalMinutes })
+  if (hotel.foot) return t('{n} Min zu Fuß zur Location', { n: hotel.foot.minutes })
   return ''
 }
 
@@ -384,7 +400,7 @@ function RoutePreview({ hotel, venue, stopWalk, onOpen }: { hotel: Ranked; venue
       venueMarker(map, venue),
       new maplibregl.Marker({ element: markerElement('', 'wed-marker wed-marker-hotel is-active'), anchor: 'center' }).setLngLat([hotel.lng, hotel.lat]).addTo(map),
     ]
-    map.fitBounds(routeBounds(hotel, venue, features), { padding: 36, maxZoom: 15, duration: 0 })
+    map.fitBounds(routeBounds(hotel, venue, features), { padding: 48, maxZoom: 14, duration: 0 })
     return () => {
       cleanup()
       markers.forEach((m) => m.remove())
@@ -404,14 +420,25 @@ function RoutePreview({ hotel, venue, stopWalk, onOpen }: { hotel: Ranked; venue
   )
 }
 
-function viaStop(from: LngLat, stop: Stop | undefined, venue: LngLat, stopWalk: Route | undefined, toStop: Route | undefined): Transit | null {
+const SAME_STOP_METERS = 150
+
+function viaStop(from: LngLat, stop: Stop | undefined, venue: LngLat, stopWalk: Route | undefined, board: Board | undefined, toBoard: Route | undefined): Transit | null {
   if (!stop) return null
   const at: LngLat = [stop.lng, stop.lat]
   const walkMinutes = stopWalk?.minutes ?? Math.round((distanceMeters(at, venue) * 1.3) / METERS_PER_MINUTE.foot)
-  const way = toStop && !toStop.estimated ? toStop : undefined
-  const meters = way?.meters ?? distanceMeters(from, at)
+  if (!board) {
+    // Stop not known yet: a rough time, nothing to draw.
+    const minutes = TRAM_WAIT_MINUTES + Math.round(distanceMeters(from, at) / METERS_PER_MINUTE.transit)
+    return { stop, totalMinutes: minutes + walkMinutes }
+  }
+  const start: LngLat = [board.lng, board.lat]
+  // The nearest stop is the one at the location: there is nothing to ride.
+  if (distanceMeters(start, at) < SAME_STOP_METERS) return null
+  const walk = toBoard ?? estimateRoute('foot', from, start)
+  const meters = distanceMeters(start, at)
   const minutes = TRAM_WAIT_MINUTES + Math.round(meters / METERS_PER_MINUTE.transit)
-  return { stop, ride: way && { ...way, minutes }, totalMinutes: minutes + walkMinutes }
+  const ride: Route = { coordinates: [start, at], meters, minutes, estimated: false }
+  return { stop, board, toBoard: walk, ride, totalMinutes: walk.minutes + minutes + walkMinutes }
 }
 
 function HotelCard({
@@ -506,9 +533,12 @@ function TravelTimes({ hotel, venue }: { hotel: Ranked; venue: LngLat }) {
     ? { Icon: Footprints, text: t('{n} Min zu Fuß zur Location', { n: hotel.foot?.minutes ?? '' }) }
     : hotel.transit
       ? { Icon: TramFront, text: t('ca. {n} Min mit der Tram', { n: hotel.transit.totalMinutes }), href: googleDirectionsUrl(venue, 'transit', here) }
-      : null
+      : hotel.foot
+        ? { Icon: Footprints, text: t('{n} Min zu Fuß zur Location', { n: hotel.foot.minutes }) }
+        : null
+  const transit = hotel.walk ? null : hotel.transit
   const others: { Icon: typeof Car; minutes?: number; label: string }[] = [
-    ...(!hotel.walk && hotel.foot ? [{ Icon: Footprints, minutes: hotel.foot.minutes, label: t('zu Fuß') }] : []),
+    ...(!hotel.walk && hotel.transit && hotel.foot ? [{ Icon: Footprints, minutes: hotel.foot.minutes, label: t('zu Fuß') }] : []),
     { Icon: Bike, minutes: hotel.bike?.minutes, label: t('Rad') },
     ...(hotel.car ? [{ Icon: Car, minutes: hotel.car.minutes, label: t('Auto') }] : []),
   ].filter((t) => t.minutes !== undefined)
@@ -524,6 +554,11 @@ function TravelTimes({ hotel, venue }: { hotel: Ranked; venue: LngLat }) {
           ) : (
             primary.text
           )}
+        </p>
+      )}
+      {transit?.board && transit.toBoard && (
+        <p className="text-muted-foreground">
+          {t('{n} Min zu Fuß bis {stop}, dann Tram bis {to}', { n: transit.toBoard.minutes, stop: transit.board.name, to: transit.stop.name })}
         </p>
       )}
       {others.length > 0 && (

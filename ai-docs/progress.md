@@ -70,3 +70,4 @@ Open work is tracked in GitHub issues and milestones (M1 Staff tools, M2 Accommo
 - 2026-11-15: `make https` — Traefik + local CA serve the app at https://wedding.local (mDNS) for testing install and push on phones.
 - 2026-11-15: Response form is a step-by-step wizard; guests get an optional passkey instead of an edit link (`/api/rsvp/passkey`, table `response_passkeys`); install button uses the browser install prompt when offered.
 - 2026-11-15: Unterkünfte on phones: list first with rows that expand in place (route preview), full-screen map with a card per pin; no more page jumps.
+- 2026-11-15: Stay routes walk to the nearest tram stop first (boarding stop looked up server-side, cached), route labels sit beside the line, map attribution collapsed, nav logo removed.
