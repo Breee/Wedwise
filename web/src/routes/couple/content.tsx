@@ -18,7 +18,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
+const TABS = ['hero', 'location', 'travel', 'stay', 'schedule', 'faq', 'theme'] as const
+type Tab = (typeof TABS)[number]
+
 export const Route = createFileRoute('/couple/content')({
+  validateSearch: (search: Record<string, unknown>): { tab?: Tab } =>
+    TABS.includes(search.tab as Tab) ? { tab: search.tab as Tab } : {},
   loader: ({ context }) =>
     Promise.all([context.queryClient.ensureQueryData(contentQuery), context.queryClient.ensureQueryData(themesQuery)]),
   component: ContentPage,
@@ -29,6 +34,8 @@ function ContentPage() {
   const { data: themes } = useSuspenseQuery(themesQuery)
   const [draft, setDraft] = useState<Content>(() => structuredClone(data))
   const queryClient = useQueryClient()
+  const { tab = 'hero' } = Route.useSearch()
+  const navigate = Route.useNavigate()
 
   const save = useMutation({
     mutationFn: () => {
@@ -62,7 +69,7 @@ function ContentPage() {
           </Button>
         }
       />
-      <Tabs defaultValue="hero">
+      <Tabs value={tab} onValueChange={(next) => navigate({ search: { tab: next as Tab }, replace: true })}>
         <TabsList>
           <TabsTrigger value="hero">{t('Begrüßung')}</TabsTrigger>
           <TabsTrigger value="location">{t('Ort')}</TabsTrigger>
