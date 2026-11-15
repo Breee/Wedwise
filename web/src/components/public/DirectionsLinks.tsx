@@ -1,40 +1,56 @@
+import { Navigation } from 'lucide-react'
 import { appleDirectionsUrl, googleDirectionsUrl, type DirectionsMode, type LngLat } from '@/lib/geo'
 import { t } from '@/lib/i18n'
 import { cn } from '@/lib/utils'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 
 export function DirectionsLinks({
   to,
   name,
   mode,
   from,
+  label,
   className,
 }: {
   to: LngLat
   name: string
   mode: DirectionsMode
   from?: LngLat
+  label?: string
   className?: string
 }) {
-  const chip = 'inline-flex min-h-10 items-center rounded-full border bg-background px-3 py-1.5 text-xs sm:min-h-0 transition-colors hover:bg-muted'
-  // Android opens its own chooser with every installed navigation app.
+  const [lng, lat] = to
+  const apps = [
+    { name: 'Google Maps', href: googleDirectionsUrl(to, mode, from) },
+    { name: t('Apple Karten'), href: appleDirectionsUrl(to, name, mode, from) },
+  ]
+  if (mode === 'driving' && !from) {
+    apps.push({ name: 'Waze', href: `https://waze.com/ul?ll=${lat},${lng}&navigate=yes` })
+  }
+  // Android offers every installed navigation app for geo: links.
   if (!from && /Android/i.test(navigator.userAgent)) {
-    const [lng, lat] = to
-    return (
-      <span className={cn('flex flex-wrap gap-2', className)} onClick={(e) => e.stopPropagation()}>
-        <a href={`geo:${lat},${lng}?q=${lat},${lng}(${encodeURIComponent(name)})`} className={chip}>
-          {t('In Navi-App öffnen')} ↗
-        </a>
-      </span>
-    )
+    apps.push({ name: t('Andere App'), href: `geo:${lat},${lng}?q=${lat},${lng}(${encodeURIComponent(name)})` })
   }
   return (
-    <span className={cn('flex flex-wrap gap-2', className)} onClick={(e) => e.stopPropagation()}>
-      <a href={googleDirectionsUrl(to, mode, from)} target="_blank" rel="noreferrer" className={chip}>
-        Google Maps ↗
-      </a>
-      <a href={appleDirectionsUrl(to, name, mode, from)} target="_blank" rel="noreferrer" className={chip}>
-        {t('Apple Karten')} ↗
-      </a>
+    <span className={className} onClick={(e) => e.stopPropagation()}>
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          className={cn(
+            'inline-flex min-h-10 items-center gap-1.5 rounded-full border bg-background px-3 py-1.5 text-xs transition-colors hover:bg-muted sm:min-h-0',
+          )}
+        >
+          <Navigation className="size-3.5" /> {label ?? t('Route planen')}
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start">
+          {apps.map((app) => (
+            <DropdownMenuItem key={app.name} asChild>
+              <a href={app.href} target="_blank" rel="noreferrer">
+                {app.name}
+              </a>
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
     </span>
   )
 }

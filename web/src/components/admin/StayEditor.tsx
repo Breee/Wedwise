@@ -215,7 +215,7 @@ export function StayEditor({ hotels, travel, onChange }: { hotels: Hotel[]; trav
             </Panel>
           )}
         </BaseMap>
-        <aside className="max-h-[640px] space-y-4 overflow-y-auto text-sm lg:h-[70svh]">
+        <aside className="space-y-4 text-sm lg:h-[70svh] lg:max-h-[640px] lg:overflow-y-auto">
           {KINDS.map((kind) => {
             const { Icon, label, color } = STAY[kind]
             const offered = suggestions.filter((s) => s.kind === kind)

@@ -110,7 +110,7 @@ function HomePage() {
               </Button>
             )}
           </div>
-          <div className="mx-auto mt-6 max-w-sm space-y-3">
+          <div className="mx-auto mt-3 flex max-w-sm flex-col items-center gap-3">
             <InstallApp />
             {rememberedToken() && <GuestNotifications />}
           </div>
@@ -199,8 +199,7 @@ function HomePage() {
             )}
             {location.description && <Paragraphs text={location.description} />}
             {hasMap ? (
-              <div className="flex flex-wrap items-center justify-center gap-2 text-sm text-muted-foreground">
-                <Navigation className="size-4" /> <span>{t('Route planen:')}</span>
+              <div className="flex justify-center">
                 <DirectionsLinks to={[travel.lng, travel.lat]} name={location.name || 'Location'} mode="driving" />
               </div>
             ) : location.navigationUrl && (
@@ -227,14 +226,11 @@ function HomePage() {
             {ARRIVAL.map(({ mode: m, label, Icon, text, directions }) => (
               <TabsContent key={m} value={m} className="space-y-6">
                 <Card className="mx-auto max-w-2xl">
-                  <CardContent className="space-y-3 pt-6">
+                  <CardContent className="space-y-3">
                     <h3 className="flex items-center gap-2 text-2xl"><Icon className="size-5 text-primary" /> {label}</h3>
                     {text && <div className="space-y-2 text-muted-foreground"><Paragraphs text={text} /></div>}
                     {hasMap && m === 'bike' && (
-                      <div className="flex flex-wrap items-center gap-2 pt-1 text-sm text-muted-foreground">
-                        <span>{t('Route zur Location:')}</span>
-                        <DirectionsLinks to={[travel.lng, travel.lat]} name={location.name || 'Location'} mode={directions} />
-                      </div>
+                      <DirectionsLinks className="block pt-1" to={[travel.lng, travel.lat]} name={location.name || 'Location'} mode={directions} />
                     )}
                   </CardContent>
                 </Card>
@@ -259,16 +255,17 @@ function HomePage() {
 
       {faq.length > 0 && (
         <Section id="faq" eyebrow={t('Gut zu wissen')} title={t('Fragen & Antworten')} className="bg-card/50">
-          <div className="mx-auto grid max-w-3xl gap-4">
+          <div className="mx-auto max-w-3xl divide-y rounded-xl border bg-card shadow-sm">
             {faq.map((entry, i) => (
-              <Card key={entry.id ?? i}>
-                <CardContent className="pt-6">
-                  <h3 className="text-2xl">{entry.question}</h3>
-                  <div className="mt-2 space-y-2 whitespace-pre-line text-muted-foreground">
-                    <Linkify text={entry.answer} />
-                  </div>
-                </CardContent>
-              </Card>
+              <details key={entry.id ?? i} className="group px-5">
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-4 py-4 font-display text-xl [&::-webkit-details-marker]:hidden">
+                  {entry.question}
+                  <ChevronDown className="size-5 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" />
+                </summary>
+                <div className="space-y-2 pb-5 whitespace-pre-line text-muted-foreground">
+                  <Linkify text={entry.answer} />
+                </div>
+              </details>
             ))}
           </div>
         </Section>

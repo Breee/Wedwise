@@ -7,7 +7,7 @@ export const HEART_SVG =
   '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>'
 
 const FIT_PADDING_DESKTOP = { top: 80, bottom: 60, left: 60, right: 60 }
-const FIT_PADDING_MOBILE = { top: 64, bottom: 40, left: 28, right: 28 }
+const FIT_PADDING_MOBILE = { top: 64, bottom: 72, left: 32, right: 32 }
 /** Smaller padding on narrow maps so routes stay legible on phones. */
 export function fitPadding(map: MapLibreMap) {
   return map.getContainer().clientWidth < 640 ? FIT_PADDING_MOBILE : FIT_PADDING_DESKTOP

@@ -282,7 +282,7 @@ export function TravelEditor({ travel, query, onChange }: { travel: Travel; quer
           </Panel>
         )}
       </BaseMap>
-      <aside className="max-h-[640px] space-y-4 overflow-y-auto text-sm lg:h-[70svh]">
+      <aside className="space-y-4 text-sm lg:h-[70svh] lg:max-h-[640px] lg:overflow-y-auto">
         {KINDS.map((kind) => {
           const { Icon, label, color } = KIND[kind]
           const offered = suggestions.filter((s) => s.kind === kind)
@@ -373,7 +373,7 @@ function StepTitle({ step, done, title }: { step: number; done: boolean; title: 
 
 function Legend() {
   return (
-    <div className="pointer-events-none absolute top-3 left-3 space-y-1 rounded-lg border bg-background/90 px-2.5 py-2 text-xs shadow-sm backdrop-blur">
+    <div className="pointer-events-none absolute hidden sm:block top-3 left-3 space-y-1 rounded-lg border bg-background/90 px-2.5 py-2 text-xs shadow-sm backdrop-blur">
       <div className="flex items-center gap-1.5">
         <Heart className="size-3.5 text-primary" /> {t('Location')}
       </div>

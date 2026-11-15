@@ -211,12 +211,13 @@ export function StayMap({ accommodation, travel, city }: { accommodation: Accomm
         <div className="flex flex-wrap items-center justify-center gap-2" role="group" aria-label="Filter">
           {([1, 2, 3] as const).map((n) => (
             <FilterChip key={n} pressed={tiers.includes(n)} onClick={() => toggleTier(n)}>
-              {TIER[n].label} <span className="text-xs opacity-80">{t(TIER[n].hint)}</span>
+              {TIER[n].label} <span className="ml-1 text-xs opacity-80">{t(TIER[n].hint)}</span>
             </FilterChip>
           ))}
+        </div>
+        <div className="flex flex-wrap items-center justify-center gap-2" role="group" aria-label={t('Art')}>
           {hasApartments && (
             <>
-              <span className="mx-1 h-4 w-px bg-border" aria-hidden />
               <FilterChip pressed={kind === 'hotel'} onClick={() => setKind(kind === 'hotel' ? null : 'hotel')}>Hotel</FilterChip>
               <FilterChip pressed={kind === 'apartment'} onClick={() => setKind(kind === 'apartment' ? null : 'apartment')}>{t('Ferienwohnung')}</FilterChip>
             </>

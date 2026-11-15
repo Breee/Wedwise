@@ -48,7 +48,7 @@ export function InstallApp() {
 
   return (
     <>
-      <Button onClick={install} className="w-full">
+      <Button onClick={install} variant="outline" size="sm">
         <Download className="size-4" /> {t('App installieren')}
       </Button>
       <Dialog open={help} onOpenChange={setHelp}>
