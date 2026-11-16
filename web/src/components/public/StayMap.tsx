@@ -513,7 +513,7 @@ function HotelCard({
       )}
     >
       <div className="flex items-start gap-4">
-        <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary font-display text-lg text-primary-foreground">
+        <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-bold tabular-nums lining-nums text-primary-foreground">
           {index + 1}
         </span>
         <div className="min-w-0 flex-1">
