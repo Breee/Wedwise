@@ -35,6 +35,7 @@ const TIER = { 1: { label: '€', hint: 'günstig' }, 2: { label: '€€', hint
 // Up to this walking time we only suggest walking.
 const WALK_ONLY_MINUTES = 15
 const FOOT_COLOR = '#5e7f63'
+const BED_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 20v-8a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v8"/><path d="M4 10V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v4"/><path d="M12 4v6"/><path d="M2 18h20"/></svg>'
 const FOOT_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 16v-2.38C4 11.5 2.97 10.5 3 8c.03-2.72 1.49-6 4.5-6C9.37 2 10 3.8 10 5.5c0 3.11-2 5.66-2 8.68V16a2 2 0 1 1-4 0Z"/><path d="M20 20v-2.38c0-2.12 1.03-3.12 1-5.62-.03-2.72-1.49-6-4.5-6C14.63 6 14 7.8 14 9.5c0 3.11 2 5.66 2 8.68V20a2 2 0 1 0 4 0Z"/><path d="M16 17h4M4 13h4"/></svg>'
 
 type Board = { name: string; lat: number; lng: number; track?: { meters: number; coordinates: LngLat[] } }
@@ -401,7 +402,7 @@ function RoutePreview({ hotel, venue, stopWalk, onOpen }: { hotel: Ranked; venue
     const cleanup = drawRoutes(map, features, false)
     const markers = [
       venueMarker(map, venue),
-      new maplibregl.Marker({ element: markerElement('', 'wed-marker wed-marker-hotel is-active'), anchor: 'center' }).setLngLat([hotel.lng, hotel.lat]).addTo(map),
+      new maplibregl.Marker({ element: markerElement(BED_SVG, 'wed-marker wed-marker-hotel'), anchor: 'center' }).setLngLat([hotel.lng, hotel.lat]).addTo(map),
     ]
     map.fitBounds(routeBounds(hotel, venue, features), { padding: 48, maxZoom: 14, duration: 0 })
     return () => {

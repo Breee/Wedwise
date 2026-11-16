@@ -175,6 +175,10 @@
     color: var(--primary-foreground);
     z-index: 3;
   }
+  .wed-marker-hotel svg {
+    width: 14px;
+    height: 14px;
+  }
   .maplibregl-ctrl-attrib {
     font-size: 10px;
   }

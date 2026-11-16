@@ -60,10 +60,10 @@ function HomePage() {
   const hotels = content.accommodation?.hotels ?? []
   const city = event.venue.city || event.venue.name
   const [mode, setMode] = useState<TravelMode>('transit')
-  const ARRIVAL: { mode: TravelMode; label: string; short: string; Icon: typeof Car; text: string; directions: DirectionsMode }[] = [
-    { mode: 'transit', label: t('Mit dem Nahverkehr'), short: t('ÖPNV'), Icon: TramFront, text: location.transport, directions: 'transit' },
-    { mode: 'bike', label: t('Mit dem Rad'), short: t('Rad'), Icon: Bike, text: location.bike ?? '', directions: 'bicycling' },
-    { mode: 'car', label: t('Mit dem Auto'), short: t('Auto'), Icon: Car, text: location.parking, directions: 'driving' },
+  const ARRIVAL: { mode: TravelMode; label: string; Icon: typeof Car; text: string; directions: DirectionsMode }[] = [
+    { mode: 'transit', label: t('ÖPNV'), Icon: TramFront, text: location.transport, directions: 'transit' },
+    { mode: 'bike', label: t('Rad'), Icon: Bike, text: location.bike ?? '', directions: 'bicycling' },
+    { mode: 'car', label: t('Auto'), Icon: Car, text: location.parking, directions: 'driving' },
   ]
   const address = [location.address, 'city' in location && location.city ? location.city : ''].filter(Boolean).join(', ')
   const calendar = icsUrl({
@@ -218,9 +218,9 @@ function HomePage() {
         <Section id="anreise" eyebrow={t('Anreise')} title={t('So kommt ihr hin')} className="bg-card/50">
           <Tabs value={mode} onValueChange={(v) => setMode(v as TravelMode)} className="space-y-8">
             <TabsList className="mx-auto grid w-full max-w-md grid-cols-3 sm:flex sm:w-fit sm:max-w-none">
-              {ARRIVAL.map(({ mode: m, label, short, Icon }) => (
+              {ARRIVAL.map(({ mode: m, label, Icon }) => (
                 <TabsTrigger key={m} value={m} className="gap-1.5 px-2 text-xs sm:gap-2 sm:px-4 sm:text-sm">
-                  <Icon className="size-4" /> <span className="sm:hidden">{short}</span><span className="hidden sm:inline">{label}</span>
+                  <Icon className="size-4" /> {label}
                 </TabsTrigger>
               ))}
             </TabsList>
