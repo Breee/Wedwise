@@ -111,6 +111,7 @@ export function StayMap({ accommodation, travel, city }: { accommodation: Accomm
   const selectedIndex = hotels.findIndex((h) => h.name === selected)
   const active = hover ?? (selectedIndex >= 0 ? selectedIndex : null)
 
+  const zoomedIn = useRef(false)
   const selectedRef = useRef(selectedIndex)
   const recluster = useRef(() => {})
   useEffect(() => {
@@ -198,9 +199,32 @@ export function StayMap({ accommodation, travel, city }: { accommodation: Accomm
     const hotel = selectedIndex >= 0 ? hotels[selectedIndex] : undefined
     const drawable = hotel ? routeFeatures(hotel, stopWalk) : []
     const cleanup = drawRoutes(map, drawable)
-    if (hotel) map.fitBounds(routeBounds(hotel, venue, drawable), { padding: fitPadding(map), maxZoom: 15, duration: 800 })
+    if (hotel) {
+      map.fitBounds(routeBounds(hotel, venue, drawable), { padding: fitPadding(map), maxZoom: 15, duration: 800 })
+      zoomedIn.current = true
+    } else if (zoomedIn.current) {
+      // Selection cleared: back to the view of all places.
+      zoomedIn.current = false
+      const all = new maplibregl.LngLatBounds()
+      if (hasVenue) all.extend(venue)
+      hotels.forEach((h) => all.extend([h.lng, h.lat]))
+      if (!all.isEmpty()) map.fitBounds(all, { padding: fitPadding(map), maxZoom: 14, duration: 800 })
+    }
     return cleanup
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [map, hotels, selectedIndex, stopWalk, venue])
+
+  // A tap beside the pins clears the selection.
+  useEffect(() => {
+    if (!map) return
+    const clear = (e: maplibregl.MapMouseEvent) => {
+      if (!(e.originalEvent.target as HTMLElement).closest('.wed-marker')) setSelected(null)
+    }
+    map.on('click', clear)
+    return () => {
+      map.off('click', clear)
+    }
+  }, [map])
 
   useEffect(() => {
     if (!mapOpen || desktop) return
