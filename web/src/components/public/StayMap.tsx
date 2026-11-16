@@ -28,7 +28,7 @@ import { drawRoutes, fitPadding, venueMarker, type RouteFeature } from './mapPar
 import { ICON_SVG, KIND } from './TravelMap'
 
 const INITIAL_VISIBLE = 3
-const CLUSTER_DISTANCE = 30
+const CLUSTER_DISTANCE = 36
 const DESKTOP = '(min-width: 1024px)'
 
 const TIER = { 1: { label: '€', hint: 'günstig' }, 2: { label: '€€', hint: 'mittel' }, 3: { label: '€€€', hint: 'gehoben' } } as const
@@ -137,10 +137,13 @@ export function StayMap({ accommodation, travel, city }: { accommodation: Accomm
       hotelMarkers.forEach((m) => (m.getElement().style.display = ''))
       hotels.forEach((_, i) => {
         if (taken.has(i) || i === selectedRef.current) return
+        // Chains of neighbours end up in the same bubble, so bubbles never overlap each other.
         const group = [i]
-        for (let j = i + 1; j < hotels.length; j++) {
-          if (taken.has(j) || j === selectedRef.current) continue
-          if (Math.hypot(at[j].x - at[i].x, at[j].y - at[i].y) < CLUSTER_DISTANCE) group.push(j)
+        for (let k = 0; k < group.length; k++) {
+          for (let j = 0; j < hotels.length; j++) {
+            if (group.includes(j) || taken.has(j) || j === selectedRef.current) continue
+            if (Math.hypot(at[j].x - at[group[k]].x, at[j].y - at[group[k]].y) < CLUSTER_DISTANCE) group.push(j)
+          }
         }
         if (group.length < 2) return
         const area = new maplibregl.LngLatBounds()
