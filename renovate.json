@@ -1,0 +1,103 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    "docker:pinDigests",
+    ":semanticCommitsDisabled"
+  ],
+  "labels": [
+    "dependencies"
+  ],
+  "dependencyDashboard": true,
+  "ignorePaths": [
+    "**/node_modules/**",
+    "web/dist/**",
+    "ai-docs/**"
+  ],
+  "postUpdateOptions": [
+    "gomodTidy"
+  ],
+  "lockFileMaintenance": {
+    "enabled": true
+  },
+  "packageRules": [
+    {
+      "description": "Go version: the 'go' directive in go.mod and the Dockerfile builder image move together.",
+      "matchManagers": [
+        "gomod"
+      ],
+      "matchDepNames": [
+        "go"
+      ],
+      "matchDepTypes": [
+        "golang",
+        "toolchain"
+      ],
+      "rangeStrategy": "bump",
+      "groupName": "go version",
+      "groupSlug": "go-version",
+      "separateMajorMinor": false,
+      "separateMinorPatch": false
+    },
+    {
+      "description": "Go version: Dockerfile builder image, grouped with the go.mod directive above.",
+      "matchManagers": [
+        "dockerfile"
+      ],
+      "matchDepNames": [
+        "golang"
+      ],
+      "groupName": "go version",
+      "groupSlug": "go-version",
+      "separateMajorMinor": false,
+      "separateMinorPatch": false
+    },
+    {
+      "description": "Indirect Go modules too, so transitive security fixes arrive.",
+      "matchManagers": [
+        "gomod"
+      ],
+      "matchDepTypes": [
+        "indirect"
+      ],
+      "enabled": true,
+      "groupName": "go indirect modules"
+    },
+    {
+      "description": "Minor and patch updates of npm packages in one pull request.",
+      "matchManagers": [
+        "npm"
+      ],
+      "matchUpdateTypes": [
+        "minor",
+        "patch"
+      ],
+      "groupName": "npm minor and patch"
+    },
+    {
+      "description": "Node stays on long-term-support releases.",
+      "matchDatasources": [
+        "docker"
+      ],
+      "matchDepNames": [
+        "node"
+      ],
+      "allowedVersions": "/^(22|24|26)\\b/"
+    },
+    {
+      "description": "GitHub Actions updates in one pull request.",
+      "matchManagers": [
+        "github-actions"
+      ],
+      "groupName": "github actions"
+    },
+    {
+      "description": "Wedwise's own image is a release artifact, not a dependency.",
+      "matchPackageNames": [
+        "ghcr.io/breee/wedwise",
+        "wedwise"
+      ],
+      "enabled": false
+    }
+  ]
+}

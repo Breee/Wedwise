@@ -420,8 +420,8 @@ shadcn/ui), the backend in `cmd/` and `internal/`, SQL migrations in
 Security checks run on every push, weekly and before each release:
 `govulncheck`, `gosec`, `npm audit`, a Trivy scan of the image and CodeQL. A
 high or critical finding in the first four stops the release; CodeQL results
-show up under the repository's *Security* tab. Dependabot proposes updates for
-Go, npm, the base image and the workflow actions every week.
+show up under the repository's *Security* tab. Renovate proposes updates for
+Go, npm, the base images and the workflow actions (`renovate.json`).
 
 Open work is tracked in
 [GitHub issues](https://github.com/Breee/Wedwise/issues), grouped by

@@ -52,7 +52,7 @@ and is meant to run behind a TLS-terminating reverse proxy.
 | Malicious uploads | Staff only, size limit, images decoded and re-encoded (metadata removed), fixed extensions, random file names |
 | Abuse by or of a staff account | Role-based permissions, append-only audit log of staff actions and logins |
 | Spoofed client address | `X-Forwarded-For` only honoured when `TRUST_PROXY_HEADERS` is set; the choice is mandatory in production |
-| Vulnerable dependencies or base image | govulncheck, gosec, npm audit, Trivy, CodeQL and Dependabot in CI; releases blocked on high findings |
+| Vulnerable dependencies or base image | govulncheck, gosec, npm audit, Trivy, CodeQL and Renovate in CI; releases blocked on high findings |
 | Container breakout or lateral movement | Distroless image, non-root, read-only filesystem, no capabilities, seccomp, optional NetworkPolicy |
 | Tampered release | Images signed with cosign, build provenance, SBOM, digest pinning |
 
