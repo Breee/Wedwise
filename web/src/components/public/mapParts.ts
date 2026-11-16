@@ -26,18 +26,43 @@ const DASH_SEQUENCE = [
   [0, 0.5, 3, 3.5], [0, 1, 3, 3], [0, 1.5, 3, 2.5], [0, 2, 3, 2], [0, 2.5, 3, 1.5], [0, 3, 3, 1], [0, 3.5, 3, 0.5],
 ]
 
-// Draws animated routes with a minute label at the midpoint. Returns a cleanup.
-// Pixel offset that puts a label next to the line running from a to b instead of on top of it.
-function beside(map: MapLibreMap, a: LngLat, b: LngLat): [number, number] {
-  const from = map.project(a)
-  const to = map.project(b)
-  const length = Math.hypot(to.x - from.x, to.y - from.y)
-  if (length === 0) return [0, -22]
-  const nx = -(to.y - from.y) / length
-  const ny = (to.x - from.x) / length
-  const side = ny > 0 ? -1 : 1
-  return [side * nx * 40, side * ny * 22]
+// Space a pin (hotel, stop, venue) occupies on screen, kept free of labels.
+const PIN_BOX = 28
+
+// The point half way along a line, measured by length rather than by vertex count.
+function halfway(c: LngLat[]): { at: LngLat; upright: boolean } {
+  const scale = Math.cos((c[0][1] * Math.PI) / 180)
+  const lengths = c.slice(1).map((p, i) => Math.hypot((p[0] - c[i][0]) * scale, p[1] - c[i][1]))
+  let rest = lengths.reduce((sum, l) => sum + l, 0) / 2
+  for (let i = 0; i < lengths.length; i++) {
+    if (rest <= lengths[i] && lengths[i] > 0) {
+      const f = rest / lengths[i]
+      const dx = (c[i + 1][0] - c[i][0]) * scale
+      const dy = c[i + 1][1] - c[i][1]
+      return { at: [c[i][0] + (c[i + 1][0] - c[i][0]) * f, c[i][1] + dy * f], upright: Math.abs(dy) > Math.abs(dx) }
+    }
+    rest -= lengths[i]
+  }
+  return { at: c[0], upright: false }
 }
+
+// White rounded background that stretches to fit a label.
+function pill(): ImageData {
+  const size = 32
+  const canvas = document.createElement('canvas')
+  canvas.width = canvas.height = size
+  const ctx = canvas.getContext('2d')!
+  ctx.beginPath()
+  ctx.roundRect(1, 1, size - 2, size - 2, 14)
+  ctx.fillStyle = '#ffffff'
+  ctx.fill()
+  ctx.strokeStyle = 'rgba(0, 0, 0, 0.18)'
+  ctx.lineWidth = 1.5
+  ctx.stroke()
+  return ctx.getImageData(0, 0, size, size)
+}
+
+// Draws animated routes with a minute label beside each one. Returns a cleanup.
 
 export function drawRoutes(map: MapLibreMap, routes: RouteFeature[], withLabels = true): () => void {
   const data = {
@@ -58,16 +83,62 @@ export function drawRoutes(map: MapLibreMap, routes: RouteFeature[], withLabels 
     map.addLayer({ id: 'routes-dash', type: 'line', source: 'routes', layout, paint: { 'line-color': ['get', 'color'], 'line-width': 3.5, 'line-dasharray': [0, 4, 3] } })
   }
 
-  const labels = (withLabels ? routes : []).map(({ route, color, icon }) => {
-    const c = route.coordinates
-    const at = Math.floor(c.length / 2)
-    const mid: LngLat = c.length === 2 ? [(c[0][0] + c[1][0]) / 2, (c[0][1] + c[1][1]) / 2] : c[at]
-    const el = markerElement(`${icon ?? ''}<span>${route.minutes} Min</span>`, 'wed-route-label')
-    el.style.setProperty('--stop-color', color)
-    return new maplibregl.Marker({ element: el, anchor: 'center', offset: beside(map, c[Math.max(at - 1, 0)], c[Math.min(at + 1, c.length - 1)]) })
-      .setLngLat(mid)
-      .addTo(map)
+  const point = (at: LngLat, properties: Record<string, string>) => ({
+    type: 'Feature' as const,
+    properties,
+    geometry: { type: 'Point' as const, coordinates: at },
   })
+  const labelData = {
+    type: 'FeatureCollection' as const,
+    features: (withLabels ? routes : []).flatMap(({ route, color }) => {
+      const c = route.coordinates
+      const middle = halfway(c)
+      return [
+        point(middle.at, { kind: middle.upright ? 'upright' : 'level', text: `${route.minutes} Min`, color }),
+        point(c[0], { kind: 'pin' }),
+        point(c[c.length - 1], { kind: 'pin' }),
+      ]
+    }),
+  }
+  const labelSrc = map.getSource('route-labels') as maplibregl.GeoJSONSource | undefined
+  if (labelSrc) labelSrc.setData(labelData)
+  else {
+    map.addImage('route-pill', pill(), { pixelRatio: 2, stretchX: [[14, 18]], stretchY: [[14, 18]], content: [10, 6, 22, 26] })
+    map.addImage('route-pin', new ImageData(PIN_BOX, PIN_BOX))
+    map.addSource('route-labels', { type: 'geojson', data: labelData })
+    // The map places these labels itself: it tries each side in turn and keeps
+    // them off each other and off the pins, again on every zoom.
+    // Beside the line first: left or right of an upright stretch, above or below a level one.
+    const sides = { upright: ['left', 'right', 'top', 'bottom'], level: ['bottom', 'top', 'left', 'right'] } as const
+    for (const kind of ['upright', 'level'] as const) {
+      map.addLayer({
+        id: `route-labels-${kind}`,
+        type: 'symbol',
+        source: 'route-labels',
+        filter: ['==', ['get', 'kind'], kind],
+        layout: {
+          'text-field': ['get', 'text'],
+          'text-font': ['Noto Sans Bold'],
+          'text-size': 12,
+          'text-variable-anchor': [...sides[kind]],
+          'text-radial-offset': 1.5,
+          'text-justify': 'auto',
+          'icon-image': 'route-pill',
+          'icon-text-fit': 'both',
+          'icon-text-fit-padding': [3, 7, 3, 7],
+        },
+        paint: { 'text-color': ['get', 'color'] },
+      })
+    }
+    // Layers further up are placed first, so the pins claim their space before the labels.
+    map.addLayer({
+      id: 'route-pins',
+      type: 'symbol',
+      source: 'route-labels',
+      filter: ['==', ['get', 'kind'], 'pin'],
+      layout: { 'icon-image': 'route-pin', 'icon-allow-overlap': true },
+    })
+  }
 
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
   let step = 0
@@ -82,6 +153,7 @@ export function drawRoutes(map: MapLibreMap, routes: RouteFeature[], withLabels 
   })
   return () => {
     cancelAnimationFrame(frame)
-    labels.forEach((l) => l.remove())
+    const labels = map.getSource('route-labels') as maplibregl.GeoJSONSource | undefined
+    labels?.setData({ type: 'FeatureCollection', features: [] })
   }
 }
