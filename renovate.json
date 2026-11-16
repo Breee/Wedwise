@@ -18,7 +18,8 @@
     "gomodTidy"
   ],
   "lockFileMaintenance": {
-    "enabled": true
+    "enabled": true,
+    "automerge": true
   },
   "packageRules": [
     {
@@ -98,6 +99,18 @@
         "wedwise"
       ],
       "enabled": false
+    },
+    {
+      "description": "Everything except major versions merges by itself once CI and the security checks pass.",
+      "matchUpdateTypes": [
+        "minor",
+        "patch",
+        "pin",
+        "pinDigest",
+        "digest"
+      ],
+      "automerge": true
     }
-  ]
+  ],
+  "platformAutomerge": true
 }
