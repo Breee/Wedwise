@@ -1,4 +1,4 @@
-.PHONY: dev build test lint clean docker-build up https down
+.PHONY: demo dev build test lint clean docker-build up https down
 
 # Build the Go binary
 build:
@@ -82,3 +82,6 @@ https: $(CERTS)/server.crt
 down:
 	@if [ -f local/certs/mdns.pid ]; then kill `cat local/certs/mdns.pid` 2>/dev/null || true; rm -f local/certs/mdns.pid; fi
 	docker compose --profile https down
+
+demo: ## Fill the local database with made-up responses
+	docker compose exec -T wedwise /app/wedding demo

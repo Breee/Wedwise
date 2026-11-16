@@ -1,10 +1,14 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { t } from '@/lib/i18n'
 import { useSuspenseQuery } from '@tanstack/react-query'
-import { responsesQuery, summaryQuery } from '@/lib/queries'
+import { publicContentQuery, responsesQuery, summaryQuery } from '@/lib/queries'
+import { Copy, Download } from 'lucide-react'
+import { copyText } from '@/lib/clipboard'
+import { djText, download, genreRanking, guestCsv, songWishes, venueText } from '@/lib/handover'
+import { Button } from '@/components/ui/button'
 import { DIET_LABEL } from '@/lib/format'
 import { Badge } from '@/components/ui/badge'
-import { genreIcon, splitList } from '@/components/rsvp/music'
+import { genreIcon } from '@/components/rsvp/music'
 import { PageHeader } from '@/components/admin/PageHeader'
 import { Stat } from '@/components/admin/Stat'
 import { ResponsesTable } from '@/components/admin/ResponsesTable'
@@ -23,11 +27,11 @@ function CoupleDashboard() {
   const { data: s } = useSuspenseQuery(summaryQuery)
   const { data: responses } = useSuspenseQuery(responsesQuery)
   const diets = Object.entries(s.dietCounts ?? {}).filter(([, n]) => n > 0)
-  const genreCounts = new Map<string, number>()
-  for (const r of responses) for (const g of splitList(r.musicGenres ?? '')) genreCounts.set(g, (genreCounts.get(g) ?? 0) + 1)
-  const genres = [...genreCounts.entries()].sort((a, b) => b[1] - a[1])
+  const genres = genreRanking(responses)
   const genreMax = genres[0]?.[1] ?? 1
-  const songs = responses.filter((r) => r.musicSong).map((r) => ({ who: r.contactName, song: r.musicSong }))
+  const songs = songWishes(responses)
+  const title = useSuspenseQuery(publicContentQuery).data.event.title
+  const copy = (text: string) => copyText(text, t('Kopiert.'))
 
   return (
     <>
@@ -38,7 +42,26 @@ function CoupleDashboard() {
         <Stat label={t('Gäste')} value={s.attendeesAttending} hint={t('Personen mit Zusage')} />
         <Stat label={t('Kinder')} value={s.children} />
       </div>
-      <div className="mt-8 grid gap-4 lg:grid-cols-2">
+      <Card className="mt-8">
+        <CardHeader>
+          <CardTitle>{t('Weitergeben')}</CardTitle>
+          <p className="text-sm text-muted-foreground">
+            {t('Fertige Zusammenfassungen zum Einfügen in eine Mail oder Nachricht – ohne Kontaktdaten und Nachrichten der Gäste.')}
+          </p>
+        </CardHeader>
+        <CardContent className="flex flex-wrap gap-2">
+          <Button variant="outline" onClick={() => copy(venueText(title, responses))}>
+            <Copy /> {t('Für die Location kopieren')}
+          </Button>
+          <Button variant="outline" onClick={() => copy(djText(title, responses))}>
+            <Copy /> {t('Für den DJ kopieren')}
+          </Button>
+          <Button variant="outline" onClick={() => download('gaeste.csv', guestCsv(responses), 'text/csv;charset=utf-8')}>
+            <Download /> {t('Gästeliste als Tabelle (CSV)')}
+          </Button>
+        </CardContent>
+      </Card>
+      <div className="mt-4 grid gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader>
             <CardTitle>{t('Ernährung')}</CardTitle>
@@ -83,9 +106,7 @@ function CoupleDashboard() {
             {genres.map(([g, n]) => (
               <div key={g} className="grid grid-cols-[9.5rem_1fr_2rem] items-center gap-3 text-sm">
                 <span className="truncate">{genreIcon(g)} {g}</span>
-                <div className="h-2.5 rounded-full bg-muted">
-                  <div className="h-full rounded-full bg-primary" style={{ width: `${(n / genreMax) * 100}%` }} />
-                </div>
+                <progress className="wed-progress" value={n} max={genreMax} aria-hidden />
                 <span className="text-right text-muted-foreground">{n}</span>
               </div>
             ))}

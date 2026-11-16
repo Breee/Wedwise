@@ -84,3 +84,4 @@ Open work is tracked in GitHub issues and milestones (M1 Staff tools, M2 Accommo
 - 2026-11-16: Renovate merges minor, patch, digest and lock file updates itself once checks pass.
 - 2026-11-16: Browser smoke test (web/e2e, Playwright) in CI: home page, guest answer via invite link, staff sign-in.
 - 2026-11-16: More music genres (Metal, Hardcore, Punk, Electro Swing, Techno, …) with icons; genre answer may be longer.
+- 2026-11-16: Couple dashboard hand-over: copy summary for the venue, copy music wishes for the DJ, guest list as CSV; `wedding demo` / `make demo` fills a development database with 30 made-up responses.

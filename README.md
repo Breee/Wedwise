@@ -59,7 +59,8 @@ make up
 ```
 
 Open <http://localhost:8080>. `make up` builds the image, starts it, creates
-three demo users and loads example content:
+three demo users and loads example content. `make demo` adds 30 made-up
+responses so the dashboards have something to show (development only):
 
 | User | Password | Sees |
 |------|----------|------|

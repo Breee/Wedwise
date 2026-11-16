@@ -19,7 +19,12 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/Breee/Wedwise/internal/contributions"
+	"github.com/Breee/Wedwise/internal/demo"
+	"github.com/Breee/Wedwise/internal/invites"
+	"github.com/Breee/Wedwise/internal/rsvp"
 	"github.com/Breee/Wedwise/internal/sealed"
+	"github.com/Breee/Wedwise/internal/tokens"
 
 	"golang.org/x/term"
 
@@ -59,6 +64,8 @@ func run(args []string) error {
 		return runRekey(args)
 	case "user":
 		return runUser(args)
+	case "demo":
+		return runDemo(args)
 	case "healthcheck":
 		return runHealthcheck()
 	case "help", "-h", "--help":
@@ -84,6 +91,7 @@ Commands:
   user disable --username U          Deactivate a user
   user enable --username U           Reactivate a user
   user passwd --username U           Change the password of a user
+  demo                               Fill a development database with made-up responses
   healthcheck                        Exit 0 when the local server answers /healthz
 
 Global flags:
@@ -325,6 +333,42 @@ func runRekey(args []string) error {
 		return err
 	}
 	slog.Info("stored data is encrypted with the current data key", "rewritten", count)
+	return nil
+}
+
+func runDemo(args []string) error {
+	cfg, db, _, err := setup(args, "demo")
+	if err != nil {
+		return err
+	}
+	defer func() { _ = db.Close() }()
+	if cfg.IsProduction() {
+		return errors.New("demo data is for development only")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+	if err := database.Migrate(ctx, db); err != nil {
+		return err
+	}
+	box, err := sealed.New(cfg.DataKey, cfg.DataKeyPrevious)
+	if err != nil {
+		return err
+	}
+	inviteVault, err := tokens.NewVault(cfg.SessionSecret, "invite-token")
+	if err != nil {
+		return err
+	}
+	editVault, err := tokens.NewVault(cfg.SessionSecret, "edit-token")
+	if err != nil {
+		return err
+	}
+	offers := contributions.NewStore(db, box)
+	count, err := demo.Seed(ctx, invites.NewStore(db, inviteVault), rsvp.NewStore(db, offers, editVault, box), offers)
+	if err != nil {
+		return err
+	}
+	slog.Info("demo responses written", "count", count)
 	return nil
 }
 
