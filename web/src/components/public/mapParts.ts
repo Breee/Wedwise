@@ -19,7 +19,14 @@ export function venueMarker(map: MapLibreMap, venue: LngLat): maplibregl.Marker 
     .addTo(map)
 }
 
-export type RouteFeature = { route: Route; color: string; id: number; icon?: string }
+export type RouteFeature = { route: Route; color: string; id: number; icon?: string; walk?: boolean }
+
+export const FOOT_COLOR = '#5e7f63'
+const FOOT_PATHS = [
+  'M4 16v-2.38C4 11.5 2.97 10.5 3 8c.03-2.72 1.49-6 4.5-6C9.37 2 10 3.8 10 5.5c0 3.11-2 5.66-2 8.68V16a2 2 0 1 1-4 0Z',
+  'M20 20v-2.38c0-2.12 1.03-3.12 1-5.62-.03-2.72-1.49-6-4.5-6C14.63 6 14 7.8 14 9.5c0 3.11 2 5.66 2 8.68V20a2 2 0 1 0 4 0Z',
+  'M16 17h4M4 13h4',
+]
 
 const DASH_SEQUENCE = [
   [0, 4, 3], [0.5, 4, 2.5], [1, 4, 2], [1.5, 4, 1.5], [2, 4, 1], [2.5, 4, 0.5], [3, 4, 0],
@@ -46,20 +53,30 @@ function halfway(c: LngLat[]): { at: LngLat; upright: boolean } {
   return { at: c[0], upright: false }
 }
 
-// White rounded background that stretches to fit a label.
-function pill(): ImageData {
-  const size = 32
+// White rounded background that stretches to fit a label, optionally with footprints in front.
+function pill(foot = false): ImageData {
+  const height = 32
+  const width = foot ? 58 : 32
   const canvas = document.createElement('canvas')
-  canvas.width = canvas.height = size
+  canvas.width = width
+  canvas.height = height
   const ctx = canvas.getContext('2d')!
   ctx.beginPath()
-  ctx.roundRect(1, 1, size - 2, size - 2, 14)
+  ctx.roundRect(1, 1, width - 2, height - 2, 14)
   ctx.fillStyle = '#ffffff'
   ctx.fill()
   ctx.strokeStyle = 'rgba(0, 0, 0, 0.18)'
   ctx.lineWidth = 1.5
   ctx.stroke()
-  return ctx.getImageData(0, 0, size, size)
+  if (foot) {
+    ctx.translate(10, 5)
+    ctx.scale(22 / 24, 22 / 24)
+    ctx.strokeStyle = FOOT_COLOR
+    ctx.lineWidth = 2.2
+    ctx.lineCap = ctx.lineJoin = 'round'
+    for (const d of FOOT_PATHS) ctx.stroke(new Path2D(d))
+  }
+  return ctx.getImageData(0, 0, width, height)
 }
 
 // Draws animated routes with a minute label beside each one. Returns a cleanup.
@@ -90,11 +107,11 @@ export function drawRoutes(map: MapLibreMap, routes: RouteFeature[], withLabels 
   })
   const labelData = {
     type: 'FeatureCollection' as const,
-    features: (withLabels ? routes : []).flatMap(({ route, color }) => {
+    features: (withLabels ? routes : []).flatMap(({ route, color, walk }) => {
       const c = route.coordinates
       const middle = halfway(c)
       return [
-        point(middle.at, { kind: middle.upright ? 'upright' : 'level', text: `${route.minutes} Min`, color }),
+        point(middle.at, { kind: middle.upright ? 'upright' : 'level', text: `${route.minutes} Min`, color, pill: walk ? 'route-pill-foot' : 'route-pill' }),
         point(c[0], { kind: 'pin' }),
         point(c[c.length - 1], { kind: 'pin' }),
       ]
@@ -104,6 +121,7 @@ export function drawRoutes(map: MapLibreMap, routes: RouteFeature[], withLabels 
   if (labelSrc) labelSrc.setData(labelData)
   else {
     map.addImage('route-pill', pill(), { pixelRatio: 2, stretchX: [[14, 18]], stretchY: [[14, 18]], content: [10, 6, 22, 26] })
+    map.addImage('route-pill-foot', pill(true), { pixelRatio: 2, stretchX: [[38, 44]], stretchY: [[14, 18]], content: [34, 6, 48, 26] })
     map.addImage('route-pin', new ImageData(PIN_BOX, PIN_BOX))
     map.addSource('route-labels', { type: 'geojson', data: labelData })
     // The map places these labels itself: it tries each side in turn and keeps
@@ -123,7 +141,7 @@ export function drawRoutes(map: MapLibreMap, routes: RouteFeature[], withLabels 
           'text-variable-anchor': [...sides[kind]],
           'text-radial-offset': 1.5,
           'text-justify': 'auto',
-          'icon-image': 'route-pill',
+          'icon-image': ['get', 'pill'],
           'icon-text-fit': 'both',
           'icon-text-fit-padding': [3, 7, 3, 7],
         },

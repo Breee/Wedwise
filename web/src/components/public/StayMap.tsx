@@ -394,11 +394,11 @@ function useDesktop() {
 // The hotel's best way: walk, or tram plus the walk from the stop. Estimates are not drawn.
 function routeFeatures(hotel: Ranked, stopWalk: Route | undefined): RouteFeature[] {
   const features: RouteFeature[] = []
-  if (hotel.walk && hotel.foot) features.push({ route: hotel.foot, color: FOOT_COLOR, id: 0, icon: FOOT_SVG })
+  if (hotel.walk && hotel.foot) features.push({ route: hotel.foot, color: FOOT_COLOR, id: 0, icon: FOOT_SVG, walk: true })
   else if (hotel.transit) {
-    if (hotel.transit.toBoard) features.push({ route: hotel.transit.toBoard, color: FOOT_COLOR, id: 3, icon: FOOT_SVG })
+    if (hotel.transit.toBoard) features.push({ route: hotel.transit.toBoard, color: FOOT_COLOR, id: 3, icon: FOOT_SVG, walk: true })
     if (hotel.transit.ride) features.push({ route: hotel.transit.ride, color: KIND.tram.color, id: 1, icon: ICON_SVG.tram })
-    if (stopWalk) features.push({ route: stopWalk, color: FOOT_COLOR, id: 2, icon: FOOT_SVG })
+    if (stopWalk) features.push({ route: stopWalk, color: FOOT_COLOR, id: 2, icon: FOOT_SVG, walk: true })
   }
   return features.filter((f) => !f.route.estimated)
 }

@@ -10,7 +10,7 @@ import { distanceMeters, formatKm, routeQuery, type LngLat, type Route } from '@
 import { DirectionsLinks } from './DirectionsLinks'
 import { cn } from '@/lib/utils'
 import { BaseMap, markerElement } from './BaseMap'
-import { drawRoutes, fitPadding, venueMarker } from './mapParts'
+import { drawRoutes, fitPadding, FOOT_COLOR, venueMarker } from './mapParts'
 
 export const KIND = {
   tram: { label: 'Tram', color: '#c2554a', Icon: TramFront },
@@ -54,6 +54,7 @@ export function TravelMap({ travel, venueName, mode = 'transit' }: { travel: Tra
   })
   const [map, setMap] = useState<MapLibreMap | null>(null)
   const [active, setActive] = useState<number | null>(null)
+  const [whole, setWhole] = useState(false)
   const resolved: (Route | undefined)[] = routes.map((r) => r.data)
   const lineStop = routed[0]
   const line = useQuery({
@@ -77,13 +78,45 @@ export function TravelMap({ travel, venueName, mode = 'transit' }: { travel: Tra
       el.title = stop.name
       markers.push(new maplibregl.Marker({ element: el, anchor: 'center' }).setLngLat([stop.lng, stop.lat]).addTo(map))
     }
+    setActive(null)
+    setWhole(false)
+    return () => markers.forEach((m) => m.remove())
+  }, [map, stops, venue, mode])
+
+  // Close-up by default; the whole line only after a tap on it.
+  useEffect(() => {
+    if (!map) return
     const bounds = new maplibregl.LngLatBounds(venue, venue)
     stops.forEach((s) => bounds.extend([s.lng, s.lat]))
-    line?.coords.forEach((c) => bounds.extend(c))
-    map.fitBounds(bounds, { padding: line ? 36 : fitPadding(map), maxZoom: mode === 'transit' ? 16 : 14, duration: 0 })
-    setActive(null)
-    return () => markers.forEach((m) => m.remove())
-  }, [map, stops, venue, mode, line])
+    if (whole && line) {
+      line.coords.forEach((c) => bounds.extend(c))
+      map.fitBounds(bounds, { padding: 36, duration: 800 })
+    } else {
+      map.fitBounds(bounds, { padding: fitPadding(map), maxZoom: mode === 'transit' ? 16 : 14, duration: whole ? 0 : 600 })
+    }
+  }, [map, stops, venue, mode, whole, line])
+
+  useEffect(() => {
+    if (!map || !line) return
+    const layers = ['transit-line-hit', 'transit-line-stops']
+    const onClick = (e: maplibregl.MapMouseEvent) => {
+      const present = layers.filter((id) => map.getLayer(id))
+      const hit = present.length > 0 && map.queryRenderedFeatures(e.point, { layers: present }).length > 0
+      setWhole(hit)
+    }
+    const canvas = map.getCanvas()
+    const onMove = (e: maplibregl.MapMouseEvent) => {
+      const present = layers.filter((id) => map.getLayer(id))
+      canvas.style.cursor = present.length > 0 && map.queryRenderedFeatures(e.point, { layers: present }).length > 0 ? 'pointer' : ''
+    }
+    map.on('click', onClick)
+    map.on('mousemove', onMove)
+    return () => {
+      map.off('click', onClick)
+      map.off('mousemove', onMove)
+      canvas.style.cursor = ''
+    }
+  }, [map, line])
 
   useEffect(() => {
     if (!map || !line || !lineStop) return
@@ -116,6 +149,16 @@ export function TravelMap({ travel, venueName, mode = 'transit' }: { travel: Tra
     )
     map.addLayer(
       {
+        id: 'transit-line-hit',
+        type: 'line',
+        source: 'transit-line',
+        filter: ['==', ['geometry-type'], 'LineString'],
+        paint: { 'line-color': color, 'line-width': 22, 'line-opacity': 0 },
+      },
+      before,
+    )
+    map.addLayer(
+      {
         id: 'transit-line-stops',
         type: 'circle',
         source: 'transit-line',
@@ -141,7 +184,7 @@ export function TravelMap({ travel, venueName, mode = 'transit' }: { travel: Tra
     })
     return () => {
       if (!map.getStyle()) return
-      for (const id of ['transit-line-names', 'transit-line-stops', 'transit-line']) if (map.getLayer(id)) map.removeLayer(id)
+      for (const id of ['transit-line-names', 'transit-line-stops', 'transit-line-hit', 'transit-line']) if (map.getLayer(id)) map.removeLayer(id)
       if (map.getSource('transit-line')) map.removeSource('transit-line')
     }
   }, [map, line, lineStop])
@@ -150,7 +193,7 @@ export function TravelMap({ travel, venueName, mode = 'transit' }: { travel: Tra
     if (!map) return
     return drawRoutes(
       map,
-      resolved.flatMap((route, i) => (route && !route.estimated ? [{ route, color: KIND[routed[i].kind].color, id: i }] : [])),
+      resolved.flatMap((route, i) => (route && !route.estimated ? [{ route, color: FOOT_COLOR, id: i, walk: true }] : [])),
     )
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [map, routed, ...resolved])
