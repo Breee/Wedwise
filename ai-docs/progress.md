@@ -82,3 +82,4 @@ Open work is tracked in GitHub issues and milestones (M1 Staff tools, M2 Accommo
 - 2026-11-16: Arrival map: top-left pill removed, stop markers carry their name.
 - 2026-11-16: Renovate (renovate.json, modelled on corewire/kick) replaces Dependabot.
 - 2026-11-16: Renovate merges minor, patch, digest and lock file updates itself once checks pass.
+- 2026-11-16: Browser smoke test (web/e2e, Playwright) in CI: home page, guest answer via invite link, staff sign-in.

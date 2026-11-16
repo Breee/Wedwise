@@ -26,3 +26,5 @@ web/src/routeTree.gen.ts
 
 # Personal event data (mounted into docker compose)
 local/
+web/test-results/
+web/playwright-report/

@@ -415,7 +415,10 @@ make build          # frontend + binary in bin/wedding
 The frontend lives in `web/` (React, TanStack Router/Query, Tailwind,
 shadcn/ui), the backend in `cmd/` and `internal/`, SQL migrations in
 `migrations/`. CI runs Go tests, the frontend build, a container build and
-`helm lint` on every push.
+`helm lint` on every push. A browser smoke test (`web/e2e`, Playwright) starts
+the app with the example content and checks the home page, a guest answer
+through an invite link and the staff sign-in. Run it locally with `make up`
+and `npm run smoke` in `web/`.
 
 Security checks run on every push, weekly and before each release:
 `govulncheck`, `gosec`, `npm audit`, a Trivy scan of the image and CodeQL. A

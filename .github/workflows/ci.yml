@@ -52,6 +52,32 @@ jobs:
           cache-to: type=gha,scope=wedwise-image,mode=max,ignore-error=true
           provenance: false
 
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Start the app with example content
+        run: make up
+      - run: npm ci
+        working-directory: web
+      - run: npx playwright install --with-deps chromium
+        working-directory: web
+      - run: npm run smoke
+        working-directory: web
+      - if: failure()
+        run: docker compose logs wedwise
+      - if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: smoke-traces
+          path: web/test-results
+          retention-days: 7
+
   helm-lint:
     runs-on: ubuntu-latest
     steps:
