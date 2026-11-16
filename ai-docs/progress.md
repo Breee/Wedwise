@@ -78,3 +78,4 @@ Open work is tracked in GitHub issues and milestones (M1 Staff tools, M2 Accommo
 - 2026-11-16: Stay map shows all numbered pins again (overlaps nudged apart, bubbles removed); location section now comes before the schedule.
 - 2026-11-16: Transit tab draws the whole line of the venue stop with its stops (cached line from OpenStreetMap, public cache-only `/api/route/line`) and zooms out to show it.
 - 2026-11-16: Arrival map: walk from the stop to the venue is green with footprints in the time label; whole line zooms out only when the line is tapped.
+- 2026-11-16: Map labels: walk times carry the same footprints icon as the cards (own image, no longer squeezed); the venue heart shows the location name.

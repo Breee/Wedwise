@@ -70,7 +70,7 @@ export function TravelMap({ travel, venueName, mode = 'transit' }: { travel: Tra
 
   useEffect(() => {
     if (!map) return
-    const markers = [venueMarker(map, venue)]
+    const markers = [venueMarker(map, venue, venueName)]
     for (const stop of stops) {
       if (isAtVenue(stop, venue)) continue
       const el = markerElement(ICON_SVG[stop.kind], 'wed-marker wed-marker-stop')

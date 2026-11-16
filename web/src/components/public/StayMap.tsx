@@ -44,7 +44,7 @@ type Transit = { stop: Stop; board?: Board; toBoard?: Route; ride?: Route; total
 // walk: walking is realistic (≤ WALK_MAX_MINUTES) and not slower than the tram.
 type Ranked = Hotel & { foot?: Route; bike?: Route; car?: Route; transit: Transit | null; walk: boolean; minutes: number }
 
-export function StayMap({ accommodation, travel, city }: { accommodation: Accommodation; travel: Travel; city: string }) {
+export function StayMap({ accommodation, travel, city, venueName = '' }: { accommodation: Accommodation; travel: Travel; city: string; venueName?: string }) {
   const venue = useMemo<LngLat>(() => [travel.lng, travel.lat], [travel.lat, travel.lng])
   const hasVenue = travel.lat !== 0 || travel.lng !== 0
   const { checkIn: firstCheckIn, checkOut } = accommodation
@@ -118,7 +118,7 @@ export function StayMap({ accommodation, travel, city }: { accommodation: Accomm
     const markers: maplibregl.Marker[] = []
     const bounds = new maplibregl.LngLatBounds()
     if (hasVenue) {
-      markers.push(venueMarker(map, venue))
+      markers.push(venueMarker(map, venue, venueName))
       bounds.extend(venue)
     }
     const hotelMarkers: maplibregl.Marker[] = []
@@ -172,7 +172,7 @@ export function StayMap({ accommodation, travel, city }: { accommodation: Accomm
       markers.forEach((m) => m.remove())
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [map, hotels, hasVenue, venue, desktop])
+  }, [map, hotels, hasVenue, venue, desktop, venueName])
 
   useEffect(() => {
     if (!map) return

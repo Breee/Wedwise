@@ -250,7 +250,7 @@ function HomePage() {
       {hotels.length > 0 && travel && (
         <Section id="unterkunft" eyebrow={t('Übernachten')} title={t('Unterkünfte')}>
           <Suspense fallback={<Skeleton className="h-[380px] rounded-3xl" />}>
-            <StayMap accommodation={content.accommodation} travel={travel} city={city} />
+            <StayMap accommodation={content.accommodation} travel={travel} city={city} venueName={location.name} />
           </Suspense>
         </Section>
       )}
