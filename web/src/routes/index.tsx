@@ -116,7 +116,7 @@ function HomePage() {
             {rememberedToken() && <GuestNotifications />}
           </div>
           {schedule.length > 0 && (
-            <a href="#ablauf" className="mt-10 inline-flex flex-col items-center gap-1 text-xs tracking-widest text-muted-foreground uppercase transition-colors hover:text-primary">
+            <a href="#ort" className="mt-10 inline-flex flex-col items-center gap-1 text-xs tracking-widest text-muted-foreground uppercase transition-colors hover:text-primary">
               {t('Zum Ablauf')} <ChevronDown className="size-4 animate-bounce" />
             </a>
           )}
@@ -147,31 +147,7 @@ function HomePage() {
         </Section>
       )}
 
-      {schedule.length > 0 && (
-        <Section id="ablauf" eyebrow={t('Der Tag')} title={t('Ablauf')} className="bg-card/50">
-          <ol className="relative mx-auto max-w-2xl border-l border-gold/60 pl-8">
-            {schedule.map((entry, i) => (
-              <motion.li
-                key={entry.id ?? i}
-                initial={{ opacity: 0, x: -12 }}
-                whileInView={{ opacity: 1, x: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: i * 0.05 }}
-                className="relative pb-6 last:pb-0 md:pb-8"
-              >
-                <span className="absolute top-2 -left-[calc(2rem_+_0.375rem_+_0.5px)] size-3 rounded-full border-2 border-gold bg-background" />
-                <div className="flex flex-wrap items-baseline gap-x-3">
-                  <p className="font-display text-2xl text-primary">{entry.time}</p>
-                  <h3 className="text-xl font-medium">{entry.title}</h3>
-                </div>
-                {entry.description && <p className="mt-1 text-sm text-muted-foreground md:text-base">{entry.description}</p>}
-              </motion.li>
-            ))}
-          </ol>
-        </Section>
-      )}
-
-      <Section id="ort" eyebrow={t('Die Location')} title={location.name || t('Ort')}>
+      <Section id="ort" eyebrow={t('Die Location')} title={location.name || t('Ort')} className="bg-card/50">
         <div className="mx-auto max-w-5xl space-y-6 sm:space-y-10">
           {location.image && (
             <motion.figure
@@ -213,6 +189,30 @@ function HomePage() {
           </div>
         </div>
       </Section>
+
+      {schedule.length > 0 && (
+        <Section id="ablauf" eyebrow={t('Der Tag')} title={t('Ablauf')}>
+          <ol className="relative mx-auto max-w-2xl border-l border-gold/60 pl-8">
+            {schedule.map((entry, i) => (
+              <motion.li
+                key={entry.id ?? i}
+                initial={{ opacity: 0, x: -12 }}
+                whileInView={{ opacity: 1, x: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: i * 0.05 }}
+                className="relative pb-6 last:pb-0 md:pb-8"
+              >
+                <span className="absolute top-2 -left-[calc(2rem_+_0.375rem_+_0.5px)] size-3 rounded-full border-2 border-gold bg-background" />
+                <div className="flex flex-wrap items-baseline gap-x-3">
+                  <p className="font-display text-2xl text-primary">{entry.time}</p>
+                  <h3 className="text-xl font-medium">{entry.title}</h3>
+                </div>
+                {entry.description && <p className="mt-1 text-sm text-muted-foreground md:text-base">{entry.description}</p>}
+              </motion.li>
+            ))}
+          </ol>
+        </Section>
+      )}
 
       {(location.transport || location.parking || location.bike || hasMap) && (
         <Section id="anreise" eyebrow={t('Anreise')} title={t('So kommt ihr hin')} className="bg-card/50">

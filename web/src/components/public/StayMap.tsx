@@ -28,7 +28,7 @@ import { drawRoutes, fitPadding, venueMarker, type RouteFeature } from './mapPar
 import { ICON_SVG, KIND } from './TravelMap'
 
 const INITIAL_VISIBLE = 3
-const CLUSTER_DISTANCE = 36
+const PIN_GAP = 26
 const DESKTOP = '(min-width: 1024px)'
 
 const TIER = { 1: { label: '€', hint: 'günstig' }, 2: { label: '€€', hint: 'mittel' }, 3: { label: '€€€', hint: 'gehoben' } } as const
@@ -112,12 +112,6 @@ export function StayMap({ accommodation, travel, city }: { accommodation: Accomm
   const active = hover ?? (selectedIndex >= 0 ? selectedIndex : null)
 
   const zoomedIn = useRef(false)
-  const selectedRef = useRef(selectedIndex)
-  const recluster = useRef(() => {})
-  useEffect(() => {
-    selectedRef.current = selectedIndex
-    recluster.current()
-  }, [selectedIndex])
 
   useEffect(() => {
     if (!map) return
@@ -128,38 +122,32 @@ export function StayMap({ accommodation, travel, city }: { accommodation: Accomm
       bounds.extend(venue)
     }
     const hotelMarkers: maplibregl.Marker[] = []
-    // Pins that would overlap are gathered into one bubble that splits apart when zooming in.
-    let bubbles: maplibregl.Marker[] = []
-    const cluster = () => {
-      bubbles.forEach((m) => m.remove())
-      bubbles = []
+    // Pins that would overlap are nudged apart on screen so every number stays readable.
+    const spread = () => {
       const at = hotels.map((h) => map.project([h.lng, h.lat]))
-      const taken = new Set<number>()
-      hotelMarkers.forEach((m) => (m.getElement().style.display = ''))
-      hotels.forEach((_, i) => {
-        if (taken.has(i) || i === selectedRef.current) return
-        // Chains of neighbours end up in the same bubble, so bubbles never overlap each other.
-        const group = [i]
-        for (let k = 0; k < group.length; k++) {
-          for (let j = 0; j < hotels.length; j++) {
-            if (group.includes(j) || taken.has(j) || j === selectedRef.current) continue
-            if (Math.hypot(at[j].x - at[group[k]].x, at[j].y - at[group[k]].y) < CLUSTER_DISTANCE) group.push(j)
+      const moved = at.map((p) => ({ x: p.x, y: p.y }))
+      for (let step = 0; step < 40; step++) {
+        for (let i = 0; i < moved.length; i++) {
+          for (let j = i + 1; j < moved.length; j++) {
+            let dx = moved[j].x - moved[i].x
+            let dy = moved[j].y - moved[i].y
+            let gap = Math.hypot(dx, dy)
+            if (gap >= PIN_GAP) continue
+            if (gap < 0.01) {
+              dx = Math.cos(i + j)
+              dy = Math.sin(i + j)
+              gap = 1
+            }
+            const push = (PIN_GAP - gap) / 2
+            moved[i].x -= (dx / gap) * push
+            moved[i].y -= (dy / gap) * push
+            moved[j].x += (dx / gap) * push
+            moved[j].y += (dy / gap) * push
           }
         }
-        if (group.length < 2) return
-        const area = new maplibregl.LngLatBounds()
-        group.forEach((j) => {
-          taken.add(j)
-          hotelMarkers[j].getElement().style.display = 'none'
-          area.extend([hotels[j].lng, hotels[j].lat])
-        })
-        const el = markerElement(`<span>${group.length}</span>`, 'wed-marker wed-marker-cluster')
-        el.title = group.map((j) => hotels[j].name).join(', ')
-        el.addEventListener('click', () => map.fitBounds(area, { padding: fitPadding(map), maxZoom: 17, duration: 600 }))
-        bubbles.push(new maplibregl.Marker({ element: el, anchor: 'center' }).setLngLat(area.getCenter()).addTo(map))
-      })
+      }
+      hotelMarkers.forEach((m, i) => m.setOffset([moved[i].x - at[i].x, moved[i].y - at[i].y]))
     }
-    recluster.current = cluster
     hotels.forEach((h, i) => {
       const el = markerElement(`<span>${i + 1}</span>`, 'wed-marker wed-marker-hotel')
       el.title = h.name
@@ -177,12 +165,10 @@ export function StayMap({ accommodation, travel, city }: { accommodation: Accomm
       bounds.extend([h.lng, h.lat])
     })
     if (!bounds.isEmpty() && selectedIndex < 0) map.fitBounds(bounds, { padding: fitPadding(map), maxZoom: 14, duration: 0 })
-    cluster()
-    map.on('zoomend', cluster)
+    spread()
+    map.on('zoomend', spread)
     return () => {
-      map.off('zoomend', cluster)
-      recluster.current = () => {}
-      bubbles.forEach((m) => m.remove())
+      map.off('zoomend', spread)
       markers.forEach((m) => m.remove())
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

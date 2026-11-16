@@ -4,8 +4,8 @@ import { cn } from '@/lib/utils'
 
 const SECTIONS = [
   { id: 'neuigkeiten', label: 'Neuigkeiten' },
-  { id: 'ablauf', label: 'Ablauf' },
   { id: 'ort', label: 'Ort' },
+  { id: 'ablauf', label: 'Ablauf' },
   { id: 'anreise', label: 'Anreise' },
   { id: 'unterkunft', label: 'Unterkunft' },
   { id: 'faq', label: 'FAQ' },
