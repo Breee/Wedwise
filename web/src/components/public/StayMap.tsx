@@ -507,6 +507,7 @@ function HotelCard({
       onMouseLeave={onLeave}
       onClick={onSelect}
       aria-current={selected || undefined}
+      aria-expanded={expanded}
       className={cn(
         'cursor-pointer rounded-2xl border bg-card p-5 transition-all',
         selected ? 'border-primary bg-primary/5 shadow-lg' : active ? 'border-primary/60 shadow-lg' : 'border-border/60',
@@ -522,13 +523,18 @@ function HotelCard({
             <span className="shrink-0 rounded-full bg-gold/20 px-2.5 py-0.5 text-xs font-semibold tracking-wider text-foreground/80" title={t(tier.hint)}>
               {tier.label}
             </span>
+            <ChevronDown aria-hidden className={cn('mt-1 size-5 shrink-0 text-muted-foreground transition-transform lg:hidden', expanded && 'rotate-180')} />
           </div>
           {hotel.area && (
             <p className="mt-1 flex items-center gap-1 text-sm text-muted-foreground">
               <MapPin className="size-3.5" /> {hotel.area}
             </p>
           )}
-          {!expanded && <p className="mt-1 text-sm font-medium">{headline(hotel)}</p>}
+          {!expanded && (
+            <p className="mt-1 text-sm font-medium">
+              {headline(hotel)} <span className="font-normal text-muted-foreground">· {t('Details & Weg')}</span>
+            </p>
+          )}
           {expanded && (
             <>
               {hotel.note && <p className="mt-2 text-sm text-foreground/80">{hotel.note}</p>}
