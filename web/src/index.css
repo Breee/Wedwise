@@ -175,6 +175,21 @@
     color: var(--primary-foreground);
     z-index: 3;
   }
+  .wed-marker-cluster {
+    display: grid;
+    place-items: center;
+    width: 34px;
+    height: 34px;
+    border-radius: 9999px;
+    background: var(--primary);
+    color: var(--primary-foreground);
+    border: 3px solid color-mix(in oklab, var(--primary) 35%, white);
+    font-weight: 700;
+    font-size: 13px;
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgb(0 0 0 / 0.2);
+  }
+
   .wed-marker-hotel svg {
     width: 14px;
     height: 14px;

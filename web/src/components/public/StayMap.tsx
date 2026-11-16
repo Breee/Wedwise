@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { locale, t } from '@/lib/i18n'
 import { useQueries, useQuery } from '@tanstack/react-query'
 import * as maplibregl from 'maplibre-gl'
@@ -28,7 +28,7 @@ import { drawRoutes, fitPadding, venueMarker, type RouteFeature } from './mapPar
 import { ICON_SVG, KIND } from './TravelMap'
 
 const INITIAL_VISIBLE = 3
-const MARKER_SIZE = 24
+const CLUSTER_DISTANCE = 30
 const DESKTOP = '(min-width: 1024px)'
 
 const TIER = { 1: { label: '€', hint: 'günstig' }, 2: { label: '€€', hint: 'mittel' }, 3: { label: '€€€', hint: 'gehoben' } } as const
@@ -111,6 +111,13 @@ export function StayMap({ accommodation, travel, city }: { accommodation: Accomm
   const selectedIndex = hotels.findIndex((h) => h.name === selected)
   const active = hover ?? (selectedIndex >= 0 ? selectedIndex : null)
 
+  const selectedRef = useRef(selectedIndex)
+  const recluster = useRef(() => {})
+  useEffect(() => {
+    selectedRef.current = selectedIndex
+    recluster.current()
+  }, [selectedIndex])
+
   useEffect(() => {
     if (!map) return
     const markers: maplibregl.Marker[] = []
@@ -120,33 +127,35 @@ export function StayMap({ accommodation, travel, city }: { accommodation: Accomm
       bounds.extend(venue)
     }
     const hotelMarkers: maplibregl.Marker[] = []
-    // Overlapping markers are pushed apart in screen space so every number stays tappable.
-    const spread = () => {
-      const origin = hotels.map((h) => map.project([h.lng, h.lat]))
-      const pos = origin.map((p) => ({ x: p.x, y: p.y }))
-      for (let step = 0; step < 40; step++) {
-        for (let a = 0; a < pos.length; a++) {
-          for (let b = a + 1; b < pos.length; b++) {
-            let dx = pos[b].x - pos[a].x
-            let dy = pos[b].y - pos[a].y
-            let dist = Math.hypot(dx, dy)
-            if (dist >= MARKER_SIZE) continue
-            if (dist < 0.01) {
-              const angle = (a * 7 + b * 13) % 6
-              dx = Math.cos(angle)
-              dy = Math.sin(angle)
-              dist = 1
-            }
-            const push = (MARKER_SIZE - dist) / 2
-            pos[a].x -= (dx / dist) * push
-            pos[a].y -= (dy / dist) * push
-            pos[b].x += (dx / dist) * push
-            pos[b].y += (dy / dist) * push
-          }
+    // Pins that would overlap are gathered into one bubble that splits apart when zooming in.
+    let bubbles: maplibregl.Marker[] = []
+    const cluster = () => {
+      bubbles.forEach((m) => m.remove())
+      bubbles = []
+      const at = hotels.map((h) => map.project([h.lng, h.lat]))
+      const taken = new Set<number>()
+      hotelMarkers.forEach((m) => (m.getElement().style.display = ''))
+      hotels.forEach((_, i) => {
+        if (taken.has(i) || i === selectedRef.current) return
+        const group = [i]
+        for (let j = i + 1; j < hotels.length; j++) {
+          if (taken.has(j) || j === selectedRef.current) continue
+          if (Math.hypot(at[j].x - at[i].x, at[j].y - at[i].y) < CLUSTER_DISTANCE) group.push(j)
         }
-      }
-      pos.forEach((p, i) => hotelMarkers[i].setOffset([p.x - origin[i].x, p.y - origin[i].y]))
+        if (group.length < 2) return
+        const area = new maplibregl.LngLatBounds()
+        group.forEach((j) => {
+          taken.add(j)
+          hotelMarkers[j].getElement().style.display = 'none'
+          area.extend([hotels[j].lng, hotels[j].lat])
+        })
+        const el = markerElement(`<span>${group.length}</span>`, 'wed-marker wed-marker-cluster')
+        el.title = group.map((j) => hotels[j].name).join(', ')
+        el.addEventListener('click', () => map.fitBounds(area, { padding: fitPadding(map), maxZoom: 17, duration: 600 }))
+        bubbles.push(new maplibregl.Marker({ element: el, anchor: 'center' }).setLngLat(area.getCenter()).addTo(map))
+      })
     }
+    recluster.current = cluster
     hotels.forEach((h, i) => {
       const el = markerElement(`<span>${i + 1}</span>`, 'wed-marker wed-marker-hotel')
       el.title = h.name
@@ -164,10 +173,12 @@ export function StayMap({ accommodation, travel, city }: { accommodation: Accomm
       bounds.extend([h.lng, h.lat])
     })
     if (!bounds.isEmpty() && selectedIndex < 0) map.fitBounds(bounds, { padding: fitPadding(map), maxZoom: 14, duration: 0 })
-    spread()
-    map.on('zoomend', spread)
+    cluster()
+    map.on('zoomend', cluster)
     return () => {
-      map.off('zoomend', spread)
+      map.off('zoomend', cluster)
+      recluster.current = () => {}
+      bubbles.forEach((m) => m.remove())
       markers.forEach((m) => m.remove())
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

@@ -73,3 +73,4 @@ Open work is tracked in GitHub issues and milestones (M1 Staff tools, M2 Accommo
 - 2026-11-15: Stay routes walk to the nearest tram stop first (boarding stop looked up server-side, cached), route labels sit beside the line, map attribution collapsed, nav logo removed.
 - 2026-11-15: Stay routes board on the venue stop's line: line stops and track come from the OpenStreetMap API (`internal/routing/line.go`, cached), tram leg drawn along the rails; row preview map without time pills.
 - 2026-11-16: Route time labels are placed by the map engine (symbol layers with collision detection) beside the line and away from pins; stale hotel notes corrected.
+- 2026-11-16: Stay overview map gathers overlapping hotel pins into count bubbles that zoom in on tap.
