@@ -95,7 +95,7 @@ func (p *SubmitParams) normalize() error {
 	if !IsValidStatus(p.Status) {
 		return fmt.Errorf("%w: status must be one of %s", ErrValidation, strings.Join(ValidStatuses(), ", "))
 	}
-	if len(p.MusicGenres) > maxShortLen || len(p.MusicSong) > maxShortLen {
+	if len(p.MusicGenres) > maxMessageLen || len(p.MusicSong) > maxShortLen {
 		return fmt.Errorf("%w: music wish is too long", ErrValidation)
 	}
 	if len(p.Message) > maxMessageLen {

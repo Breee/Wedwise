@@ -3,7 +3,26 @@ import { t } from '@/lib/i18n'
 import { Music, Search } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 
-export const GENRES = ['Pop', 'Rock', 'Hip-Hop', 'Schlager', '80er', '90er', '2000er', 'House / Electro', 'Latin', 'Soul / Funk', 'Indie'] as const
+export const GENRES = ['Pop', 'Charts', 'Rock', 'Indie', 'Punk', 'Metal', 'Hardcore', 'Hip-Hop', 'R&B', 'Soul / Funk', 'Disco', 'House / Electro', 'Techno', 'Drum & Bass', 'Electro Swing', 'Jazz / Swing', 'Reggae', 'Latin', 'Schlager', '80er', '90er', '2000er'] as const
+
+const GENRE_ICONS: [RegExp, string][] = [
+  [/swing|jazz/i, '🎷'],
+  [/metal/i, '🤘'],
+  [/hardcore|punk/i, '🧷'],
+  [/rock/i, '🎸'],
+  [/hip.?hop|rap/i, '🎤'],
+  [/r&b|soul|funk/i, '🕺'],
+  [/disco/i, '🪩'],
+  [/techno|house|electro|drum|edm/i, '🎧'],
+  [/reggae/i, '🌴'],
+  [/latin|salsa/i, '💃'],
+  [/schlager/i, '🍻'],
+  [/\d0er/i, '📼'],
+  [/indie/i, '🎹'],
+  [/chart|pop/i, '⭐'],
+]
+
+export const genreIcon = (genre: string) => GENRE_ICONS.find(([pattern]) => pattern.test(genre))?.[1] ?? '🎵'
 
 export const NEEDS_OPTIONS = ['Beamer / Leinwand', 'Mikrofon', 'Musikanlage', 'Laptop-Anschluss (HDMI)', 'Platz zum Aufbauen', 'Tisch', 'Strom'] as const
 

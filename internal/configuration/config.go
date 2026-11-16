@@ -157,7 +157,7 @@ func Default() Config {
 			Language:            "de",
 			Timezone:            "Europe/Berlin",
 			ContributionMinutes: 15,
-			MusicGenres:         []string{"Pop", "Rock", "Hip-Hop", "Schlager", "80er", "90er", "2000er", "House / Electro", "Latin", "Soul / Funk", "Indie"},
+			MusicGenres:         []string{"Pop", "Charts", "Rock", "Indie", "Punk", "Metal", "Hardcore", "Hip-Hop", "R&B", "Soul / Funk", "Disco", "House / Electro", "Techno", "Drum & Bass", "Electro Swing", "Jazz / Swing", "Reggae", "Latin", "Schlager", "80er", "90er", "2000er"},
 		},
 	}
 }

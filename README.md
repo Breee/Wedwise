@@ -137,7 +137,7 @@ Settings come from a YAML file (`CONFIG_PATH`, default
 | – | `event.language` | `de` | UI language: `de` or `en`. Your own content is not translated. |
 | – | `event.timezone` | `Europe/Berlin` | Time zone of the calendar entry. |
 | – | `event.contributionMinutes` | `15` | Time limit suggested for guest contributions. |
-| – | `event.musicGenres` | Pop, Rock, … | Genres guests can pick in their response. |
+| – | `event.musicGenres` | Pop, Rock, Metal, … (22) | Genres guests can pick in their response. |
 | `ENVIRONMENT` | `environment` | `development` | Set to `production` behind HTTPS: cookies become `Secure`. |
 | `LISTEN_ADDRESS` | `listenAddress` | `:8080` | Bind address. |
 | `DATABASE_PATH` | `databasePath` | `/data/wedding.db` | SQLite file. |

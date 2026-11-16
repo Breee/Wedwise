@@ -18,7 +18,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
-import { GENRES, NEEDS_OPTIONS, SongSearch, formatNeeds, joinList, parseNeeds, splitList } from '@/components/rsvp/music'
+import { GENRES, NEEDS_OPTIONS, genreIcon, SongSearch, formatNeeds, joinList, parseNeeds, splitList } from '@/components/rsvp/music'
 import { MESSENGERS, MessengerIcon } from '@/lib/contact'
 import { rememberToken } from '@/lib/remember'
 import { createKey, signWithKey, webauthnSupported } from '@/lib/webauthn'
@@ -397,7 +397,7 @@ export function RsvpForm({ initial, link, onDone }: FormProps) {
                       className="min-h-10 rounded-full sm:min-h-0"
                       onClick={() => setGenres((l) => (on ? l.filter((x) => x !== g) : [...l, g]))}
                     >
-                      {g}
+                      <span aria-hidden>{genreIcon(g)}</span> {g}
                     </Button>
                   )
                 })}

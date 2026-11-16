@@ -4,7 +4,7 @@ import { useSuspenseQuery } from '@tanstack/react-query'
 import { responsesQuery, summaryQuery } from '@/lib/queries'
 import { DIET_LABEL } from '@/lib/format'
 import { Badge } from '@/components/ui/badge'
-import { splitList } from '@/components/rsvp/music'
+import { genreIcon, splitList } from '@/components/rsvp/music'
 import { PageHeader } from '@/components/admin/PageHeader'
 import { Stat } from '@/components/admin/Stat'
 import { ResponsesTable } from '@/components/admin/ResponsesTable'
@@ -81,8 +81,8 @@ function CoupleDashboard() {
           <CardContent className="space-y-2">
             {genres.length === 0 && <p className="text-sm text-muted-foreground">{t('Keine Angaben.')}</p>}
             {genres.map(([g, n]) => (
-              <div key={g} className="grid grid-cols-[8rem_1fr_2rem] items-center gap-3 text-sm">
-                <span className="truncate">{g}</span>
+              <div key={g} className="grid grid-cols-[9.5rem_1fr_2rem] items-center gap-3 text-sm">
+                <span className="truncate">{genreIcon(g)} {g}</span>
                 <div className="h-2.5 rounded-full bg-muted">
                   <div className="h-full rounded-full bg-primary" style={{ width: `${(n / genreMax) * 100}%` }} />
                 </div>
