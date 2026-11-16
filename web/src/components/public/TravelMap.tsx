@@ -38,12 +38,6 @@ const MODE_KINDS: Record<TravelMode, StopKind[]> = {
   bike: [],
   car: ['parking'],
 }
-const HEADER: Record<TravelMode, string> = {
-  transit: 'Haltestellen & Fußwege',
-  bike: 'Mit dem Rad',
-  car: 'Parken',
-}
-
 export function TravelMap({ travel, venueName, mode = 'transit' }: { travel: Travel; venueName: string; mode?: TravelMode }) {
   const venue = useMemo<LngLat>(() => [travel.lng, travel.lat], [travel.lat, travel.lng])
   const stops = useMemo(() => travel.stops.filter((s) => MODE_KINDS[mode].includes(s.kind)), [travel.stops, mode])
@@ -76,6 +70,10 @@ export function TravelMap({ travel, venueName, mode = 'transit' }: { travel: Tra
       const el = markerElement(ICON_SVG[stop.kind], 'wed-marker wed-marker-stop')
       el.style.setProperty('--stop-color', KIND[stop.kind].color)
       el.title = stop.name
+      const label = document.createElement('span')
+      label.className = 'wed-venue-name'
+      label.textContent = stop.name
+      el.append(label)
       markers.push(new maplibregl.Marker({ element: el, anchor: 'center' }).setLngLat([stop.lng, stop.lat]).addTo(map))
     }
     setActive(null)
@@ -129,7 +127,7 @@ export function TravelMap({ travel, venueName, mode = 'transit' }: { travel: Tra
           { type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: line.coords } },
           ...line.stops.map((s) => ({
             type: 'Feature' as const,
-            properties: { name: s.name },
+            properties: { name: s.name === lineStop.name ? '' : s.name },
             geometry: { type: 'Point' as const, coordinates: [s.lng, s.lat] },
           })),
         ],
@@ -210,12 +208,7 @@ export function TravelMap({ travel, venueName, mode = 'transit' }: { travel: Tra
 
   return (
     <div className="space-y-6">
-      <BaseMap onReady={setMap} className="h-[60svh] max-h-[520px] min-h-[320px]">
-        <div className="pointer-events-none absolute top-3 left-3 max-w-[calc(100%-5rem)] truncate rounded-full bg-background/90 px-3 py-1.5 text-xs shadow backdrop-blur sm:text-sm">
-          <span className="font-display text-base text-primary sm:text-lg">{venueName}</span>
-          <span className="ml-2 hidden text-muted-foreground sm:inline">{t(HEADER[mode])}</span>
-        </div>
-      </BaseMap>
+      <BaseMap onReady={setMap} className="h-[60svh] max-h-[520px] min-h-[320px]" />
       {stops.length > 0 && (
         <div className="mx-auto grid max-w-3xl gap-3 sm:grid-cols-2">
           {stops.map((stop) => {

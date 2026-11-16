@@ -108,6 +108,10 @@
     white-space: nowrap;
     box-shadow: 0 1px 3px rgb(0 0 0 / 0.2);
   }
+  .wed-marker-stop .wed-venue-name {
+    top: auto;
+    bottom: calc(100% + 6px);
+  }
   .wed-marker-venue::before {
     content: '';
     position: absolute;
