@@ -157,6 +157,13 @@ func (h *Handler) Warm(legs []Leg, board *Boarding, boardFrom [][2]float64) {
 				time.Sleep(h.warmPause)
 			}
 		}
+		if board != nil {
+			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			if _, _, err := h.line(ctx, *board); err != nil {
+				slog.Warn("line lookup failed", "error", err)
+			}
+			cancel()
+		}
 		for _, from := range boardFrom {
 			h.mu.Lock()
 			current := h.warmRun

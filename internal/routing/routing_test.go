@@ -364,9 +364,26 @@ func TestBoardingStopOnTheLine(t *testing.T) {
 	}))
 	t.Cleanup(maps.Close)
 
-	h := NewHandler("secret", nil)
+	db, err := sql.Open("sqlite", ":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
+	db.SetMaxOpenConns(1)
+	if _, err := db.Exec(`CREATE TABLE route_cache (cache_key TEXT PRIMARY KEY, route TEXT NOT NULL)`); err != nil {
+		t.Fatal(err)
+	}
+	h := NewHandler("secret", db)
 	h.baseURL, h.mapURL = routes.URL, maps.URL
 	b := Boarding{Kind: "tram", Line: "1 → Somewhere", To: [2]float64{7.30, 47.98}}
+
+	// Guests only get the line once it has been looked up.
+	lineURL := "/api/route/line?to=7.30,47.98&kind=tram&line=1"
+	rec := httptest.NewRecorder()
+	h.Line(rec, httptest.NewRequest(http.MethodGet, lineURL, nil))
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("line before lookup = %d", rec.Code)
+	}
 
 	board, found, err := h.boardingStop(context.Background(), b, [2]float64{7.21, 47.99})
 	if err != nil || !found || board.Stop.Name != "Near" || board.Ride == nil {
@@ -389,5 +406,18 @@ func TestBoardingStopOnTheLine(t *testing.T) {
 	board, _, _ = h.boardingStop(context.Background(), b, [2]float64{7.31, 47.98})
 	if board.Stop.Name != "Venue" || board.Ride != nil {
 		t.Fatalf("board = %+v", board)
+	}
+
+	rec = httptest.NewRecorder()
+	h.Line(rec, httptest.NewRequest(http.MethodGet, lineURL, nil))
+	var line struct {
+		Stops  []struct{ Name string } `json:"stops"`
+		Coords [][2]float64            `json:"coords"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &line); err != nil || rec.Code != http.StatusOK {
+		t.Fatalf("line = %d %s", rec.Code, rec.Body)
+	}
+	if len(line.Stops) != 4 || line.Stops[0].Name != "Far" || len(line.Coords) != 4 {
+		t.Fatalf("line = %+v", line)
 	}
 }

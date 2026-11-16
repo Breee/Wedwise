@@ -229,6 +229,7 @@ func New(cfg configuration.Config, db *sql.DB) (*Server, error) {
 		api.Get("/themes", contentHandler.ThemesHandler)
 		api.With(routeLimit).Method(http.MethodGet, "/route", routeHandler)
 		api.With(routeLimit).Get("/route/stop", routeHandler.Stop)
+		api.With(routeLimit).Get("/route/line", routeHandler.Line)
 		api.With(routeLimit).Method(http.MethodGet, "/songs", songs.NewHandler())
 
 		api.Group(func(protected chi.Router) {

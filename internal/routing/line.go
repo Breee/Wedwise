@@ -124,6 +124,26 @@ func (h *Handler) Stop(w http.ResponseWriter, r *http.Request) {
 	httpx.WriteJSON(w, http.StatusOK, cached[0])
 }
 
+func lineKey(b Boarding) string {
+	return fmt.Sprintf("line|%s|%s|%.4f,%.4f", b.Kind, b.ref(), b.To[0], b.To[1])
+}
+
+// Line answers ?to=lng,lat&kind=tram&line=1 with the stops and track of the
+// line that serves the stop at the venue. Like Stop it only reads what Warm
+// has found before.
+func (h *Handler) Line(w http.ResponseWriter, r *http.Request) {
+	query := r.URL.Query()
+	to, ok := parsePoint(query.Get("to"))
+	b := Boarding{Kind: query.Get("kind"), Line: query.Get("line"), To: to}
+	var cached transitLine
+	if !ok || !h.loadJSON(r.Context(), lineKey(b), &cached) || len(cached.Stops) < 2 {
+		httpx.WriteError(w, http.StatusNotFound, httpx.CodeNotFound, "No line known.")
+		return
+	}
+	w.Header().Set("Cache-Control", "public, max-age=86400")
+	httpx.WriteJSON(w, http.StatusOK, cached)
+}
+
 // board picks the stop of the line nearest to a point and the ride from
 // there to the stop at the venue.
 func (l transitLine) board(b Boarding, at [2]float64) Board {
@@ -174,7 +194,7 @@ func distance(a, b [2]float64) float64 {
 // that stop name the lines passing through, and the line itself lists its
 // stops and track. The answer is remembered, also when there is none.
 func (h *Handler) line(ctx context.Context, b Boarding) (transitLine, bool, error) {
-	key := fmt.Sprintf("line|%s|%s|%.4f,%.4f", b.Kind, b.ref(), b.To[0], b.To[1])
+	key := lineKey(b)
 	var cached transitLine
 	if h.loadJSON(ctx, key, &cached) {
 		return cached, len(cached.Stops) > 1, nil

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { t } from '@/lib/i18n'
-import { useQueries } from '@tanstack/react-query'
+import { useQueries, useQuery } from '@tanstack/react-query'
+import { api } from '@/lib/api'
 import * as maplibregl from 'maplibre-gl'
 import type { Map as MapLibreMap, ExpressionSpecification } from 'maplibre-gl'
 import { Footprints, ParkingCircle, TramFront, TrainFront, Bus } from 'lucide-react'
@@ -28,6 +29,7 @@ export const ICON_SVG: Record<StopKind, string> = {
 // Parking this close to the venue are "at the location" – no own marker or route.
 const AT_VENUE_METERS = 150
 const isAtVenue = (stop: Stop, venue: LngLat) => distanceMeters([stop.lng, stop.lat], venue) <= AT_VENUE_METERS
+type TransitLine = { stops: { name: string; lat: number; lng: number }[]; coords: [number, number][] }
 const hasLeg = (kind: StopKind) => kind !== 'parking'
 
 export type TravelMode = 'transit' | 'bike' | 'car'
@@ -53,6 +55,17 @@ export function TravelMap({ travel, venueName, mode = 'transit' }: { travel: Tra
   const [map, setMap] = useState<MapLibreMap | null>(null)
   const [active, setActive] = useState<number | null>(null)
   const resolved: (Route | undefined)[] = routes.map((r) => r.data)
+  const lineStop = routed[0]
+  const line = useQuery({
+    queryKey: ['route', 'line', lineStop?.kind, lineStop?.line, lineStop?.lng, lineStop?.lat],
+    queryFn: () =>
+      api
+        .get<TransitLine>(`/route/line?to=${lineStop.lng},${lineStop.lat}&kind=${lineStop.kind}&line=${encodeURIComponent(lineStop.line ?? '')}`)
+        .catch(() => null),
+    enabled: !!lineStop,
+    staleTime: Infinity,
+    retry: false,
+  }).data
 
   useEffect(() => {
     if (!map) return
@@ -66,10 +79,72 @@ export function TravelMap({ travel, venueName, mode = 'transit' }: { travel: Tra
     }
     const bounds = new maplibregl.LngLatBounds(venue, venue)
     stops.forEach((s) => bounds.extend([s.lng, s.lat]))
-    map.fitBounds(bounds, { padding: fitPadding(map), maxZoom: mode === 'transit' ? 16 : 14, duration: 0 })
+    line?.coords.forEach((c) => bounds.extend(c))
+    map.fitBounds(bounds, { padding: line ? 36 : fitPadding(map), maxZoom: mode === 'transit' ? 16 : 14, duration: 0 })
     setActive(null)
     return () => markers.forEach((m) => m.remove())
-  }, [map, stops, venue, mode])
+  }, [map, stops, venue, mode, line])
+
+  useEffect(() => {
+    if (!map || !line || !lineStop) return
+    const color = KIND[lineStop.kind].color
+    map.addSource('transit-line', {
+      type: 'geojson',
+      data: {
+        type: 'FeatureCollection',
+        features: [
+          { type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: line.coords } },
+          ...line.stops.map((s) => ({
+            type: 'Feature' as const,
+            properties: { name: s.name },
+            geometry: { type: 'Point' as const, coordinates: [s.lng, s.lat] },
+          })),
+        ],
+      },
+    })
+    const before = map.getLayer('routes-casing') ? 'routes-casing' : undefined
+    map.addLayer(
+      {
+        id: 'transit-line',
+        type: 'line',
+        source: 'transit-line',
+        filter: ['==', ['geometry-type'], 'LineString'],
+        layout: { 'line-cap': 'round', 'line-join': 'round' },
+        paint: { 'line-color': color, 'line-width': 3, 'line-opacity': 0.5 },
+      },
+      before,
+    )
+    map.addLayer(
+      {
+        id: 'transit-line-stops',
+        type: 'circle',
+        source: 'transit-line',
+        filter: ['==', ['geometry-type'], 'Point'],
+        paint: { 'circle-radius': 3.5, 'circle-color': '#fff', 'circle-stroke-color': color, 'circle-stroke-width': 1.5 },
+      },
+      before,
+    )
+    map.addLayer({
+      id: 'transit-line-names',
+      type: 'symbol',
+      source: 'transit-line',
+      filter: ['==', ['geometry-type'], 'Point'],
+      minzoom: 13,
+      layout: {
+        'text-field': ['get', 'name'],
+        'text-font': ['Noto Sans Regular'],
+        'text-size': 11,
+        'text-variable-anchor': ['left', 'right', 'top', 'bottom'],
+        'text-radial-offset': 0.7,
+      },
+      paint: { 'text-color': color, 'text-halo-color': '#fff', 'text-halo-width': 1.5 },
+    })
+    return () => {
+      if (!map.getStyle()) return
+      for (const id of ['transit-line-names', 'transit-line-stops', 'transit-line']) if (map.getLayer(id)) map.removeLayer(id)
+      if (map.getSource('transit-line')) map.removeSource('transit-line')
+    }
+  }, [map, line, lineStop])
 
   useEffect(() => {
     if (!map) return
