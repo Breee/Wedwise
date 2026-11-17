@@ -38,7 +38,10 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 22
-      - run: npm audit --audit-level=high
+      - name: Audit what ships to guests
+        run: npm audit --omit=dev --audit-level=high
+      - name: Audit build tools (report only)
+        run: npm audit --audit-level=high || true
 
   image:
     runs-on: ubuntu-latest
