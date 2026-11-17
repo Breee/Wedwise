@@ -16,6 +16,7 @@ import { Clock, GripVertical } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { CONTRIBUTION_STATUS_LABEL } from '@/lib/format'
 import type { Contribution, ContributionStatus } from '@/lib/types'
+import { ContactLinks } from './ContactLinks'
 import { STATUSES, STATUS_TONE, useContributionMutations } from './contributions'
 
 export function Board({ items, onOpen }: { items: Contribution[]; onOpen: (c: Contribution) => void }) {
@@ -130,8 +131,10 @@ function CardBody({
               {c.durationMinutes > 0 && t(' · {n} Min.', { n: c.durationMinutes })}
             </p>
           )}
+          {c.needs && <p className="mt-2 line-clamp-2 text-xs text-muted-foreground">{t('Benötigt')}: {c.needs}</p>}
         </button>
       </div>
+      <ContactLinks phone={c.phone} messengers={c.messengers} className="mt-2" />
     </article>
   )
 }
