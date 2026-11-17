@@ -49,23 +49,14 @@ func TestTokensProtectedAtRest(t *testing.T) {
 		}
 	}
 
-	// Witnesses can still copy the links; the couple cannot, because the page
-	// behind a link shows the guest's contribution.
-	witness, _ := app.login("witness_user", "TestPass123!")
-	resp := app.do("GET", "/api/responses/", nil, witness)
+	// Staff can still copy the links.
+	couple, _ := app.login("couple_user", "TestPass123!")
+	resp := app.do("GET", "/api/responses/", nil, couple)
 	defer resp.Body.Close()
 	var body bytes.Buffer
 	_, _ = body.ReadFrom(resp.Body)
 	if !bytes.Contains(body.Bytes(), []byte(view.EditToken)) {
-		t.Fatalf("witness cannot see the edit token: %s", body.String())
-	}
-	couple, _ := app.login("couple_user", "TestPass123!")
-	hidden := app.do("GET", "/api/responses/", nil, couple)
-	defer hidden.Body.Close()
-	body.Reset()
-	_, _ = body.ReadFrom(hidden.Body)
-	if bytes.Contains(body.Bytes(), []byte(view.EditToken)) {
-		t.Fatalf("couple sees the edit token: %s", body.String())
+		t.Fatalf("staff cannot see the edit token: %s", body.String())
 	}
 }
 

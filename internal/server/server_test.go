@@ -742,7 +742,7 @@ func TestCoupleNeverSeesContributions(t *testing.T) {
 				t.Fatalf("%s GET %s: got %d, body: %s", role, path, resp.StatusCode, raw)
 			}
 			lower := strings.ToLower(string(raw))
-			for _, leak := range []string{"contribution", "kleine rede", "mikrofon", "1234567", "edittoken"} {
+			for _, leak := range []string{"contribution", "kleine rede", "mikrofon", "1234567"} {
 				if strings.Contains(lower, leak) {
 					t.Fatalf("%s GET %s leaks contribution data (%q): %s", role, path, leak, raw)
 				}

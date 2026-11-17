@@ -266,13 +266,8 @@ func (h *Handler) writeCoupleView(w http.ResponseWriter, r *http.Request, respon
 }
 
 // editTokens returns the edit links so staff can hand them back to guests who
-// lost theirs. The page behind a link shows the guest's contribution, so only
-// roles that may read contributions get them.
+// lost theirs. Note that the page behind a link shows the guest's contribution.
 func (h *Handler) editTokens(r *http.Request) (map[int64]string, error) {
-	identity, ok := auth.IdentityFrom(r.Context())
-	if !ok || !identity.HasPermission(auth.PermContributionRead) {
-		return map[int64]string{}, nil
-	}
 	return h.store.EditTokens(r.Context())
 }
 
