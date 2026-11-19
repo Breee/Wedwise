@@ -25,6 +25,19 @@ const CodeTwoFactorSetupRequired = "two_factor_setup_required"
 // accountPrefix is the only API area open to such users.
 const accountPrefix = "/api/account/"
 
+// devicePaths are the API areas a command line token may reach at all;
+// within them the usual permission checks apply.
+var devicePaths = []string{"/api/content", "/api/invite-links", "/api/places", "/api/uploads"}
+
+func devicePath(path string) bool {
+	for _, prefix := range devicePaths {
+		if path == prefix || strings.HasPrefix(path, prefix+"/") {
+			return true
+		}
+	}
+	return false
+}
+
 // Service ties sessions, users and HTTP concerns together.
 type Service struct {
 	sessions *SessionStore
@@ -36,6 +49,7 @@ type Service struct {
 	requireTwoFactor map[string]bool
 	lockouts         *Lockouts
 	recorder         Recorder
+	devices          *DeviceStore
 }
 
 // Recorder receives login events for the audit log.
@@ -89,14 +103,15 @@ func WithIdentity(ctx context.Context, identity Identity) context.Context {
 	return context.WithValue(ctx, identityContextKey, identity)
 }
 
-// Authenticate resolves the session cookie and, when valid, attaches the
+// Authenticate resolves the session cookie or a command line token and, when valid, attaches the
 // identity to the request context. It never rejects a request on its own.
 func (s *Service) Authenticate(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		identity, session, err := s.identityFromRequest(r)
-		if err == nil {
+		if identity, session, err := s.identityFromRequest(r); err == nil {
 			ctx := context.WithValue(r.Context(), sessionContextKey, session)
 			r = r.WithContext(WithIdentity(ctx, identity))
+		} else if identity, err := s.identityFromToken(r); err == nil {
+			r = r.WithContext(WithIdentity(r.Context(), identity))
 		}
 		next.ServeHTTP(w, r)
 	})
@@ -109,6 +124,10 @@ func (s *Service) RequireAuth(next http.Handler) http.Handler {
 		identity, ok := IdentityFrom(r.Context())
 		if !ok {
 			httpx.Unauthorized(w)
+			return
+		}
+		if identity.Scope != nil && !devicePath(r.URL.Path) {
+			httpx.Forbidden(w)
 			return
 		}
 		if identity.TwoFactorSetupRequired && !strings.HasPrefix(r.URL.Path, accountPrefix) {

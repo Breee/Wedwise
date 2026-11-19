@@ -86,6 +86,7 @@ func New(cfg configuration.Config, db *sql.DB) (*Server, error) {
 	authService := auth.NewService(sessionStore, userStore, cfg.IsProduction(), cfg.BaseURL)
 	authService.RequireTwoFactor(cfg.Auth.RequireTwoFactor)
 	authService.SetLockouts(auth.NewLockouts(db))
+	authService.SetDevices(auth.NewDeviceStore(db))
 
 	box, err := sealed.New(cfg.DataKey, cfg.DataKeyPrevious)
 	if err != nil {

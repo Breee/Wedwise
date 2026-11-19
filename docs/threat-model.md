@@ -44,6 +44,7 @@ and is meant to run behind a TLS-terminating reverse proxy.
 | Guessing passwords | Argon2id, minimum length 10, per-IP rate limit, per-account lockout with backoff, optional enforced second factor (TOTP or passkey) |
 | Guessing invite links, PINs or edit tokens | 128-bit and 192-bit random tokens, PIN failure limit per link, per-IP rate limits, counters persisted across restarts |
 | Session theft or fixation | HttpOnly cookie, `__Host-` prefix and SameSite=Strict in production, session ids stored hashed, idle and absolute timeouts, new session on credential change, device list with remote sign-out |
+| Stolen command-line token | Issued only after approval in a signed-in browser, stored hashed, limited to content and invite links, expires after 90 days, revocable on the account page, sign-in recorded in the audit log |
 | Cross-site request forgery | Origin/Referer check against `BASE_URL` on every state-changing request, SameSite cookies |
 | Cross-site scripting, clickjacking | React escaping, strict Content-Security-Policy without inline scripts or style attributes, image host allowlist, `frame-ancestors 'none'`, COOP/CORP |
 | Couple reading contributions | Server-side permission check on every contribution route; answer and summary endpoints never include contribution data; covered by tests |

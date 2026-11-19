@@ -102,13 +102,28 @@ jobs:
           helm package charts/wedwise --version "$VERSION" --app-version "$VERSION"
           helm push wedwise-*.tgz "$CHART_REGISTRY"
 
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+
+      - name: Build command line client
+        run: |
+          mkdir -p dist
+          for target in linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64 windows/arm64; do
+            os="${target%/*}"; arch="${target#*/}"
+            ext=""; if [ "$os" = windows ]; then ext=".exe"; fi
+            CGO_ENABLED=0 GOOS="$os" GOARCH="$arch" go build -trimpath -ldflags "-s -w" \
+              -o "dist/wedwise-$os-$arch$ext" ./cmd/wedwise
+          done
+          (cd dist && sha256sum wedwise-* > checksums.txt)
+
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           FLAGS="--generate-notes"
           if [[ "$GITHUB_REF_NAME" == *-* ]]; then FLAGS="$FLAGS --prerelease"; fi
-          gh release create "$GITHUB_REF_NAME" $FLAGS "wedwise-$GITHUB_REF_NAME.spdx.json"
+          gh release create "$GITHUB_REF_NAME" $FLAGS "wedwise-$GITHUB_REF_NAME.spdx.json" dist/*
           {
             gh release view "$GITHUB_REF_NAME" --json body -q .body
             printf '\n## Image\n\n`%s@%s`\n' "${{ steps.image.outputs.name }}" "${{ steps.build.outputs.digest }}"

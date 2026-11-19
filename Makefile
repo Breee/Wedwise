@@ -4,6 +4,7 @@
 build:
 	cd web && npm install && npm run build
 	go build -o bin/wedding ./cmd/wedding
+	go build -o bin/wedwise ./cmd/wedwise
 
 # Run backend dev server
 dev-backend:

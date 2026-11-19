@@ -79,6 +79,9 @@ func (s *Service) Routes(loginMiddlewares ...func(http.Handler) http.Handler) ht
 		r.Delete("/sessions", s.HandleEndOtherSessions)
 		r.Delete("/sessions/{id}", s.HandleEndSession)
 	})
+	if s.devices != nil {
+		s.deviceRoutes(r, loginMiddlewares)
+	}
 	return r
 }
 

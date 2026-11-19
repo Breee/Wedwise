@@ -4,7 +4,7 @@ import { t } from '@/lib/i18n'
 import { createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query'
 import { QRCodeSVG } from 'qrcode.react'
-import { Bell, Copy, KeyRound, Lock, MonitorSmartphone, ShieldCheck, Trash2 } from 'lucide-react'
+import { Bell, Copy, KeyRound, Lock, MonitorSmartphone, ShieldCheck, Terminal, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { ApiError, api, errorMessage } from '@/lib/api'
 import { requireRole } from '@/lib/auth'
@@ -179,6 +179,7 @@ function AccountPage() {
       </Card>
       <Password />
       <Sessions />
+      <Devices />
       <h2 className="mt-10 mb-4 text-2xl">{t('Benachrichtigungen')}</h2>
       <StaffNotifications />
     </div>
@@ -309,6 +310,51 @@ function Sessions() {
             {t('Überall sonst abmelden')}
           </Button>
         )}
+      </CardContent>
+    </Card>
+  )
+}
+
+type Device = { id: number; name: string; createdAt: string; lastUsedAt: string | null }
+
+function Devices() {
+  const queryClient = useQueryClient()
+  const key = ['account', 'devices'] as const
+  const { data } = useQuery({ queryKey: key, queryFn: () => api.get<{ devices: Device[] }>('/auth/devices') })
+  const remove = useMutation({
+    mutationFn: (d: Device) => api.delete(`/auth/devices/${d.id}`),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: key }),
+    onError: (e) => toast.error(errorMessage(e)),
+  })
+  const devices = data?.devices ?? []
+  if (devices.length === 0) return null
+
+  return (
+    <Card className="mt-6">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-2xl">
+          <Terminal className="size-5 text-primary" /> {t('Kommandozeile')}
+        </CardTitle>
+        <CardDescription>
+          {t('Diese Rechner dürfen in eurem Namen Inhalte bearbeiten und Einladungslinks verwalten.')}
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <ul className="divide-y rounded-md border">
+          {devices.map((d) => (
+            <li key={d.id} className="flex items-center justify-between gap-3 px-3 py-2 text-sm">
+              <div className="min-w-0">
+                <p className="truncate">{d.name || t('Unbekannt')}</p>
+                <p className="text-xs text-muted-foreground">
+                  {t('Zuletzt aktiv: {when}', { when: formatDateTime(d.lastUsedAt ?? d.createdAt) })}
+                </p>
+              </div>
+              <Button variant="outline" size="sm" disabled={remove.isPending} onClick={() => remove.mutate(d)}>
+                {t('Entziehen')}
+              </Button>
+            </li>
+          ))}
+        </ul>
       </CardContent>
     </Card>
   )

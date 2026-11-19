@@ -9,8 +9,8 @@ tests and by checking the running application.
 |---|---|---|
 | V1 Architecture | Pass | [Threat model](threat-model.md); one trust boundary per layer; secrets only from environment |
 | V2 Authentication | Pass | Argon2id, lockout, TOTP, passkeys, recovery codes, setup links expire, own password change. Not done by choice: breach-list check, out-of-band notification |
-| V3 Session management | Pass | Hashed ids, `__Host-` cookie, Strict, idle and absolute timeout, renewal, remote sign-out |
-| V4 Access control | Pass | Permission check on every protected route, deny by default, tests for the couple/contribution boundary |
+| V3 Session management | Pass | Hashed ids, `__Host-` cookie, Strict, idle and absolute timeout, renewal, remote sign-out; command-line tokens hashed, 90 days, revocable |
+| V4 Access control | Pass | Permission check on every protected route, deny by default, command-line tokens scoped to content and invite links, tests for the couple/contribution boundary |
 | V5 Validation and encoding | Pass | Typed JSON decoding with size limit, parameterised SQL, length and format checks, no HTML rendering of user input |
 | V6 Cryptography at rest | Pass | AES-256-GCM with a dedicated data key (guest data, second-factor secrets), rotation, encrypted backups |
 | V7 Logging and errors | Pass | Structured logs without link tokens, append-only audit log, generic error messages |

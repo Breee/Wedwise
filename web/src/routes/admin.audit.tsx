@@ -18,6 +18,7 @@ const LABELS: [RegExp, string][] = [
   [/^login$/, 'Anmeldung'],
   [/^login\.failed$/, 'Anmeldung fehlgeschlagen'],
   [/^logout$/, 'Abmeldung'],
+  [/^device\.login$/, 'Kommandozeile angemeldet'],
   [/^link\.copy$/, 'Link kopiert'],
   [/^PUT \/api\/responses\/\{id\}$/, 'Rückmeldung bearbeitet'],
   [/^DELETE \/api\/responses\/\{id\}$/, 'Rückmeldung gelöscht'],

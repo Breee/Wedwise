@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/Breee/Wedwise/internal/tokens"
@@ -46,10 +47,16 @@ type Identity struct {
 	// TwoFactorSetupRequired is set when the role must use a second factor
 	// and the user has none yet. Such a session may only set one up.
 	TwoFactorSetupRequired bool `json:"-"`
+	// Scope limits the identity to these permissions. It is set for command
+	// line tokens; a browser session has the full role.
+	Scope []string `json:"-"`
 }
 
 // HasPermission reports whether the identity's role grants the permission.
 func (i Identity) HasPermission(permission string) bool {
+	if i.Scope != nil && !slices.Contains(i.Scope, permission) {
+		return false
+	}
 	return RoleHasPermission(i.Role, permission)
 }
 

@@ -15,6 +15,7 @@ third-party SaaS required.
 - [Set up your wedding](#set-up-your-wedding)
 - [Configuration reference](#configuration-reference)
 - [Users and roles](#users-and-roles)
+- [Command line](#command-line)
 - [Deployment](#deployment)
 - [Backup and restore](#backup-and-restore)
 - [Data key](#data-key)
@@ -219,6 +220,32 @@ password also ends that user's sessions.
 
 Contributions are surprises: the `couple` role can never read them, and the
 response list and summary contain no contribution data.
+
+## Command line
+
+`wedwise` is a small client for your own computer. It edits content and
+invite links of a running site, for scripts or an AI assistant. Download it
+from the [releases](https://github.com/Breee/Wedwise/releases) page.
+
+```sh
+wedwise login https://wedding.example   # opens the browser; sign in and allow access
+wedwise status                          # what is filled in, what is missing
+wedwise content export content.json
+wedwise content import content.json
+wedwise invite create
+wedwise logout
+```
+
+Several sites work side by side, like `glab` or `gh`: `wedwise hosts` lists
+them, `wedwise use <host>` switches, and `--host <host>` or `WEDWISE_HOST`
+picks one for a single command.
+
+Signing in needs a `couple` or `admin` account. The access is limited to
+content and invite links: it cannot read guest responses, contributions or
+users. It lasts 90 days, shows up on the account page under "Kommandozeile",
+can be withdrawn there, and is recorded in the audit log. The token is stored
+in a file only you can read (`wedwise/credentials.json` in your config
+directory), not in the system keyring.
 
 ## Deployment
 
