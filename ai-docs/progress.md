@@ -105,3 +105,4 @@ Open work is tracked in GitHub issues and milestones (M1 Staff tools, M2 Accommo
 - 2026-11-19: Hotels without a Booking hotel-page link get a dateless Booking search; editor hint and MCP description ask for the hotel-page link.
 - 2026-11-19: Response form no longer jumps to the top on Weiter or while typing (no remount gap, no sticky bar); v0.3.3.
 - 2026-11-19: Calendar entry without the reply link; done screen no longer jumps to the page top; v0.3.4.
+- 2026-11-19: Chips keep their width when selected; song results shown inline and the field moves above the keyboard; v0.3.4.

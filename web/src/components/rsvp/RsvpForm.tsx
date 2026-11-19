@@ -317,7 +317,7 @@ export function RsvpForm({ initial, link, onDone }: FormProps) {
                             type="button"
                             size="sm"
                             variant={on ? 'default' : 'outline'}
-                            className="rounded-full"
+                            className="rounded-full border border-primary/60"
                             aria-pressed={on}
                             onClick={() => setNeeds((n) => ({ ...n, selected: on ? n.selected.filter((x) => x !== o) : [...n.selected, o] }))}
                           >
@@ -339,7 +339,7 @@ export function RsvpForm({ initial, link, onDone }: FormProps) {
                             type="button"
                             size="sm"
                             variant={on ? 'default' : 'outline'}
-                            className="rounded-full"
+                            className="rounded-full border border-primary/60"
                             aria-pressed={on}
                             onClick={() =>
                               setContribution({
@@ -403,7 +403,7 @@ export function RsvpForm({ initial, link, onDone }: FormProps) {
                       type="button"
                       size="sm"
                       variant={on ? 'default' : 'outline'}
-                      className="min-h-10 rounded-full sm:min-h-0"
+                      className="min-h-10 rounded-full border border-primary/60 sm:min-h-0"
                       onClick={() => setGenres((l) => (on ? l.filter((x) => x !== g) : [...l, g]))}
                     >
                       <span aria-hidden>{genreIcon(g)}</span> {g}
