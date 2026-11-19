@@ -207,6 +207,11 @@ export function StayEditor({ hotels, travel, onChange }: { hotels: Hotel[]; trav
                 </div>
                 <Text id="stay-url" label={t('Website')} value={current.url} onChange={(v) => update({ url: v })} />
                 <Text id="stay-booking" label={t('Booking-Link (Hotelseite)')} value={current.bookingUrl ?? ''} onChange={(v) => update({ bookingUrl: v })} />
+                {!current.bookingUrl && (
+                  <p className="text-xs text-amber-700 sm:col-span-2">
+                    {t('Ohne Link zur Booking-Hotelseite öffnet der Button nur die Booking-Suche – und die meldet für weit entfernte Termine oft fälschlich „nicht verfügbar“.')}
+                  </p>
+                )}
                 <Text id="stay-note" label={t('Hinweis')} value={current.note} onChange={(v) => update({ note: v })} className="sm:col-span-2" />
               </div>
               <Button type="button" size="sm" variant="ghost" className="mt-2 text-destructive" onClick={() => remove(selected!)}>

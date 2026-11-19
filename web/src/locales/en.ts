@@ -582,4 +582,5 @@ export const en: Record<string, string> = {
   'Noch nicht eingerichtet': 'Not set up yet',
   'Diese Hochzeitsseite ist noch leer. Meldet euch an, um sie einzurichten.': 'This wedding site is still empty. Sign in to set it up.',
   'Anmelden und einrichten': 'Sign in and set up',
+  'Ohne Link zur Booking-Hotelseite öffnet der Button nur die Booking-Suche – und die meldet für weit entfernte Termine oft fälschlich „nicht verfügbar“.': 'Without a link to the hotel\'s Booking page the button only opens the Booking search, which often wrongly says "not available" for dates far ahead.',
 }

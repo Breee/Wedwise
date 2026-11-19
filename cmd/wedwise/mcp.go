@@ -143,7 +143,7 @@ var mcpTools = []mcpTool{
 		Name:  "nearby",
 		needs: "content.write",
 		Description: "Suggest what is around a point, usually the location: kind \"stops\" for tram, bus and train stops and car parks, " +
-			"kind \"stay\" for hotels and holiday flats. Stops come with the lines that serve them and the walking time to the point. Ratings, prices and free rooms are not known.",
+			"kind \"stay\" for hotels and holiday flats. Stops come with the lines that serve them and the walking time to the point. Ratings, prices and free rooms are not known. For every hotel you add, also set bookingUrl to its Booking.com hotel page (booking.com/hotel/<country>/<name>.html, ask the couple or look it up): without it guests only get a Booking search, which often wrongly shows no rooms for dates far ahead.",
 		InputSchema: schema([]string{"lat", "lng", "kind"}, map[string]any{
 			"lat": number, "lng": number, "kind": map[string]any{"type": "string", "enum": []string{"stops", "stay"}},
 		}),

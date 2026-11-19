@@ -131,7 +131,9 @@ function withDates(url: string, checkIn: string, checkOut: string): string {
 
 /** Property page with dates, or a Booking.com search for the given query as fallback. */
 export function hotelBookingUrl(hotel: { name: string; bookingUrl?: string }, city: string, checkIn: string, checkOut: string): string {
-  return hotel.bookingUrl ? withDates(hotel.bookingUrl, checkIn, checkOut) : bookingUrl(`${hotel.name} ${city}`, checkIn, checkOut)
+  // Booking's search often calls a hotel unavailable far ahead although its own page has rooms, so a
+  // search link carries no dates; guests pick them on Booking.
+  return hotel.bookingUrl ? withDates(hotel.bookingUrl, checkIn, checkOut) : bookingUrl(`${hotel.name} ${city}`, '', '')
 }
 
 /** Booking.com search; `filters` is the `nflt` value, e.g. 'ht_id=201' for apartments. */

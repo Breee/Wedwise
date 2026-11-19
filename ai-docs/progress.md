@@ -102,3 +102,4 @@ Open work is tracked in GitHub issues and milestones (M1 Staff tools, M2 Accommo
 - 2026-11-19: wedwise mcp covers the whole setup: photo upload, invite link PIN/limit/on-off, staff accounts, messages, walking time for stop suggestions, entries without ids.
 - 2026-11-19: Stop suggestions (editor + MCP) carry the lines serving each stop, read from OpenStreetMap and cached.
 - 2026-11-19: Stop suggestions leave out stops no line serves.
+- 2026-11-19: Hotels without a Booking hotel-page link get a dateless Booking search; editor hint and MCP description ask for the hotel-page link.
