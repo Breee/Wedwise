@@ -10,6 +10,7 @@ import { DIET_LABEL } from '@/lib/format'
 import { Badge } from '@/components/ui/badge'
 import { genreIcon } from '@/components/rsvp/music'
 import { PageHeader } from '@/components/admin/PageHeader'
+import { SetupChecklist } from '@/components/admin/SetupChecklist'
 import { Stat } from '@/components/admin/Stat'
 import { ResponsesTable } from '@/components/admin/ResponsesTable'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -36,6 +37,7 @@ function CoupleDashboard() {
   return (
     <>
       <PageHeader title={t('Übersicht')} description={t('Stand der Rückmeldungen auf einen Blick.')} />
+      <SetupChecklist />
       <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         <Stat label={t('Rückmeldungen')} value={s.responses} />
         <Stat label={t('Zusagen')} value={s.statusCounts?.yes ?? 0} hint={t('{n} Absagen', { n: s.statusCounts?.no ?? 0 })} />
