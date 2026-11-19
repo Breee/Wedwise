@@ -403,8 +403,18 @@ func checklist(site Site) ([]checkItem, error) {
 	if _, err := call(site, http.MethodGet, "/api/invite-links/", nil, &links); err != nil {
 		return nil, err
 	}
+	// The public view also carries names and date set in the configuration.
+	var public struct {
+		Event struct {
+			Couple []json.RawMessage `json:"couple"`
+			Date   string            `json:"date"`
+		} `json:"event"`
+	}
+	if _, err := call(site, http.MethodGet, "/api/content/public", nil, &public); err != nil {
+		return nil, err
+	}
 	return []checkItem{
-		{"Names and date", len(content.Names) > 0 && content.Date != ""},
+		{"Names and date", len(public.Event.Couple) > 0 && public.Event.Date != ""},
 		{"Introduction", content.Introduction.Text != ""},
 		{"Location name", content.Location.Name != ""},
 		{"Location on the map", content.Travel.Lat != 0 || content.Travel.Lng != 0},
