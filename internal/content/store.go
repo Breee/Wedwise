@@ -40,6 +40,10 @@ const (
 	keyLocationImage        = "location.image"
 	keyTheme                = "theme"
 	keyPrivacy              = "privacy"
+	keyNames                = "names"
+	keyDate                 = "date"
+	maxNames                = 4
+	maxNameLen              = 100
 	keyTravel               = "travel"
 	keyAccommodation        = "accommodation"
 	maxContentBlockLenBytes = 20000
@@ -72,7 +76,14 @@ func (s *Store) Get(ctx context.Context) (Content, error) {
 		},
 		Theme:     blocks[keyTheme],
 		Privacy:   blocks[keyPrivacy],
+		Date:      blocks[keyDate],
 		UpdatedAt: updatedAt,
+	}
+	if err := decodeBlock(blocks[keyNames], &result.Names); err != nil {
+		return Content{}, err
+	}
+	if result.Names == nil {
+		result.Names = []string{}
 	}
 	if err := decodeBlock(blocks[keyTravel], &result.Travel); err != nil {
 		return Content{}, err
@@ -126,6 +137,8 @@ func (s *Store) Replace(ctx context.Context, updated Content) (Content, error) {
 		keyLocationImage:       normalized.Location.Image,
 		keyTheme:               normalized.Theme,
 		keyPrivacy:             normalized.Privacy,
+		keyNames:               encodeBlock(normalized.Names),
+		keyDate:                normalized.Date,
 		keyTravel:              encodeBlock(normalized.Travel),
 		keyAccommodation:       encodeBlock(normalized.Accommodation),
 	}
@@ -242,7 +255,7 @@ func normalize(input Content) (Content, error) {
 		&input.Introduction.Text,
 		&input.Location.Name, &input.Location.Address, &input.Location.Description,
 		&input.Location.NavigationURL, &input.Location.Transport, &input.Location.Parking, &input.Location.Bike, &input.Location.Image,
-		&input.Theme, &input.Privacy,
+		&input.Theme, &input.Privacy, &input.Date,
 	}
 	for _, field := range fields {
 		*field = strings.TrimSpace(*field)
@@ -256,6 +269,26 @@ func normalize(input Content) (Content, error) {
 	if img := input.Location.Image; img != "" && !isHTTPURL(img) && !(strings.HasPrefix(img, "/") && !strings.HasPrefix(img, "//")) {
 		return Content{}, fmt.Errorf("%w: location image must be an http(s) URL or a site-relative path", ErrValidation)
 	}
+	if input.Date != "" {
+		if _, err := time.Parse("2006-01-02", input.Date); err != nil {
+			return Content{}, fmt.Errorf("%w: date must be YYYY-MM-DD", ErrValidation)
+		}
+	}
+	names := make([]string, 0, len(input.Names))
+	for _, name := range input.Names {
+		name = strings.TrimSpace(name)
+		if name == "" {
+			continue
+		}
+		if len(name) > maxNameLen {
+			return Content{}, fmt.Errorf("%w: a name is too long", ErrValidation)
+		}
+		names = append(names, name)
+	}
+	if len(names) > maxNames {
+		return Content{}, fmt.Errorf("%w: too many names", ErrValidation)
+	}
+	input.Names = names
 
 	if err := normalizeTravel(&input.Travel); err != nil {
 		return Content{}, err

@@ -32,7 +32,8 @@ export const Route = createFileRoute('/couple/content')({
 function ContentPage() {
   const { data } = useSuspenseQuery(contentQuery)
   const { data: themes } = useSuspenseQuery(themesQuery)
-  const configured = useQuery(publicContentQuery).data?.event.hero
+  const event = useQuery(publicContentQuery).data?.event
+  const configured = event?.hero
   const [draft, setDraft] = useState<Content>(() => structuredClone(data))
   const queryClient = useQueryClient()
   const { tab = 'hero' } = Route.useSearch()
@@ -55,6 +56,8 @@ function ContentPage() {
 
   const dirty = JSON.stringify(draft) !== JSON.stringify(data)
   const set = <K extends keyof Content>(key: K, value: Content[K]) => setDraft((d) => ({ ...d, [key]: value }))
+  const names = draft.names ?? []
+  const setName = (i: number, v: string) => set('names', [0, 1].map((n) => (n === i ? v : (names[n] ?? ''))))
   const travel = draft.travel ?? { lat: 0, lng: 0, stops: [] }
   const current = themes.find((t) => t.name === draft.theme) ?? themes[0]
   const stay = draft.accommodation ?? { checkIn: '', checkOut: '', hotels: [] }
@@ -108,6 +111,16 @@ function ContentPage() {
         </TabsContent>
 
         <TabsContent value="hero" className="mt-4 space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>{t('Wer heiratet wann?')}</CardTitle>
+            </CardHeader>
+            <CardContent className="grid gap-4 sm:grid-cols-3">
+              <Field label={t('Name')} placeholder={event?.couple[0]?.name} value={names[0] ?? ''} onChange={(v) => setName(0, v)} />
+              <Field label={t('Name')} placeholder={event?.couple[1]?.name} value={names[1] ?? ''} onChange={(v) => setName(1, v)} />
+              <DateField label={t('Datum')} value={draft.date ?? ''} onChange={(v) => set('date', v)} />
+            </CardContent>
+          </Card>
           <Card>
             <CardHeader>
               <CardTitle>{t('Kopfbereich')}</CardTitle>

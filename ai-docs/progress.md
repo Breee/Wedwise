@@ -88,3 +88,4 @@ Open work is tracked in GitHub issues and milestones (M1 Staff tools, M2 Accommo
 - 2026-11-17: Witness page shows everything in one view (status board with needs and contact, schedule, responses); tabs and list removed.
 - 2026-11-17: Renovate PRs merged, npm audit gates only shipped packages, main protected with required checks, release v0.2.0.
 - 2026-11-18: Image build cross-compiles instead of emulating arm64 (first v0.2.0 release run timed out after 6 h); release job limited to 45 min.
+- 2026-11-19: Couple names and wedding date can be set in the editor (tab Begrüßung); the config file stays the fallback. First step towards guided setup, export/import and the wedwise CLI.

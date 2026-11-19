@@ -83,6 +83,10 @@ type Accommodation struct {
 
 // Content is the complete editable website content.
 type Content struct {
+	// Names of the couple and the wedding date (YYYY-MM-DD). Empty values fall
+	// back to the configuration file.
+	Names         []string        `json:"names"`
+	Date          string          `json:"date"`
 	Hero          Hero            `json:"hero"`
 	Introduction  Introduction    `json:"introduction"`
 	Location      Location        `json:"location"`

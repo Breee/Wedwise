@@ -546,4 +546,6 @@ export const en: Record<string, string> = {
   'Erwachsene': 'Adults',
   'Stimmen': 'votes',
   'Rückmeldung von': 'Response from',
+  'Wer heiratet wann?': 'Who is getting married, and when?',
+  'Datum': 'Date',
 }

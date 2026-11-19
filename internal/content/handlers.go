@@ -45,7 +45,22 @@ func (h *Handler) PublicHandler(w http.ResponseWriter, r *http.Request) {
 		httpx.Internal(w, err)
 		return
 	}
-	httpx.WriteJSON(w, http.StatusOK, publicResponse{Event: h.event, Content: current, Theme: h.themes.Get(current.Theme)})
+	httpx.WriteJSON(w, http.StatusOK, publicResponse{Event: h.Event(current), Content: current, Theme: h.themes.Get(current.Theme)})
+}
+
+// Event is the configured event with the names and date set in the editor on top.
+func (h *Handler) Event(current Content) configuration.EventConfig {
+	event := h.event
+	if current.Date != "" {
+		event.Date = current.Date
+	}
+	if len(current.Names) > 0 {
+		event.Couple = make([]configuration.CoupleEntry, len(current.Names))
+		for i, name := range current.Names {
+			event.Couple[i] = configuration.CoupleEntry{Name: name}
+		}
+	}
+	return event
 }
 
 // Routes returns the protected content routes.

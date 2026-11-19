@@ -110,6 +110,8 @@ export interface Theme {
 
 export interface Content {
   theme: string
+  names?: string[]
+  date?: string
   hero: Hero
   introduction: { text: string }
   location: Location

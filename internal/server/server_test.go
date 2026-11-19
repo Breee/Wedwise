@@ -183,6 +183,8 @@ func validContent() map[string]any {
 		"introduction": map[string]any{"text": "Herzlich willkommen"},
 		"location":     map[string]any{"name": "Waldsee", "navigationUrl": "https://maps.example.com"},
 		"privacy":      "Nur wir sehen eure Angaben.",
+		"names":        []string{" Anna ", "Ben", ""},
+		"date":         "2028-05-20",
 		"schedule": []map[string]any{
 			{"time": "14:00", "title": "Ankunft"},
 			{"time": "14:30", "title": "Trauung"},
@@ -334,6 +336,12 @@ func TestContentUpdate_Couple(t *testing.T) {
 	pub := app.do("GET", "/api/content/public", nil, nil)
 	defer pub.Body.Close()
 	var body struct {
+		Event struct {
+			Date   string `json:"date"`
+			Couple []struct {
+				Name string `json:"name"`
+			} `json:"couple"`
+		} `json:"event"`
 		Content struct {
 			Introduction struct {
 				Text string `json:"text"`
@@ -361,6 +369,9 @@ func TestContentUpdate_Couple(t *testing.T) {
 	}
 	if body.Content.Introduction.Text != "Herzlich willkommen" {
 		t.Fatalf("introduction not updated: %q", body.Content.Introduction.Text)
+	}
+	if body.Event.Date != "2028-05-20" || len(body.Event.Couple) != 2 || body.Event.Couple[0].Name != "Anna" || body.Event.Couple[1].Name != "Ben" {
+		t.Fatalf("names and date from the editor must replace the configured ones: %+v", body.Event)
 	}
 	if body.Content.Privacy != "Nur wir sehen eure Angaben." {
 		t.Fatalf("privacy not persisted: %q", body.Content.Privacy)
@@ -403,6 +414,8 @@ func TestContentUpdate_Validation(t *testing.T) {
 		name   string
 		mutate func(c map[string]any)
 	}{
+		{"date in another format", func(c map[string]any) { c["date"] = "20.05.2028" }},
+		{"too many names", func(c map[string]any) { c["names"] = []string{"a", "b", "c", "d", "e"} }},
 		{"schedule without title", func(c map[string]any) {
 			c["schedule"] = []map[string]any{{"time": "14:00", "title": "   "}}
 		}},
