@@ -40,8 +40,10 @@ import (
 // Requests per client IP and minute before the endpoint answers 429.
 const (
 	loginRateLimit = 10
-	rsvpRateLimit  = 30
-	routeRateLimit = 300
+	// A waiting command-line client polls every two seconds.
+	deviceRateLimit = 90
+	rsvpRateLimit   = 30
+	routeRateLimit  = 300
 )
 
 // Server holds the application dependencies.
@@ -86,7 +88,7 @@ func New(cfg configuration.Config, db *sql.DB) (*Server, error) {
 	authService := auth.NewService(sessionStore, userStore, cfg.IsProduction(), cfg.BaseURL)
 	authService.RequireTwoFactor(cfg.Auth.RequireTwoFactor)
 	authService.SetLockouts(auth.NewLockouts(db))
-	authService.SetDevices(auth.NewDeviceStore(db))
+	authService.SetDevices(auth.NewDeviceStore(db), middleware.RateLimit(middleware.NewStoredLimiter(db, "device", deviceRateLimit, time.Minute), cfg.TrustProxy()))
 
 	box, err := sealed.New(cfg.DataKey, cfg.DataKeyPrevious)
 	if err != nil {

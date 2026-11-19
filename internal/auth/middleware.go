@@ -50,6 +50,7 @@ type Service struct {
 	lockouts         *Lockouts
 	recorder         Recorder
 	devices          *DeviceStore
+	deviceLimit      []func(http.Handler) http.Handler
 }
 
 // Recorder receives login events for the audit log.

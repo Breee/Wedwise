@@ -215,7 +215,13 @@ func normalizeCode(code string) string {
 }
 
 // SetDevices enables command line logins.
-func (s *Service) SetDevices(d *DeviceStore) { s.devices = d }
+// SetDevices enables command-line sign-in. The limit guards its routes; it is
+// separate from the login limit because a waiting client polls every few
+// seconds and would otherwise lock the same address out of signing in.
+func (s *Service) SetDevices(d *DeviceStore, limit ...func(http.Handler) http.Handler) {
+	s.devices = d
+	s.deviceLimit = limit
+}
 
 func bearer(r *http.Request) string {
 	value := r.Header.Get("Authorization")
@@ -247,6 +253,9 @@ func (s *Service) identityFromToken(r *http.Request) (Identity, error) {
 }
 
 func (s *Service) deviceRoutes(r chi.Router, limit []func(http.Handler) http.Handler) {
+	if len(s.deviceLimit) > 0 {
+		limit = s.deviceLimit
+	}
 	r.With(limit...).Post("/device", s.handleDeviceBegin)
 	r.With(limit...).Post("/device/token", s.handleDeviceToken)
 	r.Delete("/device/token", s.handleDeviceLogout)
