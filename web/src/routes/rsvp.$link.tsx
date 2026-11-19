@@ -38,7 +38,6 @@ function InviteLinkPage() {
   const finish = (v: GuestView) => {
     setSaved(v)
     setDone(v)
-    window.scrollTo({ top: 0 })
   }
 
   const locked = status.pinRequired && !status.unlocked

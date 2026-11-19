@@ -1,17 +1,17 @@
-import { t } from '@/lib/i18n'
 // Builds a calendar entry (timed when the schedule has a start time, else all-day) and returns a downloadable data URL.
 export function icsUrl({
   title,
   date,
   location,
-  url,
+  url: _url,
   schedule = [],
   timezone = 'Europe/Berlin',
 }: {
   title: string
   date: string
   location: string
-  url: string
+  /** Kept for callers; the entry itself carries no link. */
+  url?: string
   schedule?: { time: string; title: string }[]
   timezone?: string
 }): string {
@@ -39,9 +39,7 @@ export function icsUrl({
 
   const description = [
     ...schedule.map((s) => `${s.time} ${s.title}`),
-    schedule.length ? '' : null,
-    t('Alle Infos & Rückmeldung: {url}', { url }),
-  ].filter((l): l is string => l !== null)
+  ]
 
   const lines = [
     'BEGIN:VCALENDAR',
@@ -54,7 +52,6 @@ export function icsUrl({
     `SUMMARY:${esc(title)}`,
     `LOCATION:${esc(location)}`,
     `DESCRIPTION:${esc(description.join('\n'))}`,
-    `URL:${url}`,
     'END:VEVENT',
     'END:VCALENDAR',
   ]

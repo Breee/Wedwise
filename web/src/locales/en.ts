@@ -168,7 +168,6 @@ export const en: Record<string, string> = {
   'Der Code stimmt nicht.': 'That code is not correct.',
   'Die PIN stimmt nicht.': 'That PIN is not correct.',
   'Etwas ist schiefgelaufen.': 'Something went wrong.',
-  'Alle Infos & Rückmeldung: {url}': 'All details & RSVP: {url}',
   'Diese Seite gibt es nicht.': 'This page does not exist.',
   'Vielleicht hilft der Weg zurück zur Startseite.': 'Maybe the way back to the home page helps.',
   'Übersicht': 'Overview',
