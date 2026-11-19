@@ -207,3 +207,17 @@
   100% { transform: scale(1.8); opacity: 0; }
 }
 
+
+/* Phones zoom into fields with smaller text when they get focus, which looks like a jump. */
+@media (pointer: coarse) {
+  input,
+  textarea,
+  select,
+  [role='combobox'] {
+    font-size: 16px !important;
+  }
+}
+
+html.wed-typing body {
+  padding-bottom: 60svh;
+}

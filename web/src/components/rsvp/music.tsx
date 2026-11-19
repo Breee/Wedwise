@@ -80,19 +80,15 @@ export function SongSearch({ value, onChange }: { value: string; onChange: (v: s
     <div className="relative">
       <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
       <Input
-        className="scroll-mt-20 pl-9"
+        className="pl-9"
         placeholder={t('Song oder Interpret suchen …')}
         value={query}
         onChange={(e) => {
           setQuery(e.target.value)
           onChange(e.target.value)
         }}
-        onFocus={(e) => {
-          if (results.length) setOpen(true)
-          // Keep the field at the top on phones, so the keyboard leaves room for the results.
-          const field = e.currentTarget
-          if (window.matchMedia('(max-width: 639px)').matches) setTimeout(() => field.scrollIntoView({ block: 'start', behavior: 'smooth' }), 300)
-        }}
+        data-keyboard="top"
+        onFocus={() => results.length && setOpen(true)}
         onBlur={() => setTimeout(() => setOpen(false), 150)}
       />
       {open && results.length > 0 && (

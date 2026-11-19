@@ -111,3 +111,4 @@ Open work is tracked in GitHub issues and milestones (M1 Staff tools, M2 Accommo
 - 2026-11-19: Opening a place to stay on a phone moves it once to the top of the screen so it fits.
 - 2026-11-19: Footer shows the release version (GET /api/version, set at build time) and links to GitHub.
 - 2026-11-19: Opened place to stay lands below both sticky bars (title no longer hidden).
+- 2026-11-19: Invite page no longer snaps once the answer form is on screen (snapping fought the keyboard); typed-in field is moved above the on-screen keyboard, with room below the page; fields use 16px on phones.

@@ -22,13 +22,22 @@ export function InviteStory({ target }: { target: string }) {
   const deco = data?.theme?.decoration as SceneVariant | undefined
   const variant = deco && SCENES.includes(deco) ? deco : 'night'
 
+  // The story pages snap; from the answer form on the page scrolls freely. A page that
+  // snaps cannot follow the on-screen keyboard and jumps back while typing.
   useEffect(() => {
     const root = document.documentElement
-    root.style.scrollSnapType = 'y mandatory'
-    return () => {
-      root.style.scrollSnapType = ''
+    const form = document.getElementById(target)
+    const snap = (on: boolean) => {
+      root.style.scrollSnapType = on ? 'y mandatory' : ''
     }
-  }, [])
+    snap(true)
+    const observer = form ? new IntersectionObserver(([entry]) => snap(!entry.isIntersecting)) : null
+    if (form) observer?.observe(form)
+    return () => {
+      observer?.disconnect()
+      snap(false)
+    }
+  }, [target])
 
   return (
     <div className="relative bg-[#121c17] text-[#f4efe2]">
