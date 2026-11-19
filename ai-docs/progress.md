@@ -91,3 +91,4 @@ Open work is tracked in GitHub issues and milestones (M1 Staff tools, M2 Accommo
 - 2026-11-19: Couple names and wedding date can be set in the editor (tab Begrüßung); the config file stays the fallback. First step towards guided setup, export/import and the wedwise CLI.
 - 2026-11-19: Content file (CONTENT_PATH / chart `content`) only fills a fresh instance; export and import buttons in the content editor.
 - 2026-11-19: Browser-approved sign-in for a `wedwise` command line client (several sites, content and invite links only), released as binaries.
+- 2026-11-19: `wedwise mcp` serves the signed-in site to an AI agent (setup status, content, place search, nearby suggestions, themes, invite links).

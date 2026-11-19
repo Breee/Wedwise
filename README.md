@@ -247,6 +247,20 @@ can be withdrawn there, and is recorded in the audit log. The token is stored
 in a file only you can read (`wedwise/credentials.json` in your config
 directory), not in the system keyring.
 
+### Let an AI agent set up the site
+
+`wedwise mcp` serves the current site to an agent over the Model Context
+Protocol (stdio), using the same sign-in and the same limits. Add it to your
+agent as a local server, for example:
+
+```json
+{ "mcpServers": { "wedwise": { "command": "wedwise", "args": ["mcp"] } } }
+```
+
+The agent can read what is still missing, read and change content, search
+places, get nearby stops and places to stay, pick a design and create invite
+links. It cannot reach guest responses.
+
 ## Deployment
 
 Always set your own `SESSION_SECRET` and `DATA_KEY`, set `BASE_URL` to your public URL, use

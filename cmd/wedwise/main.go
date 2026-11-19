@@ -30,6 +30,7 @@ const usage = `wedwise – client for a Wedwise site
   wedwise content export [file]  save all content (default: standard output)
   wedwise content import <file>  replace all content from a file
   wedwise invite create          create an invite link
+  wedwise mcp                    serve the site to an AI agent (MCP over stdio)
 
 Commands work on the current site. Pick another one with --host <host>
 or the WEDWISE_HOST environment variable.
@@ -102,6 +103,8 @@ func run(args []string) error {
 		return importContent(site, rest[2])
 	case command == "invite create":
 		return createInvite(site)
+	case rest[0] == "mcp":
+		return serveMCP(site, os.Stdin, os.Stdout)
 	}
 	return fmt.Errorf("unknown command %q, see wedwise help", strings.Join(rest, " "))
 }
@@ -325,7 +328,13 @@ func hosts(store *Store) error {
 	return nil
 }
 
-func status(site Site) error {
+type checkItem struct {
+	Label string `json:"label"`
+	Done  bool   `json:"done"`
+}
+
+// checklist reports which parts of the site are filled in.
+func checklist(site Site) ([]checkItem, error) {
 	var content struct {
 		Names        []string `json:"names"`
 		Date         string   `json:"date"`
@@ -348,19 +357,15 @@ func status(site Site) error {
 		Privacy  string            `json:"privacy"`
 	}
 	if _, err := call(site, http.MethodGet, "/api/content/", nil, &content); err != nil {
-		return err
+		return nil, err
 	}
 	var links struct {
 		Links []json.RawMessage `json:"links"`
 	}
 	if _, err := call(site, http.MethodGet, "/api/invite-links/", nil, &links); err != nil {
-		return err
+		return nil, err
 	}
-	fmt.Println(site.host)
-	for _, item := range []struct {
-		label string
-		done  bool
-	}{
+	return []checkItem{
 		{"Names and date", len(content.Names) > 0 && content.Date != ""},
 		{"Introduction", content.Introduction.Text != ""},
 		{"Location name", content.Location.Name != ""},
@@ -371,12 +376,21 @@ func status(site Site) error {
 		{"Questions and answers", len(content.FAQ) > 0},
 		{"Privacy note", content.Privacy != ""},
 		{"Invite link", len(links.Links) > 0},
-	} {
+	}, nil
+}
+
+func status(site Site) error {
+	items, err := checklist(site)
+	if err != nil {
+		return err
+	}
+	fmt.Println(site.host)
+	for _, item := range items {
 		mark := "✗"
-		if item.done {
+		if item.Done {
 			mark = "✓"
 		}
-		fmt.Printf("  %s %s\n", mark, item.label)
+		fmt.Printf("  %s %s\n", mark, item.Label)
 	}
 	return nil
 }
