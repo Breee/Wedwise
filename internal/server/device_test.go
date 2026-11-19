@@ -37,6 +37,7 @@ func TestDeviceLogin(t *testing.T) {
 	app, _ := newTestAppWithUsers(t)
 	couple, _ := app.login("couple_user", "TestPass123!")
 	witness, _ := app.login("witness_user", "TestPass123!")
+	admin, _ := app.login("admin_user", "TestPass123!")
 
 	var begun struct {
 		DeviceCode, UserCode, VerificationURL string
@@ -52,9 +53,6 @@ func TestDeviceLogin(t *testing.T) {
 	approve := map[string]string{"code": begun.UserCode}
 	if resp := app.do(http.MethodPost, "/api/auth/device/approve", approve, nil); resp.StatusCode != http.StatusUnauthorized {
 		t.Fatalf("anonymous approve = %d", resp.StatusCode)
-	}
-	if resp := app.do(http.MethodPost, "/api/auth/device/approve", approve, witness); resp.StatusCode != http.StatusForbidden {
-		t.Fatalf("witness approve = %d", resp.StatusCode)
 	}
 	if resp := app.do(http.MethodPost, "/api/auth/device/approve", approve, couple); resp.StatusCode != http.StatusNoContent {
 		t.Fatalf("approve = %d", resp.StatusCode)
@@ -74,8 +72,8 @@ func TestDeviceLogin(t *testing.T) {
 	for path, want := range map[string]int{
 		"/api/content/":       http.StatusOK,
 		"/api/invite-links/":  http.StatusOK,
-		"/api/responses/":     http.StatusForbidden,
-		"/api/rsvp-summary":   http.StatusForbidden,
+		"/api/responses/":     http.StatusOK,
+		"/api/rsvp-summary":   http.StatusOK,
 		"/api/contributions/": http.StatusForbidden,
 		"/api/users/":         http.StatusForbidden,
 		"/api/auth/sessions":  http.StatusUnauthorized,
@@ -87,6 +85,17 @@ func TestDeviceLogin(t *testing.T) {
 	if resp := bearerDo(t, app, http.MethodPut, "/api/account/password", redeemed.Token,
 		map[string]string{"current": "TestPass123!", "password": "AnotherPass123!"}); resp.StatusCode != http.StatusForbidden {
 		t.Errorf("password change with token = %d", resp.StatusCode)
+	}
+	for user, paths := range map[*http.Cookie]map[string]int{
+		witness: {"/api/contributions/": http.StatusOK, "/api/responses/": http.StatusOK, "/api/invite-links/": http.StatusForbidden, "/api/users/": http.StatusForbidden},
+		admin:   {"/api/contributions/": http.StatusOK, "/api/responses/": http.StatusOK, "/api/invite-links/": http.StatusOK, "/api/users/": http.StatusOK},
+	} {
+		token := deviceToken(t, app, user)
+		for path, want := range paths {
+			if resp := bearerDo(t, app, http.MethodGet, path, token, nil); resp.StatusCode != want {
+				t.Errorf("GET %s with role token = %d, want %d", path, resp.StatusCode, want)
+			}
+		}
 	}
 	if resp := bearerDo(t, app, http.MethodGet, "/api/content/", "wrong", nil); resp.StatusCode != http.StatusUnauthorized {
 		t.Errorf("wrong token = %d", resp.StatusCode)
@@ -108,4 +117,23 @@ func TestDeviceLogin(t *testing.T) {
 	if resp := bearerDo(t, app, http.MethodGet, "/api/content/", redeemed.Token, nil); resp.StatusCode != http.StatusUnauthorized {
 		t.Errorf("revoked token = %d", resp.StatusCode)
 	}
+}
+
+// deviceToken signs a command line client in as the given user.
+func deviceToken(t *testing.T, app *testApp, user *http.Cookie) string {
+	t.Helper()
+	var begun struct{ DeviceCode, UserCode string }
+	resp := app.do(http.MethodPost, "/api/auth/device", map[string]string{"name": "cli"}, nil)
+	if err := json.NewDecoder(resp.Body).Decode(&begun); err != nil {
+		t.Fatalf("begin: %v", err)
+	}
+	if resp := app.do(http.MethodPost, "/api/auth/device/approve", map[string]string{"code": begun.UserCode}, user); resp.StatusCode != http.StatusNoContent {
+		t.Fatalf("approve = %d", resp.StatusCode)
+	}
+	var redeemed struct{ Token string }
+	resp = app.do(http.MethodPost, "/api/auth/device/token", map[string]string{"deviceCode": begun.DeviceCode}, nil)
+	if err := json.NewDecoder(resp.Body).Decode(&redeemed); err != nil || redeemed.Token == "" {
+		t.Fatalf("redeem: %v", err)
+	}
+	return redeemed.Token
 }

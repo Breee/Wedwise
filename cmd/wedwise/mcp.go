@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"slices"
 )
 
 const mcpVersion = "2025-06-18"
@@ -15,7 +16,21 @@ type mcpTool struct {
 	Name        string         `json:"name"`
 	Description string         `json:"description"`
 	InputSchema map[string]any `json:"inputSchema"`
-	run         func(site Site, args map[string]any) (any, error)
+	// needs is the permission the signed-in account must have; empty = any.
+	needs string
+	run   func(site Site, args map[string]any) (any, error)
+}
+
+// read is a tool that returns what a GET on path answers.
+func read(name, description, needs, path string) mcpTool {
+	return mcpTool{
+		Name: name, Description: description, InputSchema: schema(nil, map[string]any{}), needs: needs,
+		run: func(site Site, _ map[string]any) (any, error) {
+			var out any
+			_, err := call(site, http.MethodGet, path, nil, &out)
+			return out, err
+		},
+	}
 }
 
 func schema(required []string, properties map[string]any) map[string]any {
@@ -37,11 +52,17 @@ func point(args map[string]any) (string, error) {
 
 var number = map[string]any{"type": "number"}
 
-// mcpTools is everything an agent may do. It matches what the sign-in allows:
-// content and invite links, never guest responses.
+// mcpTools is everything an agent may do. Each tool is offered only when the
+// role of the signed-in account allows it.
 var mcpTools = []mcpTool{
+	read("whoami", "Show the signed-in account, its role and what it may do.", "", "/api/auth/me"),
+	read("list_responses", "List the guests' responses with attendees, diets and allergies.", "rsvp.read", "/api/responses/"),
+	read("response_summary", "Counts of responses, guests, children, diets and allergies.", "rsvp.read", "/api/rsvp-summary"),
+	read("list_contributions", "List the programme contributions guests offered, with status and schedule.", "contribution.read", "/api/contributions/"),
+	read("list_users", "List the staff accounts.", "user.read", "/api/users/"),
 	{
 		Name:        "setup_status",
+		needs:       "content.read",
 		Description: "List which parts of the wedding site are filled in and which are still missing.",
 		InputSchema: schema(nil, map[string]any{}),
 		run: func(site Site, _ map[string]any) (any, error) {
@@ -50,6 +71,7 @@ var mcpTools = []mcpTool{
 	},
 	{
 		Name:        "get_content",
+		needs:       "content.read",
 		Description: "Read all content of the site: names, date, texts, location, schedule, questions, map pins, places to stay, theme.",
 		InputSchema: schema(nil, map[string]any{}),
 		run: func(site Site, _ map[string]any) (any, error) {
@@ -59,7 +81,8 @@ var mcpTools = []mcpTool{
 		},
 	},
 	{
-		Name: "update_content",
+		Name:  "update_content",
+		needs: "content.write",
 		Description: "Change content. Pass only the top-level sections to replace, shaped as in get_content " +
 			"(for example names, date, introduction, location, schedule, faq, travel, accommodation, privacy, theme). " +
 			"A section given here replaces that whole section; sections left out stay as they are.",
@@ -84,6 +107,7 @@ var mcpTools = []mcpTool{
 	},
 	{
 		Name:        "list_themes",
+		needs:       "content.read",
 		Description: "List the designs the site can use. Set one with update_content {\"theme\": name}.",
 		InputSchema: schema(nil, map[string]any{}),
 		run: func(site Site, _ map[string]any) (any, error) {
@@ -99,6 +123,7 @@ var mcpTools = []mcpTool{
 	},
 	{
 		Name:        "search_place",
+		needs:       "content.write",
 		Description: "Find a place by name or address and get its coordinates. Give lat and lng of the location to prefer results nearby.",
 		InputSchema: schema([]string{"query"}, map[string]any{"query": map[string]any{"type": "string"}, "lat": number, "lng": number}),
 		run: func(site Site, args map[string]any) (any, error) {
@@ -113,7 +138,8 @@ var mcpTools = []mcpTool{
 		},
 	},
 	{
-		Name: "nearby",
+		Name:  "nearby",
+		needs: "content.write",
 		Description: "Suggest what is around a point, usually the location: kind \"stops\" for tram, bus and train stops and car parks, " +
 			"kind \"stay\" for hotels and holiday flats. Ratings, prices and free rooms are not known.",
 		InputSchema: schema([]string{"lat", "lng", "kind"}, map[string]any{
@@ -135,6 +161,7 @@ var mcpTools = []mcpTool{
 	},
 	{
 		Name:        "list_invite_links",
+		needs:       "invite.manage",
 		Description: "List the invite links guests use to answer, with their addresses.",
 		InputSchema: schema(nil, map[string]any{}),
 		run: func(site Site, _ map[string]any) (any, error) {
@@ -155,6 +182,7 @@ var mcpTools = []mcpTool{
 	},
 	{
 		Name:        "create_invite_link",
+		needs:       "invite.manage",
 		Description: "Create a new invite link and return its address.",
 		InputSchema: schema(nil, map[string]any{}),
 		run: func(site Site, _ map[string]any) (any, error) {
@@ -192,6 +220,16 @@ func serveMCP(site Site, in io.Reader, out io.Writer) error {
 		}
 		return encoder.Encode(message)
 	}
+	var me account
+	if _, err := call(site, http.MethodGet, "/api/auth/me", nil, &me); err != nil {
+		return err
+	}
+	var tools []mcpTool
+	for _, tool := range mcpTools {
+		if tool.needs == "" || slices.Contains(me.Permissions, tool.needs) {
+			tools = append(tools, tool)
+		}
+	}
 	for lines.Scan() {
 		if len(lines.Bytes()) == 0 {
 			continue
@@ -213,15 +251,15 @@ func serveMCP(site Site, in io.Reader, out io.Writer) error {
 				"protocolVersion": mcpVersion,
 				"capabilities":    map[string]any{"tools": map[string]any{}},
 				"serverInfo":      map[string]any{"name": "wedwise", "version": "1"},
-				"instructions": "Sets up the wedding site " + site.host + ". Start with setup_status. " +
-					"Guest responses are not reachable from here.",
+				"instructions": "Works on the wedding site " + site.host + " as " + me.Username + " (" + me.Role + "). " +
+					"Only tools this role may use are listed.",
 			}, nil)
 		case "ping":
 			err = reply(request.ID, map[string]any{}, nil)
 		case "tools/list":
-			err = reply(request.ID, map[string]any{"tools": mcpTools}, nil)
+			err = reply(request.ID, map[string]any{"tools": tools}, nil)
 		case "tools/call":
-			err = reply(request.ID, callTool(site, request.Params.Name, request.Params.Arguments), nil)
+			err = reply(request.ID, callTool(site, tools, request.Params.Name, request.Params.Arguments), nil)
 		default:
 			err = reply(request.ID, nil, map[string]any{"code": -32601, "message": "method not found"})
 		}
@@ -232,11 +270,11 @@ func serveMCP(site Site, in io.Reader, out io.Writer) error {
 	return lines.Err()
 }
 
-func callTool(site Site, name string, args map[string]any) map[string]any {
+func callTool(site Site, tools []mcpTool, name string, args map[string]any) map[string]any {
 	answer := func(text string, failed bool) map[string]any {
 		return map[string]any{"content": []map[string]string{{"type": "text", "text": text}}, "isError": failed}
 	}
-	for _, tool := range mcpTools {
+	for _, tool := range tools {
 		if tool.Name != name {
 			continue
 		}

@@ -223,8 +223,8 @@ response list and summary contain no contribution data.
 
 ## Command line
 
-`wedwise` is a small client for your own computer. It edits content and
-invite links of a running site, for scripts or an AI assistant. Download it
+`wedwise` is a small client for your own computer. It works on a running
+site with the rights of your account, for scripts or an AI assistant. Download it
 from the [releases](https://github.com/Breee/Wedwise/releases) page.
 
 ```sh
@@ -233,6 +233,10 @@ wedwise status                          # what is filled in, what is missing
 wedwise content export content.json
 wedwise content import content.json
 wedwise invite create
+wedwise whoami                          # your account and role
+wedwise responses list                  # couple, witness, admin
+wedwise contributions list              # witness, admin
+wedwise users list                      # admin
 wedwise logout
 ```
 
@@ -240,9 +244,9 @@ Several sites work side by side, like `glab` or `gh`: `wedwise hosts` lists
 them, `wedwise use <host>` switches, and `--host <host>` or `WEDWISE_HOST`
 picks one for a single command.
 
-Signing in needs a `couple` or `admin` account. The access is limited to
-content and invite links: it cannot read guest responses, contributions or
-users. It lasts 90 days, shows up on the account page under "Kommandozeile",
+The client may do what the role of the account that allowed it may do: an
+`admin` everything, a `couple` no contributions, a `witness` no content.
+Only password and sign-in settings stay in the browser. The access lasts 90 days, shows up on the account page under "Kommandozeile",
 can be withdrawn there, and is recorded in the audit log. The token is stored
 in the system keyring (Keychain, Windows Credential Manager, Secret Service).
 Only where none is available, for example on a server, it goes into a file
@@ -262,7 +266,8 @@ agent as a local server, for example:
 
 The agent can read what is still missing, read and change content, search
 places, get nearby stops and places to stay, pick a design and create invite
-links. It cannot reach guest responses.
+links. With the matching role it also reads responses, contributions and
+users; tools the role may not use are not offered.
 
 ## Deployment
 

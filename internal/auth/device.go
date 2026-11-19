@@ -18,7 +18,7 @@ import (
 
 // Command line clients sign in like `gh auth login --web`: the client asks
 // for a code, the user confirms it in the browser while signed in, and the
-// client receives a token limited to DeviceScope.
+// client receives a token that may do what that user's role may do.
 const (
 	deviceRequestLifetime = 10 * time.Minute
 	DeviceTokenLifetime   = 90 * 24 * time.Hour
@@ -30,10 +30,6 @@ const (
 	CodeDeviceUnknown = "unknown_code"
 	ActionDeviceLogin = "device.login"
 )
-
-// DeviceScope is everything a command line token may do: edit content and
-// manage invite links. Guest responses and contributions stay out of reach.
-var DeviceScope = []string{PermContentRead, PermContentWrite, PermInviteManage}
 
 // ErrDevicePending is returned while a device login awaits approval.
 var ErrDevicePending = errors.New("device login pending")
@@ -248,7 +244,7 @@ func (s *Service) identityFromToken(r *http.Request) (Identity, error) {
 	if !identity.Active {
 		return Identity{}, ErrInvalidCredentials
 	}
-	identity.Scope = DeviceScope
+	identity.Device = true
 	return identity, nil
 }
 
@@ -305,7 +301,7 @@ func (s *Service) handleDeviceToken(w http.ResponseWriter, r *http.Request) {
 	case err != nil:
 		httpx.Internal(w, err)
 	default:
-		httpx.WriteJSON(w, http.StatusOK, map[string]any{"token": token, "scope": DeviceScope})
+		httpx.WriteJSON(w, http.StatusOK, map[string]any{"token": token})
 	}
 }
 
@@ -329,15 +325,12 @@ func (s *Service) handleDevicePending(w http.ResponseWriter, r *http.Request) {
 		httpx.Internal(w, err)
 		return
 	}
-	httpx.WriteJSON(w, http.StatusOK, map[string]any{"name": name, "scope": DeviceScope})
+	identity, _ := IdentityFrom(r.Context())
+	httpx.WriteJSON(w, http.StatusOK, map[string]any{"name": name, "role": identity.Role})
 }
 
 func (s *Service) handleDeviceApprove(w http.ResponseWriter, r *http.Request) {
 	identity, _ := IdentityFrom(r.Context())
-	if !identity.HasPermission(PermContentWrite) {
-		httpx.Forbidden(w)
-		return
-	}
 	var req struct {
 		Code string `json:"code"`
 	}

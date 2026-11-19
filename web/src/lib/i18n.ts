@@ -4,13 +4,23 @@ export type Language = 'de' | 'en'
 
 let current: Language = 'de'
 
+const CHOICE = 'wedwise:language'
+
+// The visitor's own choice wins over the site's configured language.
 export function setLanguage(lang: string | undefined) {
-  current = lang === 'en' ? 'en' : 'de'
+  const chosen = localStorage.getItem(CHOICE) ?? lang
+  current = chosen === 'en' ? 'en' : 'de'
   document.documentElement.lang = current
 }
 
 export function language(): Language {
   return current
+}
+
+// Texts are read while modules load, so a switch reloads the page.
+export function chooseLanguage(lang: Language) {
+  localStorage.setItem(CHOICE, lang)
+  window.location.reload()
 }
 
 export function locale(): string {

@@ -2,6 +2,7 @@ import { Link, useNavigate, useRouterState } from '@tanstack/react-router'
 import { t } from '@/lib/i18n'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Heart, LogOut, Menu } from 'lucide-react'
+import { LanguageToggle } from './LanguageToggle'
 import { api } from '@/lib/api'
 import { meQuery, publicContentQuery } from '@/lib/queries'
 import { Button } from '@/components/ui/button'
@@ -76,6 +77,7 @@ export function AppNav() {
           )}
         </Link>
         <nav className="flex min-w-0 items-center gap-1 text-sm">
+          <LanguageToggle />
           {authed && (
             <>
               <div className="hidden items-center gap-1 md:flex">

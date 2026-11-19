@@ -16,6 +16,8 @@ func TestMCP(t *testing.T) {
 			t.Errorf("request without the sign-in: %s", r.URL.Path)
 		}
 		switch {
+		case r.URL.Path == "/api/auth/me":
+			_, _ = w.Write([]byte(`{"username":"c","role":"couple","permissions":["content.read","content.write","invite.manage","rsvp.read"]}`))
 		case r.URL.Path == "/api/content/" && r.Method == http.MethodGet:
 			_, _ = w.Write([]byte(`{"names":["Anna"],"date":"","faq":[],"theme":"sage-leaf"}`))
 		case r.URL.Path == "/api/content/" && r.Method == http.MethodPut:
@@ -44,6 +46,9 @@ func TestMCP(t *testing.T) {
 	lines := strings.Split(strings.TrimSpace(out.String()), "\n")
 	if len(lines) != 6 {
 		t.Fatalf("got %d answers, want 6 (the notification gets none):\n%s", len(lines), out.String())
+	}
+	if !strings.Contains(lines[1], `"list_responses"`) || strings.Contains(lines[1], `"list_contributions"`) || strings.Contains(lines[1], `"list_users"`) {
+		t.Fatalf("tools do not match the role: %s", lines[1])
 	}
 	if !strings.Contains(lines[0], mcpVersion) || !strings.Contains(lines[1], `"update_content"`) {
 		t.Errorf("handshake or tool list wrong:\n%s\n%s", lines[0], lines[1])

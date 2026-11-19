@@ -18,7 +18,7 @@ export const Route = createFileRoute('/device')({
   // The sign-in page only returns to a path, so the code waits here meanwhile.
   beforeLoad: ({ context, search }) => {
     if (search.code) sessionStorage.setItem(REMEMBERED, search.code)
-    return requireRole(context.queryClient, ['couple'])
+    return requireRole(context.queryClient, ['couple', 'witness'])
   },
   component: DevicePage,
 })
@@ -31,7 +31,7 @@ function DevicePage() {
 
   const pending = useQuery({
     queryKey: ['device', code],
-    queryFn: () => api.get<{ name: string }>(`/auth/device/pending?code=${encodeURIComponent(code)}`),
+    queryFn: () => api.get<{ name: string; role: string }>(`/auth/device/pending?code=${encodeURIComponent(code)}`),
     enabled: !!code && !done,
     retry: false,
   })
@@ -52,7 +52,7 @@ function DevicePage() {
             <Terminal className="size-5 text-primary" /> {t('Kommandozeile anmelden')}
           </CardTitle>
           <CardDescription>
-            {t('Ein Programm auf einem Rechner möchte in eurem Namen Inhalte bearbeiten.')}
+            {t('Ein Programm auf einem Rechner möchte in eurem Namen arbeiten.')}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4 text-sm">
@@ -88,8 +88,8 @@ function DevicePage() {
                 <span className="font-mono font-medium">{code}</span>
               </p>
               <ul className="list-disc space-y-1 pl-5">
-                <li>{t('Darf Inhalte lesen und ändern und Einladungslinks verwalten.')}</li>
-                <li>{t('Sieht keine Rückmeldungen, Beiträge oder Benutzer.')}</li>
+                <li>{t('Darf alles sehen und tun, was euer Konto ({role}) darf.', { role: pending.data.role })}</li>
+                <li>{t('Kann weder Passwort noch Anmeldung ändern.')}</li>
                 <li>{t('Lässt sich jederzeit im Konto wieder entziehen.')}</li>
               </ul>
               <p className="text-muted-foreground">

@@ -3,6 +3,7 @@ import { Link } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { t } from '@/lib/i18n'
+import { LanguageToggle } from './LanguageToggle'
 import { meQuery, publicContentQuery } from '@/lib/queries'
 import { forgetToken, rememberedToken } from '@/lib/remember'
 
@@ -34,6 +35,7 @@ export function AppFooter() {
             {t('Dieses Gerät vergessen')}
           </button>
         )}
+        <LanguageToggle />
         {!me?.authenticated && (
           <Link to="/login" className="underline-offset-4 hover:underline">
             {t('Login')}

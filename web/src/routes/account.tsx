@@ -336,7 +336,7 @@ function Devices() {
           <Terminal className="size-5 text-primary" /> {t('Kommandozeile')}
         </CardTitle>
         <CardDescription>
-          {t('Diese Rechner dürfen in eurem Namen Inhalte bearbeiten und Einladungslinks verwalten.')}
+          {t('Diese Rechner dürfen in eurem Namen arbeiten.')}
         </CardDescription>
       </CardHeader>
       <CardContent>

@@ -25,19 +25,6 @@ const CodeTwoFactorSetupRequired = "two_factor_setup_required"
 // accountPrefix is the only API area open to such users.
 const accountPrefix = "/api/account/"
 
-// devicePaths are the API areas a command line token may reach at all;
-// within them the usual permission checks apply.
-var devicePaths = []string{"/api/content", "/api/invite-links", "/api/places", "/api/uploads"}
-
-func devicePath(path string) bool {
-	for _, prefix := range devicePaths {
-		if path == prefix || strings.HasPrefix(path, prefix+"/") {
-			return true
-		}
-	}
-	return false
-}
-
 // Service ties sessions, users and HTTP concerns together.
 type Service struct {
 	sessions *SessionStore
@@ -127,7 +114,8 @@ func (s *Service) RequireAuth(next http.Handler) http.Handler {
 			httpx.Unauthorized(w)
 			return
 		}
-		if identity.Scope != nil && !devicePath(r.URL.Path) {
+		// Account security (password, second factor) needs the browser session.
+		if identity.Device && strings.HasPrefix(r.URL.Path, accountPrefix) {
 			httpx.Forbidden(w)
 			return
 		}

@@ -115,11 +115,6 @@ function HomePage() {
             <InstallApp />
             {rememberedToken() && <GuestNotifications />}
           </div>
-          {schedule.length > 0 && (
-            <a href="#ort" className="mt-10 inline-flex flex-col items-center gap-1 text-xs tracking-widest text-muted-foreground uppercase transition-colors hover:text-primary">
-              {t('Zum Ablauf')} <ChevronDown className="size-4 animate-bounce" />
-            </a>
-          )}
         </motion.div>
       </section>
 

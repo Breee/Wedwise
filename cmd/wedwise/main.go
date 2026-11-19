@@ -31,8 +31,13 @@ const usage = `wedwise – client for a Wedwise site
   wedwise content export [file]  save all content (default: standard output)
   wedwise content import <file>  replace all content from a file
   wedwise invite create          create an invite link
+  wedwise whoami                 show the account, its role and what it may do
+  wedwise responses list         guests' responses (couple, witness, admin)
+  wedwise contributions list     programme contributions (witness, admin)
+  wedwise users list             staff accounts (admin)
   wedwise mcp                    serve the site to an AI agent (MCP over stdio)
 
+What works depends on the role of the account you signed in with.
 Commands work on the current site. Pick another one with --host <host>
 or the WEDWISE_HOST environment variable. For scripts, WEDWISE_TOKEN
 together with WEDWISE_HOST replaces the stored sign-in.
@@ -105,6 +110,14 @@ func run(args []string) error {
 		return importContent(site, rest[2])
 	case command == "invite create":
 		return createInvite(site)
+	case rest[0] == "whoami":
+		return show(site, "/api/auth/me")
+	case command == "responses list":
+		return show(site, "/api/responses/")
+	case command == "contributions list":
+		return show(site, "/api/contributions/")
+	case command == "users list":
+		return show(site, "/api/users/")
 	case rest[0] == "mcp":
 		return serveMCP(site, os.Stdin, os.Stdout)
 	}
@@ -260,6 +273,34 @@ func call(site Site, method, path string, body, out any) (int, error) {
 		return resp.StatusCode, json.Unmarshal(data, out)
 	}
 	return resp.StatusCode, nil
+}
+
+// account is the signed-in user as the site reports it.
+type account struct {
+	Username    string   `json:"username"`
+	Role        string   `json:"role"`
+	Permissions []string `json:"permissions"`
+}
+
+// show prints what the site answers, or says which role is missing the right.
+func show(site Site, path string) error {
+	var raw []byte
+	status, err := call(site, http.MethodGet, path, nil, &raw)
+	if status == http.StatusForbidden {
+		var me account
+		if _, meErr := call(site, http.MethodGet, "/api/auth/me", nil, &me); meErr == nil {
+			return fmt.Errorf("your role (%s) may not do this", me.Role)
+		}
+	}
+	if err != nil {
+		return err
+	}
+	var pretty bytes.Buffer
+	if err := json.Indent(&pretty, raw, "", "  "); err != nil {
+		return err
+	}
+	fmt.Println(pretty.String())
+	return nil
 }
 
 func login(store *Store, address string) error {
