@@ -75,6 +75,18 @@ function HomePage() {
     timezone: event.timezone,
   })
 
+  if (!names && !event.date && !location.name) {
+    return (
+      <section className="mx-auto flex min-h-[60svh] max-w-md flex-col items-center justify-center gap-4 px-6 text-center">
+        <h1 className="font-display text-4xl text-primary">{t('Noch nicht eingerichtet')}</h1>
+        <p className="text-muted-foreground">{t('Diese Hochzeitsseite ist noch leer. Meldet euch an, um sie einzurichten.')}</p>
+        <Button asChild>
+          <Link to="/login" search={{ redirect: '/couple/dashboard' }}>{t('Anmelden und einrichten')}</Link>
+        </Button>
+      </section>
+    )
+  }
+
   return (
     <>
       <section className="relative overflow-hidden px-6 pt-20 pb-16 text-center md:pt-36 md:pb-28">

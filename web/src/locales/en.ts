@@ -579,4 +579,7 @@ export const en: Record<string, string> = {
   'Eure Seite einrichten': 'Set up your site',
   '{done} von {count} erledigt. Die Reihenfolge ist egal – tippt auf einen Punkt, um ihn auszufüllen.': '{done} of {count} done. Any order works – tap an item to fill it in.',
   'Erledigt': 'Done',
+  'Noch nicht eingerichtet': 'Not set up yet',
+  'Diese Hochzeitsseite ist noch leer. Meldet euch an, um sie einzurichten.': 'This wedding site is still empty. Sign in to set it up.',
+  'Anmelden und einrichten': 'Sign in and set up',
 }
