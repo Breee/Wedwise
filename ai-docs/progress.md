@@ -96,3 +96,4 @@ Open work is tracked in GitHub issues and milestones (M1 Staff tools, M2 Accommo
 - 2026-11-19: CLI keeps its token in the system keyring (file only as fallback), WEDWISE_TOKEN for scripts.
 - 2026-11-19: Command-line sign-in has its own rate limit; polling no longer locks the address out of logging in.
 - 2026-11-19: Command-line token carries the approving account's role (whoami, responses, contributions, users; MCP offers only permitted tools). Language toggle DE/EN in nav and footer (visitor's choice stored on the device). Hero scroll cue removed.
+- 2026-11-19: Release v0.3.0 (command line client binaries attached for the first time).
