@@ -60,6 +60,12 @@ func (h *Handler) Event(current Content) configuration.EventConfig {
 			event.Couple[i] = configuration.CoupleEntry{Name: name}
 		}
 	}
+	if event.Couple == nil {
+		event.Couple = []configuration.CoupleEntry{}
+	}
+	if event.MusicGenres == nil {
+		event.MusicGenres = []string{}
+	}
 	return event
 }
 

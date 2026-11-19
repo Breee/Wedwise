@@ -321,6 +321,23 @@ func TestPublicContentShape(t *testing.T) {
 	}
 }
 
+// TestPublicContentWithoutConfig ensures an instance without a configured couple still answers with lists.
+func TestPublicContentWithoutConfig(t *testing.T) {
+	app, _ := newTestAppWithOptions(t, func(cfg *configuration.Config) {
+		cfg.Event.Couple = nil
+		cfg.Event.MusicGenres = nil
+	})
+
+	resp := app.do("GET", "/api/content/public", nil, nil)
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+	for _, want := range []string{`"couple":[]`, `"musicGenres":[]`} {
+		if !strings.Contains(string(body), want) {
+			t.Fatalf("public content must contain %s, got %s", want, body)
+		}
+	}
+}
+
 // TestContentUpdate_Couple verifies the couple can replace content and it becomes public.
 func TestContentUpdate_Couple(t *testing.T) {
 	app, _ := newTestAppWithUsers(t)

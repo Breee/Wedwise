@@ -91,18 +91,22 @@ function HomePage() {
           <h1 className="mt-6 text-6xl leading-none font-medium tracking-tight text-primary md:text-8xl">{headline}</h1>
           {tagline && <p className="mt-5 font-display text-3xl text-primary italic md:text-4xl">{tagline}</p>}
           {hero.subtitle && <p className="mt-6 text-lg text-muted-foreground md:text-xl">{hero.subtitle}</p>}
-          <div className="mx-auto mt-10 flex max-w-md items-center justify-center gap-4 text-sm tracking-widest uppercase">
-            <span className="h-px flex-1 bg-gold" />
-            <span className="font-display text-2xl tracking-normal normal-case">{formatDate(event.date)}</span>
-            <span className="h-px flex-1 bg-gold" />
-          </div>
+          {event.date && (
+            <div className="mx-auto mt-10 flex max-w-md items-center justify-center gap-4 text-sm tracking-widest uppercase">
+              <span className="h-px flex-1 bg-gold" />
+              <span className="font-display text-2xl tracking-normal normal-case">{formatDate(event.date)}</span>
+              <span className="h-px flex-1 bg-gold" />
+            </div>
+          )}
           {hero.note && <p className="mt-6 text-sm text-muted-foreground italic">{hero.note}</p>}
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-            <Button asChild variant="outline" size="sm">
-              <a href={calendar} download={t('hochzeit.ics')}>
-                <CalendarPlus className="size-4" /> {t('Zum Kalender hinzufügen')}
-              </a>
-            </Button>
+            {calendar && (
+              <Button asChild variant="outline" size="sm">
+                <a href={calendar} download={t('hochzeit.ics')}>
+                  <CalendarPlus className="size-4" /> {t('Zum Kalender hinzufügen')}
+                </a>
+              </Button>
+            )}
             {rememberedToken() && (
               <Button asChild variant="outline" size="sm">
                 <Link to="/rsvp">

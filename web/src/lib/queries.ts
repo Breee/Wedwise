@@ -23,7 +23,8 @@ export const meQuery = queryOptions({
 
 export const publicContentQuery = queryOptions({
   queryKey: ['content', 'public'],
-  queryFn: () => api.get<PublicContent>('/content/public'),
+  queryFn: () =>
+    api.get<PublicContent>('/content/public').then((r) => ({ ...r, event: { ...r.event, couple: r.event.couple ?? [] } })),
 })
 
 export const themesQuery = queryOptions({
