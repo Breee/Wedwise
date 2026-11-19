@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/zalando/go-keyring"
 	"io"
 	"net/http"
 	"net/url"
@@ -33,7 +34,8 @@ const usage = `wedwise – client for a Wedwise site
   wedwise mcp                    serve the site to an AI agent (MCP over stdio)
 
 Commands work on the current site. Pick another one with --host <host>
-or the WEDWISE_HOST environment variable.
+or the WEDWISE_HOST environment variable. For scripts, WEDWISE_TOKEN
+together with WEDWISE_HOST replaces the stored sign-in.
 `
 
 func main() {
@@ -109,7 +111,11 @@ func run(args []string) error {
 	return fmt.Errorf("unknown command %q, see wedwise help", strings.Join(rest, " "))
 }
 
-// Store is the credentials file: one entry per site, keyed by host name.
+// keyringService names the entries in the system keyring; the user is the host.
+const keyringService = "wedwise"
+
+// Store is the list of known sites, keyed by host name. Tokens live in the
+// system keyring; the file only carries one where no keyring is available.
 type Store struct {
 	Current string          `json:"current"`
 	Hosts   map[string]Site `json:"hosts"`
@@ -118,7 +124,7 @@ type Store struct {
 
 type Site struct {
 	URL   string `json:"url"`
-	Token string `json:"token"`
+	Token string `json:"token,omitempty"`
 	host  string
 }
 
@@ -162,14 +168,41 @@ func (s *Store) site(host string) (Site, error) {
 	if host == "" {
 		return Site{}, errors.New("not signed in, run: wedwise login <url>")
 	}
+	given := host
 	if u, err := url.Parse(host); err == nil && u.Host != "" {
 		host = u.Host
 	}
+	address := "https://" + host
+	if u, err := url.Parse(given); err == nil && u.Host != "" {
+		address = u.Scheme + "://" + u.Host
+	}
 	site, ok := s.Hosts[host]
+	if token := os.Getenv("WEDWISE_TOKEN"); token != "" {
+		if !ok {
+			site.URL = address
+		}
+		site.Token, site.host = token, host
+		return site, nil
+	}
 	if !ok {
 		return Site{}, fmt.Errorf("not signed in to %s, run: wedwise login https://%s", host, host)
 	}
 	site.host = host
+	if site.Token == "" {
+		token, err := keyring.Get(keyringService, host)
+		if err != nil {
+			return Site{}, fmt.Errorf("no sign-in for %s in the system keyring, run: wedwise login %s", host, site.URL)
+		}
+		site.Token = token
+		return site, nil
+	}
+	// A token still in the file moves into the keyring once one is available.
+	if keyring.Set(keyringService, host, site.Token) == nil {
+		s.Hosts[host] = Site{URL: site.URL}
+		if err := s.save(); err != nil {
+			return Site{}, err
+		}
+	}
 	return site, nil
 }
 
@@ -266,13 +299,17 @@ func login(store *Store, address string) error {
 		if err != nil {
 			return err
 		}
-		site.Token = granted.Token
+		where := "the system keyring"
+		if err := keyring.Set(keyringService, site.host, granted.Token); err != nil {
+			site.Token = granted.Token
+			where = store.path + " (no system keyring available)"
+		}
 		store.Hosts[site.host] = site
 		store.Current = site.host
 		if err := store.save(); err != nil {
 			return err
 		}
-		fmt.Printf("Signed in to %s.\n", site.host)
+		fmt.Printf("Signed in to %s. The sign-in is kept in %s.\n", site.host, where)
 		return nil
 	}
 	return errors.New("nobody allowed access in time")
@@ -293,6 +330,7 @@ func logout(store *Store, site Site) error {
 	if _, err := call(site, http.MethodDelete, "/api/auth/device/token", nil, nil); err != nil {
 		fmt.Fprintln(os.Stderr, "wedwise: could not sign out on the server:", err)
 	}
+	_ = keyring.Delete(keyringService, site.host)
 	delete(store.Hosts, site.host)
 	if store.Current == site.host {
 		store.Current = ""

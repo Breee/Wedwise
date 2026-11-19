@@ -244,8 +244,11 @@ Signing in needs a `couple` or `admin` account. The access is limited to
 content and invite links: it cannot read guest responses, contributions or
 users. It lasts 90 days, shows up on the account page under "Kommandozeile",
 can be withdrawn there, and is recorded in the audit log. The token is stored
-in a file only you can read (`wedwise/credentials.json` in your config
-directory), not in the system keyring.
+in the system keyring (Keychain, Windows Credential Manager, Secret Service).
+Only where none is available, for example on a server, it goes into a file
+only you can read (`wedwise/credentials.json` in your config directory), and
+`wedwise login` says so. In scripts, set `WEDWISE_HOST` and `WEDWISE_TOKEN`
+instead of signing in.
 
 ### Let an AI agent set up the site
 

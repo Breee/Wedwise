@@ -93,3 +93,4 @@ Open work is tracked in GitHub issues and milestones (M1 Staff tools, M2 Accommo
 - 2026-11-19: Browser-approved sign-in for a `wedwise` command line client (several sites, content and invite links only), released as binaries.
 - 2026-11-19: `wedwise mcp` serves the signed-in site to an AI agent (setup status, content, place search, nearby suggestions, themes, invite links).
 - 2026-11-19: Setup checklist on the couple dashboard (names/date, welcome, venue, arrival, schedule, stays, FAQ, invite link); each item links to its editor tab; hidden once complete.
+- 2026-11-19: CLI keeps its token in the system keyring (file only as fallback), WEDWISE_TOKEN for scripts.
