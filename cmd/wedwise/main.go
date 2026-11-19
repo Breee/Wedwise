@@ -224,7 +224,9 @@ var client = &http.Client{Timeout: 30 * time.Second}
 // call sends a JSON request and decodes the answer into out when given.
 func call(site Site, method, path string, body, out any) (int, error) {
 	var reader io.Reader
-	if body != nil {
+	if raw, ok := body.([]byte); ok {
+		reader = bytes.NewReader(raw)
+	} else if body != nil {
 		data, err := json.Marshal(body)
 		if err != nil {
 			return 0, err
@@ -235,7 +237,7 @@ func call(site Site, method, path string, body, out any) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	if body != nil {
+	if _, raw := body.([]byte); body != nil && !raw {
 		req.Header.Set("Content-Type", "application/json")
 	}
 	if site.Token != "" {
