@@ -222,9 +222,17 @@ export function StayMap({ accommodation, travel, city, venueName = '' }: { accom
 
   const stay = formatStayDates(checkIn, checkOut)
   const chosen = selectedIndex >= 0 ? hotels[selectedIndex] : undefined
+  // On phones an opened row moves to the top of the screen once, so its details fit without further jumps.
+  useEffect(() => {
+    if (desktop || mapOpen || selectedIndex < 0) return
+    const timer = setTimeout(() => {
+      document.getElementById(`hotel-${selectedIndex}`)?.scrollIntoView({ block: 'start', behavior: 'smooth' })
+    }, 120)
+    return () => clearTimeout(timer)
+  }, [selectedIndex, desktop, mapOpen])
   const openDetails = () => {
     setMapOpen(false)
-    requestAnimationFrame(() => document.getElementById(`hotel-${selectedIndex}`)?.scrollIntoView({ block: 'center' }))
+    requestAnimationFrame(() => document.getElementById(`hotel-${selectedIndex}`)?.scrollIntoView({ block: 'start' }))
   }
 
   return (
@@ -509,7 +517,7 @@ function HotelCard({
       aria-current={selected || undefined}
       aria-expanded={expanded}
       className={cn(
-        'cursor-pointer rounded-2xl border bg-card p-5 transition-all',
+        'scroll-mt-20 cursor-pointer rounded-2xl border bg-card p-5 transition-colors',
         selected ? 'border-primary bg-primary/5 shadow-lg' : active ? 'border-primary/60 shadow-lg' : 'border-border/60',
       )}
     >

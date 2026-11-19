@@ -108,3 +108,4 @@ Open work is tracked in GitHub issues and milestones (M1 Staff tools, M2 Accommo
 - 2026-11-19: Chips keep their width when selected; song results shown inline and the field moves above the keyboard; v0.3.4.
 - 2026-11-19: News messages wrap long words and links on phones.
 - 2026-11-19: Login with only a passkey as second factor asks just for the passkey (no code field); guest passkeys on staff login get a clear message; passkey rejections are logged.
+- 2026-11-19: Opening a place to stay on a phone moves it once to the top of the screen so it fits.
