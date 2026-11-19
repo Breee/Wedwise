@@ -140,7 +140,7 @@ function HomePage() {
         <Section id="neuigkeiten" eyebrow={t('Von uns')} title={t('Neuigkeiten')}>
           <ul className="mx-auto max-w-2xl space-y-4">
             {messages.map((m) => (
-              <li key={m.id} className="rounded-xl border bg-card p-5">
+              <li key={m.id} className="min-w-0 rounded-xl border bg-card p-5 break-words [overflow-wrap:anywhere]">
                 <p className="text-xs text-muted-foreground">{formatDateTime(m.createdAt)}</p>
                 <h3 className="mt-1 font-display text-2xl">{m.title}</h3>
                 {m.body && <p className="mt-2 whitespace-pre-line text-foreground/85">{m.body}</p>}

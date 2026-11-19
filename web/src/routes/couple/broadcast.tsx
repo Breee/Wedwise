@@ -83,7 +83,7 @@ function BroadcastPage() {
         <ul className="mt-4 space-y-3">
           {messages.map((m) => (
             <li key={m.id} className="flex items-start gap-3 rounded-lg border bg-card p-4">
-              <div className="min-w-0 flex-1">
+              <div className="min-w-0 flex-1 [overflow-wrap:anywhere]">
                 <p className="text-xs text-muted-foreground">{formatDateTime(m.createdAt)}</p>
                 <p className="font-medium">{m.title}</p>
                 {m.body && <p className="mt-1 text-sm whitespace-pre-line text-muted-foreground">{m.body}</p>}
