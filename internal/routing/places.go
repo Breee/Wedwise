@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
+	"slices"
 	"strings"
 
 	"github.com/Breee/Wedwise/internal/httpx"
@@ -258,7 +259,7 @@ func (h *Handler) Nearby(w http.ResponseWriter, r *http.Request) {
 	}
 	stay := r.URL.Query().Get("kind") == "stay"
 	// Rounded to about 100 m: nudging the venue pin reuses the answer.
-	cacheKey := fmt.Sprintf("nearby3|%.3f,%.3f", at[0], at[1])
+	cacheKey := fmt.Sprintf("nearby4|%.3f,%.3f", at[0], at[1])
 	group := transportGroup
 	if stay {
 		cacheKey = fmt.Sprintf("stay|%.3f,%.3f", at[0], at[1])
@@ -287,6 +288,7 @@ func (h *Handler) Nearby(w http.ResponseWriter, r *http.Request) {
 				places[i].Lines = h.stopLines(r.Context(), places[i].Kind, places[i].nodes)
 			}
 		}
+		places = servedOnly(places)
 	}
 	h.storeJSON(r.Context(), cacheKey, places)
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{"places": places})
@@ -400,4 +402,14 @@ func (h *Handler) street(ctx context.Context, lng, lat float64) string {
 	}
 	found := data.Features[0].Properties
 	return strings.TrimSpace(found.Street + " " + found.Number)
+}
+
+// servedOnly drops stops no line serves. When no stop has lines the map lookup
+// probably failed, so the list is kept as it is.
+func servedOnly(places []NearbyPlace) []NearbyPlace {
+	known := slices.ContainsFunc(places, func(p NearbyPlace) bool { return len(p.Lines) > 0 })
+	if !known {
+		return places
+	}
+	return slices.DeleteFunc(places, func(p NearbyPlace) bool { return p.Kind != "parking" && len(p.Lines) == 0 })
 }
