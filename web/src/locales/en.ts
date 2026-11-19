@@ -548,4 +548,9 @@ export const en: Record<string, string> = {
   'Rückmeldung von': 'Response from',
   'Wer heiratet wann?': 'Who is getting married, and when?',
   'Datum': 'Date',
+  'Datei geladen. Prüft die Inhalte und speichert.': 'File loaded. Check the content and save.',
+  'Die Datei konnte nicht gelesen werden.': 'The file could not be read.',
+  'Alle Inhalte als Datei sichern oder aus einer Datei übernehmen.': 'Save all content as a file or take it over from a file.',
+  'Exportieren': 'Export',
+  'Importieren': 'Import',
 }

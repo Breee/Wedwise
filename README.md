@@ -150,7 +150,7 @@ Settings come from a YAML file (`CONFIG_PATH`, default
 | `SESSION_IDLE_TIMEOUT` | `auth.sessionIdleTimeout` | `2h` | A login ends after this time without activity. |
 | `ROUTING_API_KEY` | `routingApiKey` | — | OpenRouteService key for routes and travel times on the maps, and for the place search and nearby suggestions (stops, car parks, places to stay) in the map editors. Ratings, prices and free rooms are not part of that data. |
 | `THEME_PATH` | `themePath` | — | Optional custom theme file. |
-| `CONTENT_PATH` | `contentPath` | — | Optional JSON content file (shape of `examples/content.json`). Applied at startup whenever the file changes; editor changes are kept until then. |
+| `CONTENT_PATH` | `contentPath` | — | Optional JSON content file (shape of `examples/content.json`). Fills a fresh instance at first start; ignored once content exists, so it never overwrites the editor. Use export and import in the editor to move content later. |
 | `USERS_PATH` | `usersPath` | — | Optional YAML list of users (`username`, `role`, `password`, optional `email`, `displayName`) created at startup. Existing users are kept; a changed password is applied. |
 | `IMAGES_PATH` | `imagesPath` | — | Optional directory served read-only under `/images/<name>`, e.g. for `location.image`. |
 | `UPLOADS_PATH` | `uploadsPath` | `uploads/` next to the database | Where images uploaded in the content editor are stored (JPEG, PNG, WebP, GIF, max 8 MB). They are re-encoded on upload: EXIF data such as GPS position is removed and the longest side is capped at 2560 px. Served under `/uploads/<name>`. |
@@ -275,7 +275,7 @@ Useful values (see [`values.yaml`](charts/wedwise/values.yaml)):
 | Value | Purpose |
 |-------|---------|
 | `config` | Your event settings, same keys as `examples/config.yaml`. |
-| `content` | Page content (schedule, location, travel, accommodation, FAQ, theme name), same shape as `examples/content.json`. Applied whenever it changes; leave empty to use the editor only. |
+| `content` | Page content (schedule, location, travel, accommodation, FAQ, theme name), same shape as `examples/content.json`. Fills a fresh instance at first start and is ignored afterwards; leave empty to use the editor only. |
 | `theme` | Optional custom theme, same shape as the files in `themes/`. |
 | `users` | Users created at startup (`username`, `role`, `password`). Stored in the chart Secret; with `secret.existingSecret` add a `users.yaml` key there. |
 | `images.files` | Images as base64 (`--set images.files.lake\\.jpg="$(base64 -w0 lake.jpg)"`), served under `/images/<name>`. About 1 MiB in total; use `images.existingConfigMap` for more. |

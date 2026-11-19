@@ -89,3 +89,4 @@ Open work is tracked in GitHub issues and milestones (M1 Staff tools, M2 Accommo
 - 2026-11-17: Renovate PRs merged, npm audit gates only shipped packages, main protected with required checks, release v0.2.0.
 - 2026-11-18: Image build cross-compiles instead of emulating arm64 (first v0.2.0 release run timed out after 6 h); release job limited to 45 min.
 - 2026-11-19: Couple names and wedding date can be set in the editor (tab Begrüßung); the config file stays the fallback. First step towards guided setup, export/import and the wedwise CLI.
+- 2026-11-19: Content file (CONTENT_PATH / chart `content`) only fills a fresh instance; export and import buttons in the content editor.

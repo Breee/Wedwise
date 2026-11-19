@@ -100,7 +100,7 @@ type Config struct {
 	DataKeyPrevious string `yaml:"dataKeyPrevious" json:"-"`
 	ConfigPath      string `yaml:"configPath" json:"configPath"`
 	ThemePath       string `yaml:"themePath" json:"themePath"`
-	// ContentPath is an optional JSON content file applied at startup whenever it changes.
+	// ContentPath is an optional JSON content file that fills a fresh instance at first start.
 	ContentPath string `yaml:"contentPath" json:"contentPath"`
 	// UsersPath is an optional YAML file with users created at startup.
 	UsersPath string `yaml:"usersPath" json:"usersPath"`

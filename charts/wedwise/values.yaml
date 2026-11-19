@@ -16,9 +16,9 @@ config:
   title: "Our Wedding"
 
 # Page content (schedule, location, travel, accommodation, FAQ, theme name),
-# same shape as examples/content.json. Applied at startup whenever it changes;
-# edits made in the editor are kept until then. Leave empty to manage content
-# in the editor only.
+# same shape as examples/content.json. Fills a fresh instance at first start and
+# is ignored once content exists, so it never overwrites the editor. Leave
+# empty to manage content in the editor only.
 content: {}
 
 # Optional custom theme, same shape as the files in themes/.

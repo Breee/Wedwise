@@ -2,9 +2,10 @@ import { useState } from 'react'
 import { t } from '@/lib/i18n'
 import { createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient, useSuspenseQuery } from '@tanstack/react-query'
-import { ArrowDown, ArrowUp, Plus, Trash2, Upload } from 'lucide-react'
+import { ArrowDown, ArrowUp, Download, Plus, Trash2, Upload } from 'lucide-react'
 import { toast } from 'sonner'
 import { api, errorMessage } from '@/lib/api'
+import { download } from '@/lib/handover'
 import { contentQuery, publicContentQuery, themesQuery } from '@/lib/queries'
 import type { Content, FAQEntry, ScheduleEntry } from '@/lib/types'
 import { PageHeader } from '@/components/admin/PageHeader'
@@ -53,6 +54,18 @@ function ContentPage() {
     },
     onError: (e) => toast.error(errorMessage(e)),
   })
+
+  const importFile = async (file: File | undefined) => {
+    if (!file) return
+    try {
+      const parsed = JSON.parse((await file.text()).replace(/^\uFEFF/, '')) as Partial<Content>
+      if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) throw new Error()
+      setDraft({ ...structuredClone(data), ...parsed, updatedAt: data.updatedAt })
+      toast.success(t('Datei geladen. Prüft die Inhalte und speichert.'))
+    } catch {
+      toast.error(t('Die Datei konnte nicht gelesen werden.'))
+    }
+  }
 
   const dirty = JSON.stringify(draft) !== JSON.stringify(data)
   const set = <K extends keyof Content>(key: K, value: Content[K]) => setDraft((d) => ({ ...d, [key]: value }))
@@ -235,6 +248,26 @@ function ContentPage() {
           />
         </TabsContent>
       </Tabs>
+      <div className="mt-8 flex flex-wrap items-center gap-2 border-t pt-4 text-sm text-muted-foreground">
+        <span className="mr-auto">{t('Alle Inhalte als Datei sichern oder aus einer Datei übernehmen.')}</span>
+        <Button variant="outline" size="sm" onClick={() => download('hochzeit-inhalte.json', JSON.stringify(data, null, 2), 'application/json')}>
+          <Download /> {t('Exportieren')}
+        </Button>
+        <Button variant="outline" size="sm" asChild>
+          <label className="cursor-pointer">
+            <Upload /> {t('Importieren')}
+            <input
+              type="file"
+              accept="application/json,.json"
+              className="sr-only"
+              onChange={(e) => {
+                void importFile(e.target.files?.[0])
+                e.target.value = ''
+              }}
+            />
+          </label>
+        </Button>
+      </div>
       {dirty && (
         <div className="sticky bottom-0 z-20 -mx-4 mt-6 flex items-center justify-between gap-3 border-t bg-background/95 px-4 py-3 backdrop-blur sm:mx-0 sm:rounded-lg sm:border">
           <p className="text-sm text-muted-foreground">{t('Ungespeicherte Änderungen')}</p>
