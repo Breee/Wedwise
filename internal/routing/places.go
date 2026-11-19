@@ -153,9 +153,13 @@ type NearbyPlace struct {
 	// Street tells unnamed car parks apart.
 	Street string `json:"street,omitempty"`
 	// Website is set for places to sleep when the map knows it.
-	Website string  `json:"website,omitempty"`
-	Lat     float64 `json:"lat"`
-	Lng     float64 `json:"lng"`
+	Website string `json:"website,omitempty"`
+	// Lines lists the public transport lines that stop here, e.g. "1" or "27".
+	Lines []string `json:"lines,omitempty"`
+	Lat   float64  `json:"lat"`
+	Lng   float64  `json:"lng"`
+	// nodes are the map nodes of a stop, used to look up its lines.
+	nodes []int64
 }
 
 // stopKinds ranks the map categories that say what serves a stop. Platforms
@@ -254,7 +258,7 @@ func (h *Handler) Nearby(w http.ResponseWriter, r *http.Request) {
 	}
 	stay := r.URL.Query().Get("kind") == "stay"
 	// Rounded to about 100 m: nudging the venue pin reuses the answer.
-	cacheKey := fmt.Sprintf("nearby2|%.3f,%.3f", at[0], at[1])
+	cacheKey := fmt.Sprintf("nearby3|%.3f,%.3f", at[0], at[1])
 	group := transportGroup
 	if stay {
 		cacheKey = fmt.Sprintf("stay|%.3f,%.3f", at[0], at[1])
@@ -279,6 +283,8 @@ func (h *Handler) Nearby(w http.ResponseWriter, r *http.Request) {
 		for i := range places {
 			if places[i].Kind == "parking" {
 				places[i].Street = h.street(r.Context(), places[i].Lng, places[i].Lat)
+			} else {
+				places[i].Lines = h.stopLines(r.Context(), places[i].Kind, places[i].nodes)
 			}
 		}
 	}
@@ -340,6 +346,9 @@ func stops(features []poi) []NearbyPlace {
 				continue
 			}
 			if i, seen := seenAt[name]; seen {
+				if f.Properties.OsmType == 1 {
+					places[i].nodes = append(places[i].nodes, f.Properties.OsmID)
+				}
 				if stop.rank > ranks[name] {
 					ranks[name] = stop.rank
 					places[i].Kind = stop.kind
@@ -348,7 +357,11 @@ func stops(features []poi) []NearbyPlace {
 			} else if len(places) < maxNearby {
 				seenAt[name] = len(places)
 				ranks[name] = stop.rank
-				places = append(places, NearbyPlace{Name: name, Kind: stop.kind, Lng: f.Geometry.Coordinates[0], Lat: f.Geometry.Coordinates[1]})
+				place := NearbyPlace{Name: name, Kind: stop.kind, Lng: f.Geometry.Coordinates[0], Lat: f.Geometry.Coordinates[1]}
+				if f.Properties.OsmType == 1 {
+					place.nodes = []int64{f.Properties.OsmID}
+				}
+				places = append(places, place)
 			}
 		}
 	}

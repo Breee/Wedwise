@@ -4,8 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"math"
 	"net/http"
+	"slices"
 	"strings"
 
 	"github.com/Breee/Wedwise/internal/httpx"
@@ -387,4 +389,41 @@ func reverse(s []int64) {
 	for i, j := 0, len(s)-1; i < j; i, j = i+1, j-1 {
 		s[i], s[j] = s[j], s[i]
 	}
+}
+
+// maxStopNodes bounds the map lookups per stop; a stop has a few platforms at most.
+const maxStopNodes = 3
+
+// stopLines names the lines of the given kind that serve a stop, sorted, without
+// duplicates. It returns nil when the map does not know them.
+func (h *Handler) stopLines(ctx context.Context, kind string, nodes []int64) []string {
+	seen := map[string]bool{}
+	for i, node := range nodes {
+		if i == maxStopNodes {
+			break
+		}
+		relations, err := h.mapElements(ctx, fmt.Sprintf("/node/%d/relations.json", node))
+		if err != nil {
+			slog.Warn("stop line lookup failed", "error", err)
+			return nil
+		}
+		for _, relation := range relations {
+			ref := strings.TrimSpace(relation.Tags["ref"])
+			if relation.Tags["type"] != "route" || ref == "" || !slices.Contains(lineRoutes[kind], relation.Tags["route"]) {
+				continue
+			}
+			seen[ref] = true
+		}
+	}
+	lines := make([]string, 0, len(seen))
+	for ref := range seen {
+		lines = append(lines, ref)
+	}
+	slices.SortFunc(lines, func(a, b string) int {
+		if len(a) != len(b) {
+			return len(a) - len(b)
+		}
+		return strings.Compare(a, b)
+	})
+	return lines
 }

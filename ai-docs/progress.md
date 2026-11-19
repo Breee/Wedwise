@@ -100,3 +100,4 @@ Open work is tracked in GitHub issues and milestones (M1 Staff tools, M2 Accommo
 - 2026-11-19: Empty instance (no couple, no date in config) no longer crashes; release v0.3.1.
 - 2026-11-19: Empty site shows 'Noch nicht eingerichtet' with a sign-in button to set it up.
 - 2026-11-19: wedwise mcp covers the whole setup: photo upload, invite link PIN/limit/on-off, staff accounts, messages, walking time for stop suggestions, entries without ids.
+- 2026-11-19: Stop suggestions (editor + MCP) carry the lines serving each stop, read from OpenStreetMap and cached.

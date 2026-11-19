@@ -21,7 +21,7 @@ export interface Place {
   lng: number
 }
 
-type Suggestion = Pick<Stop, 'name' | 'kind' | 'lat' | 'lng'> & { street?: string }
+type Suggestion = Pick<Stop, 'name' | 'kind' | 'lat' | 'lng'> & { street?: string; lines?: string[] }
 
 const KINDS: StopKind[] = ['tram', 'bus', 'train', 'parking']
 // A suggestion this close to a stop of the same kind is already on the map.
@@ -82,7 +82,7 @@ export function TravelEditor({ travel, query, onChange }: { travel: Travel; quer
 
   function adopt(s: Suggestion) {
     const stops = latest.current.travel.stops
-    setStops([...stops, { name: suggestionName(s), kind: s.kind, line: '', lat: s.lat, lng: s.lng }])
+    setStops([...stops, { name: suggestionName(s), kind: s.kind, line: (s.lines ?? []).join(', '), lat: s.lat, lng: s.lng }])
     setPending(null)
     setSelected(stops.length)
   }
@@ -320,7 +320,7 @@ export function TravelEditor({ travel, query, onChange }: { travel: Travel; quer
                     active={hovered === suggestionKey(s)}
                     onHover={(on) => setHovered(on ? suggestionKey(s) : null)}
                     icon={<Plus className="size-4 text-muted-foreground" />}
-                    label={suggestionName(s)}
+                    label={s.lines?.length ? `${suggestionName(s)} · ${s.lines.join(', ')}` : suggestionName(s)}
                     detail={formatMeters(s.meters)}
                     muted
                     onClick={() => {

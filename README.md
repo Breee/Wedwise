@@ -265,13 +265,12 @@ agent as a local server, for example:
 ```
 
 The agent can do everything the setup needs: read what is still missing, read
-and change every content section, search places, get nearby stops (with walking
+and change every content section, search places, get nearby stops (with their lines and the walking
 time to the location) and places to stay, upload a photo, pick a design, create
 and change invite links (PIN, limit, on/off), post a message to guests and, as
 admin, create staff accounts with a setup link. With the matching role it also
 reads responses, contributions and users; tools the role may not use are not
-offered. What it cannot know: which line serves a stop, and hotel ratings,
-prices or free rooms – ask the couple or check them yourself.
+offered. What it cannot know: hotel ratings, prices or free rooms – ask the couple or check them yourself.
 
 ## Deployment
 

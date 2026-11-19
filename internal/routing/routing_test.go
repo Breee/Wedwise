@@ -421,3 +421,32 @@ func TestBoardingStopOnTheLine(t *testing.T) {
 		t.Fatalf("line = %+v", line)
 	}
 }
+
+func TestStopLines(t *testing.T) {
+	maps := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/node/1/relations.json":
+			fmt.Fprint(w, `{"elements":[
+				{"type":"relation","id":10,"tags":{"type":"route","route":"tram","ref":"11"}},
+				{"type":"relation","id":11,"tags":{"type":"route","route":"tram","ref":"1"}},
+				{"type":"relation","id":12,"tags":{"type":"route","route":"bus","ref":"27"}},
+				{"type":"relation","id":13,"tags":{"type":"stop_area","name":"x"}}]}`)
+		case "/node/2/relations.json":
+			fmt.Fprint(w, `{"elements":[{"type":"relation","id":11,"tags":{"type":"route","route":"tram","ref":"1"}}]}`)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer maps.Close()
+	h := NewHandler("secret", nil)
+	h.mapURL = maps.URL
+	if got := h.stopLines(context.Background(), "tram", []int64{1, 2}); !reflect.DeepEqual(got, []string{"1", "11"}) {
+		t.Fatalf("tram lines = %v", got)
+	}
+	if got := h.stopLines(context.Background(), "bus", []int64{1}); !reflect.DeepEqual(got, []string{"27"}) {
+		t.Fatalf("bus lines = %v", got)
+	}
+	if got := h.stopLines(context.Background(), "tram", []int64{3}); got != nil {
+		t.Fatalf("unknown stop lines = %v", got)
+	}
+}
