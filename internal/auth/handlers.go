@@ -25,12 +25,15 @@ type loginRequest struct {
 // Error codes of the second login step.
 const (
 	CodeTwoFactorRequired = "two_factor_required"
-	CodeInvalidCode       = "invalid_code"
+	// CodeKeyRequired asks for a security key or passkey; the account has no authenticator app.
+	CodeKeyRequired = "security_key_required"
+	CodeInvalidCode = "invalid_code"
 )
 
 // SecondFactor checks an additional login code for users who enabled it.
 type SecondFactor interface {
 	Enabled(ctx context.Context, userID int64) (bool, error)
+	TOTPEnabled(ctx context.Context, userID int64) (bool, error)
 	Verify(ctx context.Context, userID int64, code string) (bool, error)
 }
 
@@ -135,6 +138,12 @@ func (s *Service) HandlePasskeyBegin(w http.ResponseWriter, r *http.Request) {
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{"id": id, "options": options})
 }
 
+// ErrGuestPasskey means the chosen passkey belongs to a guest's response, not a staff account.
+var ErrGuestPasskey = errors.New("guest passkey")
+
+// CodeGuestPasskey is the error code for a guest passkey used to sign in.
+const CodeGuestPasskey = "guest_passkey"
+
 // HandlePasskeyLogin starts a session for the owner of a verified passkey.
 func (s *Service) HandlePasskeyLogin(w http.ResponseWriter, r *http.Request) {
 	var req struct {
@@ -153,6 +162,10 @@ func (s *Service) HandlePasskeyLogin(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, http.StatusUnauthorized, httpx.CodeUnauthorized, "This passkey could not be verified.")
 	}
 	userID, ok, err := passwordless.FinishPasskey(r.Context(), req.ID, req.Assertion)
+	if errors.Is(err, ErrGuestPasskey) {
+		httpx.WriteError(w, http.StatusUnauthorized, CodeGuestPasskey, "This passkey belongs to a guest response, not to an account.")
+		return
+	}
 	if err != nil {
 		httpx.Internal(w, err)
 		return
@@ -206,6 +219,10 @@ func (s *Service) HandleLogin(w http.ResponseWriter, r *http.Request) {
 				code = string(req.Assertion)
 			}
 			if code == "" {
+				if totp, err := s.secondFactor.TOTPEnabled(r.Context(), identity.ID); err == nil && !totp {
+					httpx.WriteError(w, http.StatusUnauthorized, CodeKeyRequired, "Confirm with your security key or passkey.")
+					return
+				}
 				httpx.WriteError(w, http.StatusUnauthorized, CodeTwoFactorRequired, "A login code is required.")
 				return
 			}

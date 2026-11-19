@@ -29,6 +29,8 @@ const MESSAGES: Record<string, string> = {
   invalid_pin: 'Die PIN stimmt nicht.',
   unknown_code: 'Dieser Code ist unbekannt oder abgelaufen.',
   invalid_passkey: 'Der Passkey wurde nicht erkannt.',
+  security_key_required: 'Bitte mit eurem Passkey bestätigen.',
+  guest_passkey: 'Dieser Passkey gehört zu einer Rückmeldung, nicht zu einem Konto. Wählt den Passkey eures Kontos.',
   link_full: 'Über diesen Link sind keine weiteren Antworten möglich.',
 }
 

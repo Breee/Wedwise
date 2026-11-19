@@ -30,13 +30,16 @@ function LoginPage() {
 
   const [needsCode, setNeedsCode] = useState(false)
   const [hasKey, setHasKey] = useState(false)
+  // The account has only keys, no authenticator app: no code field, just the key button.
+  const [keyOnly, setKeyOnly] = useState(false)
 
   const login = useMutation({
     mutationFn: (body: { username: string; password: string; code?: string; assertion?: unknown }) =>
       api.post<Me>('/auth/login', body),
     onError: (e, body) => {
-      if (!(e instanceof ApiError && e.code === 'two_factor_required')) return
+      if (!(e instanceof ApiError && (e.code === 'two_factor_required' || e.code === 'security_key_required'))) return
       setNeedsCode(true)
+      setKeyOnly(e.code === 'security_key_required')
       if (!webauthnSupported()) return
       api
         .post('/auth/webauthn/begin', { username: body.username, password: body.password })
@@ -117,7 +120,7 @@ function LoginPage() {
                 </div>
               )}
             </form.Field>
-            {needsCode && (
+            {needsCode && !keyOnly && (
               <form.Field name="code">
                 {(field) => (
                   <div className="space-y-2">
@@ -137,7 +140,8 @@ function LoginPage() {
                 )}
               </form.Field>
             )}
-            {login.isError && !(login.error instanceof ApiError && login.error.code === 'two_factor_required') && (
+            {login.isError &&
+              !(login.error instanceof ApiError && (login.error.code === 'two_factor_required' || login.error.code === 'security_key_required')) && (
               <p className="text-sm text-destructive" role="alert">
                 {login.error instanceof ApiError && login.error.code === 'invalid_code'
                   ? t('Der Code stimmt nicht.')
@@ -146,18 +150,20 @@ function LoginPage() {
                     : errorMessage(login.error, t('Anmeldung fehlgeschlagen.'))}
               </p>
             )}
-            <Button type="submit" className="w-full" disabled={login.isPending}>
-              {login.isPending ? t('Wird geprüft…') : t('Anmelden')}
-            </Button>
+            {!keyOnly && (
+              <Button type="submit" className="w-full" disabled={login.isPending}>
+                {login.isPending ? t('Wird geprüft…') : t('Anmelden')}
+              </Button>
+            )}
             {needsCode && hasKey && (
               <Button
                 type="button"
-                variant="outline"
-                className="w-full"
+                variant={keyOnly ? 'default' : 'outline'}
+                className="h-auto min-h-9 w-full py-2 whitespace-normal"
                 disabled={withKey.isPending || login.isPending}
                 onClick={() => withKey.mutate()}
               >
-                {t('Mit Passkey oder Sicherheitsschlüssel anmelden')}
+                {t('Mit Passkey bestätigen')}
               </Button>
             )}
           </form>

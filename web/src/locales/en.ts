@@ -192,7 +192,6 @@ export const en: Record<string, string> = {
   'Benutzername oder Passwort stimmt nicht.': 'Username or password is not correct.',
   'Anmeldung fehlgeschlagen.': 'Sign-in failed.',
   'Wird geprüft…': 'Checking…',
-  'Mit Passkey oder Sicherheitsschlüssel anmelden': 'Sign in with passkey or security key',
   'Mit Passkey anmelden': 'Sign in with passkey',
   'Die Anmeldung mit Passkey hat nicht geklappt.': 'Signing in with the passkey did not work.',
   'Link ungültig': 'Invalid link',
@@ -582,4 +581,7 @@ export const en: Record<string, string> = {
   'Diese Hochzeitsseite ist noch leer. Meldet euch an, um sie einzurichten.': 'This wedding site is still empty. Sign in to set it up.',
   'Anmelden und einrichten': 'Sign in and set up',
   'Ohne Link zur Booking-Hotelseite öffnet der Button nur die Booking-Suche – und die meldet für weit entfernte Termine oft fälschlich „nicht verfügbar“.': 'Without a link to the hotel\'s Booking page the button only opens the Booking search, which often wrongly says "not available" for dates far ahead.',
+  'Dieser Passkey gehört zu einer Rückmeldung, nicht zu einem Konto. Wählt den Passkey eures Kontos.': "This passkey belongs to a guest response, not an account. Choose your account's passkey.",
+  'Mit Passkey bestätigen': 'Confirm with passkey',
+  'Bitte mit eurem Passkey bestätigen.': 'Please confirm with your passkey.',
 }

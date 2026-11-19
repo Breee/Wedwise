@@ -7,6 +7,8 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"github.com/Breee/Wedwise/internal/auth"
+	"log/slog"
 	"net/url"
 	"strconv"
 	"strings"
@@ -319,11 +321,15 @@ func (k *Keys) FinishPasskeyLogin(ctx context.Context, id string, response []byt
 	}
 	parsed, err := protocol.ParseCredentialRequestResponseBytes(response)
 	if err != nil {
+		slog.Warn("passkey login rejected", "reason", "unreadable answer", "error", err)
 		return 0, false, nil
 	}
 	var found keyUser
 	var ids []int64
 	handler := func(_, userHandle []byte) (webauthn.User, error) {
+		if strings.HasPrefix(string(userHandle), "g:") {
+			return nil, auth.ErrGuestPasskey
+		}
 		userID, err := strconv.ParseInt(string(userHandle), 10, 64)
 		if err != nil {
 			return nil, err
@@ -332,7 +338,11 @@ func (k *Keys) FinishPasskeyLogin(ctx context.Context, id string, response []byt
 		return found, err
 	}
 	credential, err := k.wa.ValidateDiscoverableLogin(handler, session, parsed)
+	if errors.Is(err, auth.ErrGuestPasskey) {
+		return 0, false, auth.ErrGuestPasskey
+	}
 	if err != nil || credential.Authenticator.CloneWarning || !credential.Flags.UserVerified {
+		slog.Warn("passkey login rejected", "error", err, "cloneWarning", err == nil && credential.Authenticator.CloneWarning, "userVerified", err == nil && credential.Flags.UserVerified)
 		return 0, false, nil
 	}
 	saved, err := k.saveUsed(ctx, found, ids, credential)
