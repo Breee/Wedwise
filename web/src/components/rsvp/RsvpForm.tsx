@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { t } from '@/lib/i18n'
 import { Link, useNavigate } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { motion, AnimatePresence } from 'motion/react'
+import { motion } from 'motion/react'
 import { CheckCircle2, Clock, KeyRound, Minus, Plus } from 'lucide-react'
 import { toast } from 'sonner'
 import { api, errorMessage } from '@/lib/api'
@@ -73,9 +73,16 @@ export function RsvpForm({ initial, link, onDone }: FormProps) {
   const at = Math.min(index, pages.length - 1)
   const page = pages[at]
   const last = at === pages.length - 1
+  const formRef = useRef<HTMLFormElement>(null)
+  // Brings the start of the form into view when it is scrolled away; never jumps to the page top.
+  const reveal = () =>
+    requestAnimationFrame(() => {
+      const top = formRef.current?.getBoundingClientRect().top ?? 0
+      if (top < 0) formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    })
   const go = (next: number) => {
     setIndex(next)
-    window.scrollTo({ top: 0, behavior: 'smooth' })
+    reveal()
   }
   const Step = (_: { n?: number }) => (
     <div className="space-y-2">
@@ -117,7 +124,7 @@ export function RsvpForm({ initial, link, onDone }: FormProps) {
       queryClient.setQueryData(rsvpQuery(view.editToken).queryKey, view)
       onDone(view)
       if (initial) navigate({ to: '/rsvp', search: { token: view.editToken }, replace: true })
-      window.scrollTo({ top: 0, behavior: 'smooth' })
+      reveal()
     },
     onError: (e) => toast.error(errorMessage(e)),
   })
@@ -126,11 +133,13 @@ export function RsvpForm({ initial, link, onDone }: FormProps) {
     setAttendees((list) => list.map((a, k) => (k === i ? { ...a, ...patch } : a)))
 
   return (
-    <AnimatePresence mode="wait">
+    <>
       <motion.form
+        ref={formRef}
         key={page}
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
+        initial={{ opacity: 0.4 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.2 }}
         className="space-y-6"
         onSubmit={(e) => {
           e.preventDefault()
@@ -144,7 +153,7 @@ export function RsvpForm({ initial, link, onDone }: FormProps) {
       >
         {page === 'who' && <Card>
           <CardHeader>
-            <Step n={1} />
+            {Step({ n: 1 })}
             <CardTitle>{t('Wer antwortet?')}</CardTitle>
             <CardDescription>{t('Eine Antwort pro Haushalt genügt.')}</CardDescription>
           </CardHeader>
@@ -158,7 +167,7 @@ export function RsvpForm({ initial, link, onDone }: FormProps) {
 
         {page === 'status' && <Card>
           <CardHeader>
-            <Step n={2} />
+            {Step({ n: 2 })}
             <CardTitle>{t('Kommt ihr?')}</CardTitle>
           </CardHeader>
           <CardContent>
@@ -185,7 +194,7 @@ export function RsvpForm({ initial, link, onDone }: FormProps) {
         {page === 'people' && (
           <Card>
             <CardHeader>
-              <Step n={3} />
+              {Step({ n: 3 })}
               <CardTitle>{t('Wer kommt?')}</CardTitle>
               <CardDescription>{t('Bitte alle Personen eintragen, auch Kinder.')}</CardDescription>
             </CardHeader>
@@ -270,7 +279,7 @@ export function RsvpForm({ initial, link, onDone }: FormProps) {
         {page === 'contribution' && (
           <Card>
             <CardHeader>
-              <Step n={4} />
+              {Step({ n: 4 })}
               <CardTitle>{t('Möchtet ihr einen Beitrag zum Programm leisten?')}</CardTitle>
               <CardDescription>{t('Rede, Spiel, Musik, Überraschung – unsere Trauzeugen koordinieren alles und melden sich bei euch.')}</CardDescription>
             </CardHeader>
@@ -380,7 +389,7 @@ export function RsvpForm({ initial, link, onDone }: FormProps) {
         {page === 'music' && (
           <Card>
             <CardHeader>
-              <Step n={5} />
+              {Step({ n: 5 })}
               <CardTitle>{t('Musikwünsche')}</CardTitle>
               <CardDescription>{t('Was bringt euch auf die Tanzfläche?')}</CardDescription>
             </CardHeader>
@@ -412,7 +421,7 @@ export function RsvpForm({ initial, link, onDone }: FormProps) {
 
         {page === 'message' && <Card>
           <CardHeader>
-            <Step n={6} />
+            {Step({ n: 6 })}
             <CardTitle className="flex items-center gap-2">
               {t('Nachricht an uns')} <span className="text-sm font-normal text-muted-foreground">{t('(optional)')}</span>
             </CardTitle>
@@ -422,7 +431,7 @@ export function RsvpForm({ initial, link, onDone }: FormProps) {
           </CardContent>
         </Card>}
 
-        <div className="sticky bottom-0 -mx-4 bg-gradient-to-t from-background via-background/95 to-transparent px-4 pt-6 pb-4 sm:static sm:mx-0 sm:bg-none sm:p-0">
+        <div className="pt-2">
           <div className="flex gap-3">
             {at > 0 && (
               <Button type="button" size="lg" variant="outline" onClick={() => go(at - 1)}>
@@ -436,7 +445,7 @@ export function RsvpForm({ initial, link, onDone }: FormProps) {
           {last && <p className="mt-2 text-center text-xs text-muted-foreground">{t('Eure Angaben sehen nur wir und unsere Trauzeugen.')}</p>}
         </div>
       </motion.form>
-    </AnimatePresence>
+    </>
   )
 }
 
