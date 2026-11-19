@@ -1,0 +1,17 @@
+http:
+  routers:
+    wedwise:
+      rule: Host(`{{ env "DOMAIN" }}`)
+      entryPoints: [websecure]
+      service: wedwise
+      middlewares: [compress]
+      tls:
+        certResolver: letsencrypt
+  middlewares:
+    compress:
+      compress: {}
+  services:
+    wedwise:
+      loadBalancer:
+        servers:
+          - url: http://wedwise:8080

@@ -1,5 +1,5 @@
-# Production example: published image behind Caddy with automatic HTTPS.
-# 1. cp .env.example .env   and fill in DOMAIN, SESSION_SECRET and DATA_KEY
+# Production example: published image behind Traefik with automatic HTTPS.
+# 1. cp .env.example .env   and fill in DOMAIN, ACME_EMAIL, SESSION_SECRET and DATA_KEY
 # 2. put config.yaml (see ../../config.yaml) into ./config/
 # 3. docker compose up -d
 # 4. docker compose exec wedwise /app/wedding user create --username admin --role admin
@@ -26,22 +26,33 @@ services:
       - wedwise-data:/data
       - ./config:/config:ro
 
-  caddy:
-    image: caddy:2@sha256:4851e54a46b206517c574821bb5cc67f170d2156041e9fbc4c9193b45e84a75b
+  traefik:
+    image: traefik:v3.6
     restart: unless-stopped
+    read_only: true
+    cap_drop: [ALL]
+    cap_add: [NET_BIND_SERVICE]
+    security_opt: ["no-new-privileges:true"]
+    command:
+      - --providers.file.filename=/etc/traefik/dynamic.yaml
+      - --entrypoints.web.address=:80
+      - --entrypoints.web.http.redirections.entrypoint.to=websecure
+      - --entrypoints.web.http.redirections.entrypoint.scheme=https
+      - --entrypoints.websecure.address=:443
+      - --certificatesresolvers.letsencrypt.acme.email=${ACME_EMAIL:?set ACME_EMAIL in .env}
+      - --certificatesresolvers.letsencrypt.acme.storage=/acme/acme.json
+      - --certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web
     ports:
       - "80:80"
       - "443:443"
     environment:
       DOMAIN: "${DOMAIN}"
     volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy-data:/data
-      - caddy-config:/config
+      - ./traefik.yaml:/etc/traefik/dynamic.yaml:ro
+      - traefik-acme:/acme
     depends_on:
       - wedwise
 
 volumes:
   wedwise-data:
-  caddy-data:
-  caddy-config:
+  traefik-acme:

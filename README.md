@@ -245,7 +245,7 @@ docker run -d --name wedwise -p 8080:8080 \
 docker exec -it wedwise /app/wedding user create --username admin --role admin --email you@example.com
 ```
 
-Put a TLS-terminating reverse proxy (Caddy, Traefik, nginx) in front. Set
+Put a TLS-terminating reverse proxy (Traefik, nginx) in front. Set
 `TRUST_PROXY_HEADERS=false` if there is no proxy; in production Wedwise does
 not start without an explicit choice.
 
@@ -299,7 +299,7 @@ Optional hardening:
 
 | Path | What |
 |------|------|
-| [`examples/deploy/compose`](examples/deploy/compose) | Docker Compose with Caddy for automatic HTTPS (`cp .env.example .env`, `docker compose up -d`). |
+| [`examples/deploy/compose`](examples/deploy/compose) | Docker Compose with Traefik for automatic HTTPS (`cp .env.example .env`, `docker compose up -d`). |
 | [`examples/deploy/helm/values.yaml`](examples/deploy/helm/values.yaml) | Helm values with ingress, cert-manager TLS and an existing Secret. |
 | [`examples/deploy/gitops/flux`](examples/deploy/gitops/flux) | Flux `OCIRepository` + `HelmRelease`. |
 | [`examples/deploy/gitops/argocd`](examples/deploy/gitops/argocd) | Argo CD `Application`. |
