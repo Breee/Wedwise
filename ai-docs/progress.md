@@ -109,3 +109,4 @@ Open work is tracked in GitHub issues and milestones (M1 Staff tools, M2 Accommo
 - 2026-11-19: News messages wrap long words and links on phones.
 - 2026-11-19: Login with only a passkey as second factor asks just for the passkey (no code field); guest passkeys on staff login get a clear message; passkey rejections are logged.
 - 2026-11-19: Opening a place to stay on a phone moves it once to the top of the screen so it fits.
+- 2026-11-19: Footer shows the release version (GET /api/version, set at build time) and links to GitHub.

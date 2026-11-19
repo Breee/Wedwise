@@ -6,12 +6,18 @@ import { t } from '@/lib/i18n'
 import { LanguageToggle } from './LanguageToggle'
 import { meQuery, publicContentQuery } from '@/lib/queries'
 import { forgetToken, rememberedToken } from '@/lib/remember'
+import { api } from '@/lib/api'
 
 export function AppFooter() {
   const { data: me } = useQuery(meQuery)
   const { data: site } = useQuery(publicContentQuery)
   const [remembered, setRemembered] = useState(() => rememberedToken() !== null)
   const privacy = site?.content.privacy
+  const { data: build } = useQuery({
+    queryKey: ['version'],
+    queryFn: () => api.get<{ version: string }>('/version'),
+    staleTime: Infinity,
+  })
   return (
     <footer className="border-t border-border/60 px-6 py-8 text-center text-sm text-muted-foreground">
       <p>{t('Mit Liebe gemacht')}</p>
@@ -41,6 +47,9 @@ export function AppFooter() {
             {t('Login')}
           </Link>
         )}
+        <a href="https://github.com/Breee/Wedwise" target="_blank" rel="noreferrer" className="underline-offset-4 hover:underline">
+          Wedwise{build?.version ? ` ${build.version}` : ''} · GitHub
+        </a>
       </div>
     </footer>
   )

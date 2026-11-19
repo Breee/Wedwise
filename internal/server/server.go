@@ -34,6 +34,7 @@ import (
 	"github.com/Breee/Wedwise/internal/twofactor"
 	"github.com/Breee/Wedwise/internal/uploads"
 	"github.com/Breee/Wedwise/internal/users"
+	"github.com/Breee/Wedwise/internal/version"
 	"github.com/Breee/Wedwise/web"
 )
 
@@ -216,6 +217,9 @@ func New(cfg configuration.Config, db *sql.DB) (*Server, error) {
 	r.Use(authService.CSRF)
 
 	r.Get("/healthz", healthz)
+	r.Get("/api/version", func(w http.ResponseWriter, _ *http.Request) {
+		httpx.WriteJSON(w, http.StatusOK, map[string]string{"version": version.Version})
+	})
 	r.Get("/readyz", readyz(db))
 	r.Get("/manifest.webmanifest", manifestHandler(cfg.Event))
 

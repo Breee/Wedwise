@@ -16,7 +16,8 @@ RUN go mod download
 COPY . .
 COPY --from=frontend /app/web/dist ./web/dist
 ARG TARGETOS TARGETARCH
-RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -ldflags="-s -w" -o wedding ./cmd/wedding && mkdir /empty
+ARG VERSION=dev
+RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -ldflags="-s -w -X github.com/Breee/Wedwise/internal/version.Version=$VERSION" -o wedding ./cmd/wedding && mkdir /empty
 
 # Stage 3: Runtime. No shell or package manager, only the binary, CA
 # certificates and time zone data.
