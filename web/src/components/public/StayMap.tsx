@@ -517,7 +517,7 @@ function HotelCard({
       aria-current={selected || undefined}
       aria-expanded={expanded}
       className={cn(
-        'scroll-mt-20 cursor-pointer rounded-2xl border bg-card p-5 transition-colors',
+        'scroll-mt-32 cursor-pointer rounded-2xl border bg-card p-5 transition-colors',
         selected ? 'border-primary bg-primary/5 shadow-lg' : active ? 'border-primary/60 shadow-lg' : 'border-border/60',
       )}
     >
