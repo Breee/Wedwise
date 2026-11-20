@@ -23,7 +23,7 @@ import { MESSENGERS, MessengerIcon } from '@/lib/contact'
 import { rememberToken } from '@/lib/remember'
 import { createKey, signWithKey, webauthnSupported } from '@/lib/webauthn'
 import { InstallApp } from '@/components/public/InstallApp'
-import { GuestNotifications } from '@/components/public/Notifications'
+import { GuestNotifications, Option } from '@/components/public/Notifications'
 
 const MAX_ATTENDEES = 10
 
@@ -160,7 +160,7 @@ export function RsvpForm({ initial, link, onDone }: FormProps) {
           <CardContent className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="contactName">{t('Name')}</Label>
-              <Input id="contactName" value={contactName} onChange={(e) => setContactName(e.target.value)} required autoComplete="name" />
+              <Input id="contactName" value={contactName} onChange={(e) => setContactName(e.target.value)} required autoComplete="name" enterKeyHint="next" />
             </div>
           </CardContent>
         </Card>}
@@ -431,7 +431,7 @@ export function RsvpForm({ initial, link, onDone }: FormProps) {
           </CardContent>
         </Card>}
 
-        <div className="pt-2">
+        <div className="sticky bottom-0 z-10 -mx-4 bg-background/95 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur sm:static sm:mx-0 sm:bg-transparent sm:p-0 sm:pt-2 sm:backdrop-blur-none">
           <div className="flex gap-3">
             {at > 0 && (
               <Button type="button" size="lg" variant="outline" onClick={() => go(at - 1)}>
@@ -453,28 +453,35 @@ export function Done({ view, onEdit }: { view: GuestView; onEdit: () => void }) 
   useEffect(() => rememberToken(view.editToken), [view.editToken])
   return (
     <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }}>
-      <Card className="text-center">
-        <CardContent className="space-y-4 py-12">
-          <CheckCircle2 className="mx-auto size-12 text-primary" />
-          <h2 className="text-4xl">{t('Vielen Dank!')}</h2>
-          <p className="text-muted-foreground">
-            {view.status === 'no'
-              ? t('Schade, dass ihr nicht dabei sein könnt. Wir denken an euch.')
-              : t('Eure Rückmeldung ist angekommen. Wir freuen uns riesig auf euch!')}
-          </p>
-          {view.contribution && <p className="text-sm text-muted-foreground">{t('Euer Beitrag wurde an die Trauzeugen weitergeleitet.')}</p>}
-          <SavePasskey token={view.editToken} />
-          <InstallApp />
-          <GuestNotifications />
-          <div className="flex flex-col items-center gap-3 pt-2">
-            <Button asChild size="lg">
-              <Link to="/">{t('Alle Infos zur Hochzeit ansehen')}</Link>
-            </Button>
-            <p className="text-sm text-muted-foreground">{t('Ablauf, Anreise und Unterkünfte findet ihr dort jederzeit wieder.')}</p>
-            <Button variant="outline" onClick={onEdit}>
-              {t('Antwort bearbeiten')}
-            </Button>
+      <Card>
+        <CardContent className="space-y-6 py-10">
+          <div className="space-y-3 text-center">
+            <CheckCircle2 className="mx-auto size-12 text-primary" />
+            <h2 className="text-4xl">{t('Vielen Dank!')}</h2>
+            <p className="text-muted-foreground">
+              {view.status === 'no'
+                ? t('Schade, dass ihr nicht dabei sein könnt. Wir denken an euch.')
+                : t('Eure Rückmeldung ist angekommen. Wir freuen uns riesig auf euch!')}
+            </p>
+            {view.contribution && <p className="text-sm text-muted-foreground">{t('Euer Beitrag wurde an die Trauzeugen weitergeleitet.')}</p>}
           </div>
+          <Button asChild size="lg" className="w-full">
+            <Link to="/">{t('Alle Infos zur Hochzeit ansehen')}</Link>
+          </Button>
+          <div>
+            <p className="text-xs font-medium tracking-widest text-muted-foreground uppercase">{t('Wenn ihr mögt')}</p>
+            <ul className="divide-y">
+              <GuestNotifications compact />
+              <InstallApp compact />
+              <SavePasskey token={view.editToken} />
+            </ul>
+          </div>
+          <p className="text-center text-sm text-muted-foreground">
+            {t('Etwas vertippt?')}{' '}
+            <button type="button" className="font-medium text-primary underline underline-offset-4" onClick={onEdit}>
+              {t('Antwort bearbeiten')}
+            </button>
+          </p>
         </CardContent>
       </Card>
     </motion.div>
@@ -495,21 +502,17 @@ function SavePasskey({ token }: { token: string }) {
     onSuccess: () => setSaved(true),
     onError: (e) => toast.error(errorMessage(e, t('Der Passkey konnte nicht gespeichert werden.'))),
   })
+  if (!webauthnSupported()) return null
   return (
-    <div className="mx-auto max-w-md space-y-3 rounded-lg bg-secondary/40 p-4 text-sm">
-      <p className="text-muted-foreground">
-        {t('Dieses Gerät merkt sich eure Antwort. Mit einem Passkey könnt ihr sie auch später oder auf einem anderen Gerät ändern – sonst sagt uns einfach Bescheid, wenn sich etwas ändert.')}
-      </p>
+    <Option icon={<KeyRound className="size-5" />} title={t('Mit Passkey sichern')} hint={t('Antwort später auf jedem Gerät ändern.')}>
       {saved ? (
-        <p className="font-medium text-primary">{t('Passkey gespeichert.')}</p>
+        <span className="text-sm font-medium text-primary">{t('Gesichert')}</span>
       ) : (
-        webauthnSupported() && (
-          <Button type="button" variant="outline" disabled={save.isPending} onClick={() => save.mutate()}>
-            <KeyRound className="size-4" /> {t('Mit Passkey sichern')}
-          </Button>
-        )
+        <Button type="button" size="sm" variant="outline" disabled={save.isPending} onClick={() => save.mutate()}>
+          {t('Sichern')}
+        </Button>
       )}
-    </div>
+    </Option>
   )
 }
 

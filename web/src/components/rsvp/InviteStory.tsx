@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode } from 'react'
+import type { ReactNode } from 'react'
 import { t } from '@/lib/i18n'
 import { useQuery } from '@tanstack/react-query'
 import { motion } from 'motion/react'
@@ -22,23 +22,6 @@ export function InviteStory({ target }: { target: string }) {
   const deco = data?.theme?.decoration as SceneVariant | undefined
   const variant = deco && SCENES.includes(deco) ? deco : 'night'
 
-  // The story pages snap; from the answer form on the page scrolls freely. A page that
-  // snaps cannot follow the on-screen keyboard and jumps back while typing.
-  useEffect(() => {
-    const root = document.documentElement
-    const form = document.getElementById(target)
-    const snap = (on: boolean) => {
-      root.style.scrollSnapType = on ? 'y mandatory' : ''
-    }
-    snap(true)
-    const observer = form ? new IntersectionObserver(([entry]) => snap(!entry.isIntersecting)) : null
-    if (form) observer?.observe(form)
-    return () => {
-      observer?.disconnect()
-      snap(false)
-    }
-  }, [target])
-
   return (
     <div className="relative bg-[#121c17] text-[#f4efe2]">
       <div className="sticky top-0 h-svh overflow-hidden">
@@ -61,7 +44,7 @@ function Page({ id, next, label, children }: { id: string; next: string; label?:
   return (
     <section
       id={id}
-      className="mx-auto flex min-h-svh max-w-xl snap-start snap-always flex-col justify-center px-6 pt-8 pb-4"
+      className="mx-auto flex min-h-svh max-w-xl flex-col justify-center px-6 pt-8 pb-4"
     >
       <div className="flex flex-1 flex-col justify-center">{children}</div>
       <button

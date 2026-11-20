@@ -112,3 +112,4 @@ Open work is tracked in GitHub issues and milestones (M1 Staff tools, M2 Accommo
 - 2026-11-19: Footer shows the release version (GET /api/version, set at build time) and links to GitHub.
 - 2026-11-19: Opened place to stay lands below both sticky bars (title no longer hidden).
 - 2026-11-19: Invite page no longer snaps once the answer form is on screen (snapping fought the keyboard); typed-in field is moved above the on-screen keyboard, with room below the page; fields use 16px on phones.
+- 2026-11-20: Phone basics: browser handles the keyboard (viewport resizes with it; own keyboard script and snap scrolling removed), buttons wrap, sticky next bar, tidy thank-you page with optional rows. On wedding.local for a real-phone check before release.

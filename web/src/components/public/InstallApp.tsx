@@ -3,6 +3,7 @@ import { t } from '@/lib/i18n'
 import { installOffer, onInstallOffer, takeInstallOffer } from '@/lib/install'
 import { Download, Share } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Option } from './Notifications'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 
 function isStandalone() {
@@ -13,7 +14,7 @@ function isIos() {
   return /iphone|ipad|ipod/i.test(navigator.userAgent)
 }
 
-export function InstallApp() {
+export function InstallApp({ compact = false }: { compact?: boolean }) {
   const offered = useSyncExternalStore(onInstallOffer, installOffer)
   const [installed, setInstalled] = useState(isStandalone)
   const [help, setHelp] = useState(false)
@@ -36,9 +37,17 @@ export function InstallApp() {
 
   return (
     <>
-      <Button onClick={install} variant="outline" size="sm">
-        <Download className="size-4" /> {t('App installieren')}
-      </Button>
+      {compact ? (
+        <Option icon={<Download className="size-5" />} title={t('Auf den Startbildschirm')} hint={t('Alle Infos immer dabei.')}>
+          <Button onClick={install} variant="outline" size="sm">
+            {t('Hinzufügen')}
+          </Button>
+        </Option>
+      ) : (
+        <Button onClick={install} variant="outline" size="sm">
+          <Download className="size-4" /> {t('App installieren')}
+        </Button>
+      )}
       <Dialog open={help} onOpenChange={setHelp}>
         <DialogContent>
           <DialogHeader>

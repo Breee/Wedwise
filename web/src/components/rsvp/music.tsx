@@ -87,7 +87,6 @@ export function SongSearch({ value, onChange }: { value: string; onChange: (v: s
           setQuery(e.target.value)
           onChange(e.target.value)
         }}
-        data-keyboard="top"
         onFocus={() => results.length && setOpen(true)}
         onBlur={() => setTimeout(() => setOpen(false), 150)}
       />
