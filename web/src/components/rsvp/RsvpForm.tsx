@@ -540,7 +540,7 @@ export function PasskeyLogin({ onDone }: { onDone: (view: GuestView) => void }) 
   })
   if (!webauthnSupported()) return null
   return (
-    <Button type="button" variant="outline" disabled={login.isPending} onClick={() => login.mutate()}>
+    <Button type="button" size="lg" className="w-full" disabled={login.isPending} onClick={() => login.mutate()}>
       <KeyRound className="size-4" /> {t('Mit Passkey anmelden')}
     </Button>
   )
