@@ -115,3 +115,4 @@ Open work is tracked in GitHub issues and milestones (M1 Staff tools, M2 Accommo
 - 2026-11-20: Phone basics: browser handles the keyboard (viewport resizes with it; own keyboard script and snap scrolling removed), buttons wrap, sticky next bar, tidy thank-you page with optional rows. On wedding.local for a real-phone check before release.
 - 2026-11-20: Sign-in with a passkey alone (button on top, offered in the username field, offer to create one after a password sign-in; new keys are stored as passkeys). A response sent while signed in belongs to that account (one per account, 'Meine Antwort' in the menu, no extra passkey).
 - 2026-11-20: Sprachumschalter als Flaggen oben rechts; Footer neu gestaltet (Herzlinie, Namen, ruhige Linkzeile, Version klein). Closes #74.
+- 2026-11-20: Footer no longer flashes at the top while a page loads (main area keeps full screen height).

@@ -25,7 +25,7 @@ function RootLayout() {
       <ThemeApplier />
       <div className="flex min-h-svh flex-col">
         {!invite && <AppNav />}
-        <main className="flex-1">
+        <main className="min-h-svh flex-1">
           <Outlet />
         </main>
         <AppFooter language={Boolean(invite)} />
