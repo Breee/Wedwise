@@ -1,4 +1,4 @@
-export type Role = 'couple' | 'witness' | 'admin'
+export type Role = 'couple' | 'witness' | 'admin' | 'guest'
 
 export interface Me {
   authenticated: boolean

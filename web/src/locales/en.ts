@@ -600,4 +600,5 @@ export const en: Record<string, string> = {
   'Ein Passkey ersetzt das Passwort. Er liegt auf eurem Gerät, in eurem Passwortmanager oder auf einem Sicherheitsschlüssel und wird so freigegeben, wie ihr das Gerät entsperrt.':
     'A passkey replaces the password. It lives on your device, in your password manager or on a security key and is released the way you unlock the device.',
   'oder mit Passwort': 'or with a password',
+  'Gast': 'Guest',
 }

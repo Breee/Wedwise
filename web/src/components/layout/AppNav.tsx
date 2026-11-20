@@ -29,6 +29,7 @@ const accountLinks = [
 
 function linksFor(role: string | undefined) {
   if (role === 'admin') return [...coupleLinks, ...witnessLinks, ...adminLinks, ...accountLinks]
+  if (role === 'guest') return [accountLinks[0]]
   if (role === 'witness') return [...witnessLinks, ...accountLinks]
   return role ? [...coupleLinks, ...accountLinks] : []
 }

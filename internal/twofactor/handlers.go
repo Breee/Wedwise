@@ -78,7 +78,7 @@ func (h *Handler) keyBegin(w http.ResponseWriter, r *http.Request) {
 		httpx.NotFound(w, "Security keys are not available.")
 		return
 	}
-	options, err := h.store.keys.BeginRegister(r.Context(), identity.ID, identity.Username)
+	options, err := h.store.keys.BeginRegister(r.Context(), identity.ID, keyLabel(identity))
 	if errors.Is(err, ErrAlreadyEnabled) {
 		httpx.WriteError(w, http.StatusConflict, httpx.CodeConflict, "Too many security keys.")
 		return
@@ -104,7 +104,7 @@ func (h *Handler) keyFinish(w http.ResponseWriter, r *http.Request) {
 		httpx.NotFound(w, "Security keys are not available.")
 		return
 	}
-	err := h.store.keys.FinishRegister(r.Context(), identity.ID, identity.Username, req.Name, req.Credential)
+	err := h.store.keys.FinishRegister(r.Context(), identity.ID, keyLabel(identity), req.Name, req.Credential)
 	if errors.Is(err, ErrInvalidCode) {
 		httpx.WriteError(w, http.StatusBadRequest, auth.CodeInvalidCode, "The security key could not be verified.")
 		return
@@ -220,4 +220,13 @@ func (h *Handler) Reset(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// keyLabel is the name a passkey shows in the browser. Guests have a
+// generated username, so theirs shows the name they answered with.
+func keyLabel(identity auth.Identity) string {
+	if identity.Role == auth.RoleGuest && identity.DisplayName != "" {
+		return identity.DisplayName
+	}
+	return identity.Username
 }

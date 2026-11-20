@@ -3,6 +3,7 @@ package server_test
 import (
 	"encoding/json"
 	"net/http"
+	"strings"
 	"testing"
 )
 
@@ -52,5 +53,44 @@ func TestResponseBelongsToAccount(t *testing.T) {
 	couple, _ := app.login("couple_user", "TestPass123!")
 	if resp := app.do("GET", "/api/rsvp/mine", nil, couple); resp.StatusCode != http.StatusNotFound {
 		t.Fatalf("another account sees a response: got %d", resp.StatusCode)
+	}
+}
+
+func TestAnswerCreatesGuestAccount(t *testing.T) {
+	app, _ := newTestAppWithUsers(t)
+	admin, _ := app.login("admin_user", "TestPass123!")
+
+	resp := app.do("POST", app.submitPath(t), validResponse(), nil)
+	guest := sessionCookie(resp)
+	var sent responseView
+	_ = json.NewDecoder(resp.Body).Decode(&sent)
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusCreated || guest == nil {
+		t.Fatalf("answer: status %d, session %v", resp.StatusCode, guest)
+	}
+
+	me := app.do("GET", "/api/auth/me", nil, guest)
+	body := readBody(t, me)
+	if !strings.Contains(body, `"role":"guest"`) || !strings.Contains(body, "Familie Muster") {
+		t.Fatalf("guest identity: %s", body)
+	}
+	if mine := app.do("GET", "/api/rsvp/mine", nil, guest); mine.StatusCode != http.StatusOK {
+		t.Fatalf("own response: %d", mine.StatusCode)
+	}
+	for _, path := range []string{"/api/responses/", "/api/content/", "/api/users/", "/api/contributions/", "/api/invite-links/"} {
+		if r := app.do("GET", path, nil, guest); r.StatusCode != http.StatusForbidden {
+			t.Fatalf("%s as guest: %d", path, r.StatusCode)
+		}
+	}
+	if list := readBody(t, app.do("GET", "/api/users/", nil, admin)); strings.Contains(list, "guest-") {
+		t.Fatalf("guest account listed among users: %s", list)
+	}
+
+	// Deleting the response removes the account with it.
+	if r := app.do("DELETE", "/api/rsvp/"+sent.EditToken, nil, nil); r.StatusCode != http.StatusNoContent {
+		t.Fatalf("delete: %d", r.StatusCode)
+	}
+	if app.authenticated(guest) {
+		t.Fatal("guest account outlived its response")
 	}
 }

@@ -138,6 +138,14 @@ func New(cfg configuration.Config, db *sql.DB) (*Server, error) {
 		return nil, err
 	}
 	rsvpHandler.SetPasskeys(guestPasskeys)
+	rsvpHandler.SetGuests(func(ctx context.Context, name string) (int64, error) {
+		handle, err := rsvp.GenerateToken()
+		if err != nil {
+			return 0, err
+		}
+		guest, err := userStore.Create(ctx, users.CreateParams{Username: "guest-" + handle[:16], DisplayName: name, Role: auth.RoleGuest})
+		return guest.ID, err
+	}, authService.StartSession)
 	pushService, err := push.NewService(context.Background(), db, cfg.BaseURL)
 	if err != nil {
 		return nil, err

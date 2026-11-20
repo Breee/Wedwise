@@ -98,7 +98,7 @@ func (s *Store) GetByUsername(ctx context.Context, username string) (User, error
 
 // List returns all users ordered by username.
 func (s *Store) List(ctx context.Context) ([]User, error) {
-	rows, err := s.db.QueryContext(ctx, "SELECT "+userColumns+" FROM users ORDER BY username")
+	rows, err := s.db.QueryContext(ctx, "SELECT "+userColumns+" FROM users WHERE role != 'guest' ORDER BY username")
 	if err != nil {
 		return nil, fmt.Errorf("list users: %w", err)
 	}

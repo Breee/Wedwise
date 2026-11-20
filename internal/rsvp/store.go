@@ -224,6 +224,16 @@ func (s *Store) Delete(ctx context.Context, id int64) error {
 	if n, _ := res.RowsAffected(); n == 0 {
 		return ErrNotFound
 	}
+	return s.DropGuests(ctx)
+}
+
+// DropGuests removes guest accounts whose response is gone.
+func (s *Store) DropGuests(ctx context.Context) error {
+	_, err := s.db.ExecContext(ctx, `DELETE FROM users WHERE role = 'guest'
+		AND id NOT IN (SELECT user_id FROM responses WHERE user_id IS NOT NULL)`)
+	if err != nil {
+		return fmt.Errorf("drop guest accounts: %w", err)
+	}
 	return nil
 }
 
@@ -453,7 +463,7 @@ func (s *Store) DeleteMany(ctx context.Context, ids []int64) (int, error) {
 	if err := tx.Commit(); err != nil {
 		return 0, fmt.Errorf("commit delete responses: %w", err)
 	}
-	return deleted, nil
+	return deleted, s.DropGuests(ctx)
 }
 
 type scanner interface {

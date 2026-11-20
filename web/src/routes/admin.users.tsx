@@ -25,7 +25,7 @@ export const Route = createFileRoute('/admin/users')({
   component: UsersPage,
 })
 
-const ROLE_LABEL: Record<Role, string> = { couple: 'Brautpaar', witness: 'Trauzeug:in', admin: 'Admin' }
+const ROLE_LABEL: Record<Role, string> = { couple: 'Brautpaar', witness: 'Trauzeug:in', admin: 'Admin', guest: 'Gast' }
 
 function UsersPage() {
   const queryClient = useQueryClient()

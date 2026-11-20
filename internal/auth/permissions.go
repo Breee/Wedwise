@@ -24,6 +24,9 @@ const (
 	RoleCouple  = "couple"
 	RoleWitness = "witness"
 	RoleAdmin   = "admin"
+	// RoleGuest owns one response and nothing else. Answering through an
+	// invite link creates such an account.
+	RoleGuest = "guest"
 )
 
 // rolePermissions maps a role to the permissions it grants.
@@ -31,6 +34,7 @@ const (
 // The couple intentionally has no access to contributions: surprises planned by
 // guests must stay hidden from them. Admins may see everything.
 var rolePermissions = map[string]map[string]bool{
+	RoleGuest: {},
 	RoleCouple: {
 		PermContentRead:  true,
 		PermContentWrite: true,

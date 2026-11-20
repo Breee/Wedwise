@@ -124,6 +124,7 @@ export function RsvpForm({ initial, link, onDone }: FormProps) {
       queryClient.setQueryData(rsvpQuery(view.editToken).queryKey, view)
       onDone(view)
       queryClient.invalidateQueries({ queryKey: ['rsvp', 'mine'] })
+      queryClient.invalidateQueries({ queryKey: meQuery.queryKey })
       if (initial && !link) navigate({ to: '/rsvp', search: { token: view.editToken }, replace: true })
       reveal()
     },
@@ -475,7 +476,7 @@ export function Done({ view, onEdit }: { view: GuestView; onEdit: () => void }) 
             <ul className="divide-y">
               <GuestNotifications compact />
               <InstallApp compact />
-              {!signedIn && <SavePasskey token={view.editToken} />}
+              {signedIn && <SavePasskey />}
             </ul>
           </div>
           <p className="text-center text-sm text-muted-foreground">
@@ -492,41 +493,47 @@ export function Done({ view, onEdit }: { view: GuestView; onEdit: () => void }) 
 
 type Ceremony = { id: string; options: { publicKey: unknown } }
 
-function SavePasskey({ token }: { token: string }) {
-  const [saved, setSaved] = useState(false)
+function SavePasskey() {
+  const queryClient = useQueryClient()
+  const keys = useQuery({
+    queryKey: ['account', '2fa'],
+    queryFn: () => api.get<{ keys: unknown[] }>('/account/2fa'),
+    retry: false,
+  })
   const save = useMutation({
     mutationFn: async () => {
-      const path = `/rsvp/${encodeURIComponent(token)}/passkey`
-      const { id, options } = await api.post<Ceremony>(`${path}/begin`, {})
+      const options = await api.post<{ publicKey: unknown }>('/account/2fa/keys/begin')
       const credential = await createKey(options)
-      await api.post(path, { id, credential })
+      await api.post('/account/2fa/keys', { name: 'Passkey', credential })
     },
-    onSuccess: () => setSaved(true),
+    onSuccess: () => {
+      toast.success(t('Gesichert'))
+      queryClient.invalidateQueries({ queryKey: ['account', '2fa'] })
+    },
     onError: (e) => toast.error(errorMessage(e, t('Der Passkey konnte nicht gespeichert werden.'))),
   })
-  if (!webauthnSupported()) return null
+  if (!webauthnSupported() || !keys.data || keys.data.keys.length > 0) return null
   return (
     <Option icon={<KeyRound className="size-5" />} title={t('Mit Passkey sichern')} hint={t('Antwort später auf jedem Gerät ändern.')}>
-      {saved ? (
-        <span className="text-sm font-medium text-primary">{t('Gesichert')}</span>
-      ) : (
-        <Button type="button" size="sm" variant="outline" disabled={save.isPending} onClick={() => save.mutate()}>
-          {t('Sichern')}
-        </Button>
-      )}
+      <Button type="button" size="sm" variant="outline" disabled={save.isPending} onClick={() => save.mutate()}>
+        {t('Sichern')}
+      </Button>
     </Option>
   )
 }
 
 export function PasskeyLogin({ onDone }: { onDone: (view: GuestView) => void }) {
+  const queryClient = useQueryClient()
   const login = useMutation({
     mutationFn: async () => {
-      const { id, options } = await api.post<Ceremony>('/rsvp/passkey/begin', {})
+      const { id, options } = await api.post<Ceremony>('/auth/passkey/begin', {})
       const assertion = await signWithKey(options)
-      return api.post<GuestView>('/rsvp/passkey', { id, assertion })
+      await api.post('/auth/passkey', { id, assertion })
+      await queryClient.fetchQuery({ ...meQuery, staleTime: 0 })
+      return api.get<GuestView>('/rsvp/mine')
     },
     onSuccess: (view) => {
-      rememberToken(view.editToken)
+      queryClient.invalidateQueries({ queryKey: ['rsvp', 'mine'] })
       onDone(view)
     },
     onError: (e) => toast.error(errorMessage(e, t('Die Anmeldung mit dem Passkey hat nicht geklappt.'))),

@@ -1,6 +1,7 @@
 package rsvp
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -52,6 +53,8 @@ type Handler struct {
 	submissions   *middleware.Limiter
 	notify        func(response Response, withContribution bool)
 	passkeys      *Passkeys
+	newGuest      func(ctx context.Context, name string) (int64, error)
+	signIn        func(w http.ResponseWriter, r *http.Request, userID int64) error
 }
 
 // NewHandler creates an RSVP handler.
@@ -359,6 +362,13 @@ func (h *Handler) OnResponse(fn func(response Response, withContribution bool)) 
 	h.notify = fn
 }
 
+// SetGuests makes every answer from someone who is not signed in create a
+// guest account that owns the response and is signed in right away.
+func (h *Handler) SetGuests(newGuest func(ctx context.Context, name string) (int64, error), signIn func(w http.ResponseWriter, r *http.Request, userID int64) error) {
+	h.newGuest = newGuest
+	h.signIn = signIn
+}
+
 func (h *Handler) create(w http.ResponseWriter, r *http.Request) {
 	link, ok := h.activeLink(w, r)
 	if !ok {
@@ -399,10 +409,33 @@ func (h *Handler) create(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	guest := userID == 0 && h.newGuest != nil
+	if guest {
+		params := req.toParams()
+		if err := params.normalize(); err != nil {
+			h.writeError(w, err)
+			return
+		}
+		id, err := h.newGuest(r.Context(), req.ContactName)
+		if err != nil {
+			httpx.Internal(w, err)
+			return
+		}
+		userID = id
+	}
 	response, token, err := h.store.Create(r.Context(), link.ID, userID, req.toParams())
 	if err != nil {
+		if guest {
+			_ = h.store.DropGuests(r.Context())
+		}
 		h.writeError(w, err)
 		return
+	}
+	if guest {
+		if err := h.signIn(w, r, userID); err != nil {
+			httpx.Internal(w, err)
+			return
+		}
 	}
 	h.submissions.Allow(key)
 	if h.notify != nil {
