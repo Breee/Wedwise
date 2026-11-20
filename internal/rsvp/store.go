@@ -142,7 +142,8 @@ func (p *SubmitParams) normalize() error {
 }
 
 // Create stores a new response and returns it together with its edit token.
-func (s *Store) Create(ctx context.Context, inviteLinkID int64, params SubmitParams) (Response, string, error) {
+// userID ties the response to a staff account; 0 means a guest without one.
+func (s *Store) Create(ctx context.Context, inviteLinkID, userID int64, params SubmitParams) (Response, string, error) {
 	if err := params.normalize(); err != nil {
 		return Response{}, "", err
 	}
@@ -167,11 +168,15 @@ func (s *Store) Create(ctx context.Context, inviteLinkID int64, params SubmitPar
 	}
 	defer func() { _ = tx.Rollback() }()
 
+	var owner any
+	if userID > 0 {
+		owner = userID
+	}
 	now := time.Now().UTC()
 	res, err := tx.ExecContext(ctx,
-		`INSERT INTO responses (invite_link_id, edit_token_hash, edit_token_enc, contact_name, email, phone, status, message, music_genres, music_song, submitted_at, updated_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		inviteLinkID, tokens.Hash(token), sealedToken, params.ContactName, private[0], private[1], params.Status, private[2], params.MusicGenres, params.MusicSong, now, now)
+		`INSERT INTO responses (user_id, invite_link_id, edit_token_hash, edit_token_enc, contact_name, email, phone, status, message, music_genres, music_song, submitted_at, updated_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		owner, inviteLinkID, tokens.Hash(token), sealedToken, params.ContactName, private[0], private[1], params.Status, private[2], params.MusicGenres, params.MusicSong, now, now)
 	if err != nil {
 		return Response{}, "", fmt.Errorf("insert response: %w", err)
 	}
@@ -284,6 +289,11 @@ const responseColumns = "id, invite_link_id, contact_name, email, phone, status,
 // GetByID returns a response by id.
 func (s *Store) GetByID(ctx context.Context, id int64) (Response, error) {
 	return s.queryOne(ctx, "SELECT "+responseColumns+" FROM responses WHERE id = ?", id)
+}
+
+// GetByUser returns the response that belongs to a staff account.
+func (s *Store) GetByUser(ctx context.Context, userID int64) (Response, error) {
+	return s.queryOne(ctx, "SELECT "+responseColumns+" FROM responses WHERE user_id = ?", userID)
 }
 
 // GetByToken returns a response by its edit token.

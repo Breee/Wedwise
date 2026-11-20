@@ -4,7 +4,7 @@ import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { api, errorMessage } from '@/lib/api'
-import { rsvpQuery } from '@/lib/queries'
+import { meQuery, myResponseQuery, rsvpQuery } from '@/lib/queries'
 import { forgetToken, rememberedToken } from '@/lib/remember'
 import type { GuestView } from '@/lib/types'
 import { Button } from '@/components/ui/button'
@@ -21,14 +21,18 @@ export const Route = createFileRoute('/rsvp/')({
 function EditResponsePage() {
   const { token: fromUrl } = Route.useSearch()
   const [deleted, setDeleted] = useState(false)
-  const token = deleted ? undefined : (fromUrl ?? rememberedToken() ?? undefined)
+  const signedIn = useQuery(meQuery).data?.authenticated === true
+  const own = useQuery({ ...myResponseQuery, enabled: signedIn && !fromUrl })
+  const token = deleted ? undefined : (fromUrl ?? own.data?.editToken ?? rememberedToken() ?? undefined)
   const [done, setDone] = useState<GuestView | null>(null)
   const navigate = useNavigate()
 
   return (
     <section className="mx-auto max-w-2xl px-6 py-16">
       <RsvpHeader />
-      {deleted ? (
+      {signedIn && !fromUrl && own.isPending ? (
+        <p className="text-center text-muted-foreground">{t('Lädt…')}</p>
+      ) : deleted ? (
         <Notice text={t('Eure Antwort wurde gelöscht.')} />
       ) : done ? (
         <Done view={done} onEdit={() => setDone(null)} />

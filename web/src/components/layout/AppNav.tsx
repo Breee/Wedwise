@@ -22,7 +22,10 @@ const adminLinks = [
   { to: '/admin/audit', label: 'Protokoll' },
 ] as const
 
-const accountLinks = [{ to: '/account', label: 'Konto' }] as const
+const accountLinks = [
+  { to: '/rsvp', label: 'Meine Antwort' },
+  { to: '/account', label: 'Konto' },
+] as const
 
 function linksFor(role: string | undefined) {
   if (role === 'admin') return [...coupleLinks, ...witnessLinks, ...adminLinks, ...accountLinks]

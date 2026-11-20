@@ -413,7 +413,7 @@ function SecurityKeys({ keys }: { keys: SecurityKey[] }) {
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-2xl">
           <KeyRound className="size-5 text-primary" />
-          {t('Passkey oder Sicherheitsschlüssel')}
+          {t('Passkeys und Sicherheitsschlüssel')}
         </CardTitle>
         <CardDescription>
           {t('Fingerabdruck, Gesichtserkennung oder ein Hardware-Schlüssel (z. B. YubiKey) als zweiter Schritt bei der Anmeldung. Gespeichert wird nur der öffentliche Schlüssel.')}

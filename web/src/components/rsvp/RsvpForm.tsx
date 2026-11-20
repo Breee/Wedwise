@@ -6,7 +6,7 @@ import { motion } from 'motion/react'
 import { CheckCircle2, Clock, KeyRound, Minus, Plus } from 'lucide-react'
 import { toast } from 'sonner'
 import { api, errorMessage } from '@/lib/api'
-import { publicContentQuery, rsvpQuery } from '@/lib/queries'
+import { meQuery, publicContentQuery, rsvpQuery } from '@/lib/queries'
 import { DIET_OPTIONS } from '@/lib/format'
 import type { Attendee, ContributionRequest, GuestView, RsvpStatus, RsvpSubmit } from '@/lib/types'
 import { Button } from '@/components/ui/button'
@@ -123,7 +123,8 @@ export function RsvpForm({ initial, link, onDone }: FormProps) {
     onSuccess: (view) => {
       queryClient.setQueryData(rsvpQuery(view.editToken).queryKey, view)
       onDone(view)
-      if (initial) navigate({ to: '/rsvp', search: { token: view.editToken }, replace: true })
+      queryClient.invalidateQueries({ queryKey: ['rsvp', 'mine'] })
+      if (initial && !link) navigate({ to: '/rsvp', search: { token: view.editToken }, replace: true })
       reveal()
     },
     onError: (e) => toast.error(errorMessage(e)),
@@ -451,6 +452,7 @@ export function RsvpForm({ initial, link, onDone }: FormProps) {
 
 export function Done({ view, onEdit }: { view: GuestView; onEdit: () => void }) {
   useEffect(() => rememberToken(view.editToken), [view.editToken])
+  const signedIn = useQuery(meQuery).data?.authenticated === true
   return (
     <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }}>
       <Card>
@@ -473,7 +475,7 @@ export function Done({ view, onEdit }: { view: GuestView; onEdit: () => void }) 
             <ul className="divide-y">
               <GuestNotifications compact />
               <InstallApp compact />
-              <SavePasskey token={view.editToken} />
+              {!signedIn && <SavePasskey token={view.editToken} />}
             </ul>
           </div>
           <p className="text-center text-sm text-muted-foreground">

@@ -57,6 +57,12 @@ export const rsvpQuery = (token: string) =>
     retry: false,
   })
 
+export const myResponseQuery = queryOptions({
+  queryKey: ['rsvp', 'mine'],
+  queryFn: () => api.get<GuestView>('/rsvp/mine').catch(() => null),
+  retry: false,
+})
+
 export const summaryQuery = queryOptions({
   queryKey: ['rsvp-summary'],
   queryFn: () => api.get<Summary>('/rsvp-summary'),

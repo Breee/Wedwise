@@ -161,9 +161,14 @@ func (k *Keys) Count(ctx context.Context, userID int64) (int, error) {
 	return n, err
 }
 
-// BeginRegister returns creation options for a new key.
+// BeginRegister returns creation options for a new key. Devices that can
+// keep the key themselves create a passkey that signs in without a password;
+// plain security keys still work as a second step.
 func (k *Keys) BeginRegister(ctx context.Context, userID int64, username string) (*protocol.CredentialCreation, error) {
-	return k.beginRegister(ctx, userID, username)
+	return k.beginRegister(ctx, userID, username, webauthn.WithAuthenticatorSelection(protocol.AuthenticatorSelection{
+		ResidentKey:      protocol.ResidentKeyRequirementPreferred,
+		UserVerification: protocol.VerificationPreferred,
+	}))
 }
 
 // BeginRegisterPasskey returns creation options for a key that can sign in

@@ -152,6 +152,7 @@ func (h *Handler) PublicRoutes(middlewares ...func(http.Handler) http.Handler) h
 	r.Get("/links/{link}", h.linkStatus)
 	r.Post("/links/{link}/unlock", h.unlock)
 	r.Post("/links/{link}", h.create)
+	r.Get("/mine", h.mine)
 	r.Post("/passkey/begin", h.passkeyLoginBegin)
 	r.Post("/passkey", h.passkeyLogin)
 	r.Post("/{token}/passkey/begin", h.passkeyRegisterBegin)
@@ -381,7 +382,24 @@ func (h *Handler) create(w http.ResponseWriter, r *http.Request) {
 	if !httpx.DecodeJSON(w, r, &req) {
 		return
 	}
-	response, token, err := h.store.Create(r.Context(), link.ID, req.toParams())
+	var userID int64
+	if identity, ok := auth.IdentityFrom(r.Context()); ok && !identity.Device {
+		userID = identity.ID
+		// One response per account: sending again changes the existing one.
+		if _, token, err := h.own(r, userID); err == nil {
+			response, err := h.store.Update(r.Context(), token, req.toParams())
+			if err != nil {
+				h.writeError(w, err)
+				return
+			}
+			h.writeGuestView(w, r, http.StatusOK, response, token)
+			return
+		} else if !errors.Is(err, ErrNotFound) {
+			h.writeError(w, err)
+			return
+		}
+	}
+	response, token, err := h.store.Create(r.Context(), link.ID, userID, req.toParams())
 	if err != nil {
 		h.writeError(w, err)
 		return
@@ -391,6 +409,31 @@ func (h *Handler) create(w http.ResponseWriter, r *http.Request) {
 		h.notify(response, req.Contribution != nil && response.Status == StatusYes)
 	}
 	h.writeGuestView(w, r, http.StatusCreated, response, token)
+}
+
+// own returns the response of a staff account with its edit token.
+func (h *Handler) own(r *http.Request, userID int64) (Response, string, error) {
+	response, err := h.store.GetByUser(r.Context(), userID)
+	if err != nil {
+		return Response{}, "", err
+	}
+	token, err := h.store.EditToken(r.Context(), response.ID)
+	return response, token, err
+}
+
+// mine returns the response of the signed-in account.
+func (h *Handler) mine(w http.ResponseWriter, r *http.Request) {
+	identity, ok := auth.IdentityFrom(r.Context())
+	if !ok || identity.Device {
+		httpx.WriteError(w, http.StatusUnauthorized, httpx.CodeUnauthorized, "Sign in first.")
+		return
+	}
+	response, token, err := h.own(r, identity.ID)
+	if err != nil {
+		h.writeError(w, err)
+		return
+	}
+	h.writeGuestView(w, r, http.StatusOK, response, token)
 }
 
 func (h *Handler) get(w http.ResponseWriter, r *http.Request) {

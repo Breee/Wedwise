@@ -2,9 +2,10 @@ import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
 import { t } from '@/lib/i18n'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useForm } from '@tanstack/react-form'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { KeyRound } from 'lucide-react'
 import { ApiError, api, errorMessage } from '@/lib/api'
-import { signWithKey, webauthnSupported } from '@/lib/webauthn'
+import { autofillSupported, createKey, signWithKey, webauthnSupported } from '@/lib/webauthn'
 import { meQuery } from '@/lib/queries'
 import { dashboardFor } from '@/lib/auth'
 import type { Me } from '@/lib/types'
@@ -23,6 +24,8 @@ export const Route = createFileRoute('/login')({
   component: LoginPage,
 })
 
+const OFFERED = 'wedwise:passkey-offered'
+
 function LoginPage() {
   const navigate = useNavigate()
   const search = Route.useSearch()
@@ -32,6 +35,13 @@ function LoginPage() {
   const [hasKey, setHasKey] = useState(false)
   // The account has only keys, no authenticator app: no code field, just the key button.
   const [keyOnly, setKeyOnly] = useState(false)
+  const [offer, setOffer] = useState(false)
+  const [explain, setExplain] = useState(false)
+
+  const enter = async () => {
+    const me = await queryClient.fetchQuery({ ...meQuery, staleTime: 0 })
+    navigate({ to: search.redirect ?? dashboardFor(me.role) })
+  }
 
   const login = useMutation({
     mutationFn: (body: { username: string; password: string; code?: string; assertion?: unknown }) =>
@@ -47,8 +57,12 @@ function LoginPage() {
         .catch(() => setHasKey(false))
     },
     onSuccess: async () => {
-      const me = await queryClient.fetchQuery({ ...meQuery, staleTime: 0 })
-      navigate({ to: search.redirect ?? dashboardFor(me.role) })
+      // Signed in with a password: offer a passkey once, when the account has none.
+      if (webauthnSupported() && !localStorage.getItem(OFFERED)) {
+        const status = await api.get<{ keys: unknown[] }>('/account/2fa').catch(() => null)
+        if (status && status.keys.length === 0) return setOffer(true)
+      }
+      await enter()
     },
   })
 
@@ -67,14 +81,64 @@ function LoginPage() {
   })
 
   const passkey = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (autofill: boolean = false) => {
       const { id, options } = await api.post<{ id: string; options: { publicKey: unknown } }>('/auth/passkey/begin')
-      const assertion = await signWithKey(options)
+      const assertion = await signWithKey(options, autofill)
       await api.post('/auth/passkey', { id, assertion })
-      const me = await queryClient.fetchQuery({ ...meQuery, staleTime: 0 })
-      navigate({ to: search.redirect ?? dashboardFor(me.role) })
+      await enter()
     },
   })
+
+  // Saved passkeys show up in the username field's suggestions.
+  const offerInField = passkey.mutate
+  useEffect(() => {
+    autofillSupported().then((ok) => ok && offerInField(true, { onError: () => passkey.reset() }))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const create = useMutation({
+    mutationFn: async () => {
+      const options = await api.post<{ publicKey: unknown }>('/account/2fa/keys/begin')
+      const credential = await createKey(options)
+      await api.post('/account/2fa/keys', { name: t('Passkey'), credential })
+    },
+    onSuccess: () => enter(),
+  })
+
+  if (offer)
+    return (
+      <section className="mx-auto flex max-w-md flex-col px-6 py-24">
+        <Card>
+          <CardHeader className="text-center">
+            <KeyRound className="mx-auto size-8 text-primary" aria-hidden />
+            <CardTitle className="text-2xl">{t('Nächstes Mal ohne Passwort?')}</CardTitle>
+            <CardDescription>
+              {t('Erstellt einen Passkey. Dann meldet ihr euch so an, wie ihr euer Gerät entsperrt.')}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <Button className="w-full" disabled={create.isPending} onClick={() => create.mutate()}>
+              {t('Passkey erstellen')}
+            </Button>
+            <Button
+              variant="ghost"
+              className="w-full"
+              onClick={() => {
+                localStorage.setItem(OFFERED, '1')
+                enter()
+              }}
+            >
+              {t('Später')}
+            </Button>
+            {create.isError && (
+              <p className="text-sm text-destructive" role="alert">
+                {t('Der Passkey konnte nicht eingerichtet werden.')}
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      </section>
+    )
 
   return (
     <section className="mx-auto flex max-w-md flex-col px-6 py-24">
@@ -84,6 +148,27 @@ function LoginPage() {
           <CardDescription>{t('Bereich für Brautpaar und Trauzeugen.')}</CardDescription>
         </CardHeader>
         <CardContent>
+          {webauthnSupported() && !needsCode && (
+            <div className="mb-5 space-y-3 border-b pb-5">
+              <Button type="button" className="w-full" disabled={passkey.isPending && !passkey.variables} onClick={() => passkey.mutate(false)}>
+                <KeyRound aria-hidden /> {t('Mit Passkey anmelden')}
+              </Button>
+              {passkey.isError && (
+                <p className="text-sm text-destructive" role="alert">
+                  {passkey.error instanceof ApiError ? errorMessage(passkey.error) : t('Die Anmeldung mit Passkey hat nicht geklappt.')}
+                </p>
+              )}
+              <button type="button" className="mx-auto block text-xs text-muted-foreground underline" aria-expanded={explain} onClick={() => setExplain(!explain)}>
+                {t('Was ist ein Passkey?')}
+              </button>
+              {explain && (
+                <p className="text-xs text-muted-foreground">
+                  {t('Ein Passkey ersetzt das Passwort. Er liegt auf eurem Gerät, in eurem Passwortmanager oder auf einem Sicherheitsschlüssel und wird so freigegeben, wie ihr das Gerät entsperrt.')}
+                </p>
+              )}
+              <p className="text-center text-xs text-muted-foreground">{t('oder mit Passwort')}</p>
+            </div>
+          )}
           <form
             className="space-y-5"
             onSubmit={(e) => {
@@ -97,7 +182,7 @@ function LoginPage() {
                   <Label htmlFor={field.name}>{t('Benutzername')}</Label>
                   <Input
                     id={field.name}
-                    autoComplete="username"
+                    autoComplete="username webauthn"
                     value={field.state.value}
                     onChange={(e) => field.handleChange(e.target.value)}
                     required
@@ -151,7 +236,7 @@ function LoginPage() {
               </p>
             )}
             {!keyOnly && (
-              <Button type="submit" className="w-full" disabled={login.isPending}>
+              <Button type="submit" variant={webauthnSupported() && !needsCode ? 'outline' : 'default'} className="w-full" disabled={login.isPending}>
                 {login.isPending ? t('Wird geprüft…') : t('Anmelden')}
               </Button>
             )}
@@ -167,24 +252,6 @@ function LoginPage() {
               </Button>
             )}
           </form>
-          {webauthnSupported() && !needsCode && (
-            <div className="mt-5 space-y-2 border-t pt-5">
-              <Button
-                type="button"
-                variant="outline"
-                className="w-full"
-                disabled={passkey.isPending}
-                onClick={() => passkey.mutate()}
-              >
-                {t('Mit Passkey anmelden')}
-              </Button>
-              {passkey.isError && (
-                <p className="text-sm text-destructive" role="alert">
-                  {t('Die Anmeldung mit Passkey hat nicht geklappt.')}
-                </p>
-              )}
-            </div>
-          )}
         </CardContent>
       </Card>
     </section>

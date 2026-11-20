@@ -105,7 +105,7 @@ func Seed(ctx context.Context, links *invites.Store, responses *rsvp.Store, offe
 		if g.declining {
 			params.Status = "no"
 		}
-		response, _, err := responses.Create(ctx, link.ID, params)
+		response, _, err := responses.Create(ctx, link.ID, 0, params)
 		if err != nil {
 			return 0, fmt.Errorf("%s: %w", g.contact, err)
 		}

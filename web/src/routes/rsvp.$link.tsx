@@ -1,12 +1,12 @@
 import { useState } from 'react'
 import { t } from '@/lib/i18n'
 import { createFileRoute } from '@tanstack/react-router'
-import { useMutation, useQueryClient, useSuspenseQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient, useSuspenseQuery } from '@tanstack/react-query'
 import { motion } from 'motion/react'
 import { Lock } from 'lucide-react'
 import { toast } from 'sonner'
 import { api, errorMessage } from '@/lib/api'
-import { inviteLinkQuery } from '@/lib/queries'
+import { inviteLinkQuery, meQuery, myResponseQuery } from '@/lib/queries'
 import type { GuestView } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -35,6 +35,8 @@ function InviteLinkPage() {
   const { data: status } = useSuspenseQuery(inviteLinkQuery(link))
   const [done, setDone] = useState<GuestView | null>(null)
   const [saved, setSaved] = useState<GuestView | null>(null)
+  const signedIn = useQuery(meQuery).data?.authenticated === true
+  const own = useQuery({ ...myResponseQuery, enabled: signedIn })
   const finish = (v: GuestView) => {
     setSaved(v)
     setDone(v)
@@ -51,7 +53,7 @@ function InviteLinkPage() {
         ) : done ? (
           <Done view={done} onEdit={() => setDone(null)} />
         ) : (
-          <RsvpForm link={link} initial={saved ?? undefined} onDone={finish} />
+          <RsvpForm key={own.data?.id ?? 0} link={link} initial={saved ?? own.data ?? undefined} onDone={finish} />
         )}
       </section>
     </>
