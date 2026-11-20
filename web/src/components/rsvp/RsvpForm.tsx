@@ -21,7 +21,7 @@ import { Separator } from '@/components/ui/separator'
 import { GENRES, NEEDS_OPTIONS, genreIcon, SongSearch, formatNeeds, joinList, parseNeeds, splitList } from '@/components/rsvp/music'
 import { MESSENGERS, MessengerIcon } from '@/lib/contact'
 import { rememberToken } from '@/lib/remember'
-import { createKey, signWithKey, webauthnSupported } from '@/lib/webauthn'
+import { createKey, webauthnSupported } from '@/lib/webauthn'
 import { InstallApp } from '@/components/public/InstallApp'
 import { GuestNotifications, Option } from '@/components/public/Notifications'
 
@@ -491,9 +491,7 @@ export function Done({ view, onEdit }: { view: GuestView; onEdit: () => void }) 
   )
 }
 
-type Ceremony = { id: string; options: { publicKey: unknown } }
-
-function SavePasskey() {
+export function SavePasskey() {
   const queryClient = useQueryClient()
   const keys = useQuery({
     queryKey: ['account', '2fa'],
@@ -514,34 +512,10 @@ function SavePasskey() {
   })
   if (!webauthnSupported() || !keys.data || keys.data.keys.length > 0) return null
   return (
-    <Option icon={<KeyRound className="size-5" />} title={t('Mit Passkey sichern')} hint={t('Antwort später auf jedem Gerät ändern.')}>
+    <Option icon={<KeyRound className="size-5" />} title={t('Mit Passkey sichern')} hint={t('Auf jedem Gerät ohne Passwort anmelden.')}>
       <Button type="button" size="sm" variant="outline" disabled={save.isPending} onClick={() => save.mutate()}>
         {t('Sichern')}
       </Button>
     </Option>
-  )
-}
-
-export function PasskeyLogin({ onDone }: { onDone: (view: GuestView) => void }) {
-  const queryClient = useQueryClient()
-  const login = useMutation({
-    mutationFn: async () => {
-      const { id, options } = await api.post<Ceremony>('/auth/passkey/begin', {})
-      const assertion = await signWithKey(options)
-      await api.post('/auth/passkey', { id, assertion })
-      await queryClient.fetchQuery({ ...meQuery, staleTime: 0 })
-      return api.get<GuestView>('/rsvp/mine')
-    },
-    onSuccess: (view) => {
-      queryClient.invalidateQueries({ queryKey: ['rsvp', 'mine'] })
-      onDone(view)
-    },
-    onError: (e) => toast.error(errorMessage(e, t('Die Anmeldung mit dem Passkey hat nicht geklappt.'))),
-  })
-  if (!webauthnSupported()) return null
-  return (
-    <Button type="button" size="lg" className="w-full" disabled={login.isPending} onClick={() => login.mutate()}>
-      <KeyRound className="size-4" /> {t('Mit Passkey anmelden')}
-    </Button>
   )
 }

@@ -11,7 +11,6 @@ export async function requireRole(queryClient: QueryClient, roles: Role[], durin
   throw redirect({ to: '/dashboard' })
 }
 
-export function dashboardFor(role: Role | undefined): '/couple/dashboard' | '/witness/dashboard' | '/rsvp' {
-  if (role === 'guest') return '/rsvp'
-  return role === 'witness' ? '/witness/dashboard' : '/couple/dashboard'
+export function dashboardFor(_role?: Role): '/me' {
+  return '/me'
 }

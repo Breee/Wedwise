@@ -1,8 +1,7 @@
 import { useState } from 'react'
 import { t } from '@/lib/i18n'
-import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { createFileRoute, Navigate } from '@tanstack/react-router'
 import { useMutation, useQuery } from '@tanstack/react-query'
-import { KeyRound } from 'lucide-react'
 import { toast } from 'sonner'
 import { api, errorMessage } from '@/lib/api'
 import { meQuery, myResponseQuery, rsvpQuery } from '@/lib/queries'
@@ -10,7 +9,7 @@ import { forgetToken, rememberedToken } from '@/lib/remember'
 import type { GuestView } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { Done, PasskeyLogin, RsvpForm, RsvpHeader } from '@/components/rsvp/RsvpForm'
+import { Done, RsvpForm, RsvpHeader } from '@/components/rsvp/RsvpForm'
 
 export const Route = createFileRoute('/rsvp/')({
   validateSearch: (search: Record<string, unknown>): { token?: string } => ({
@@ -26,27 +25,9 @@ function EditResponsePage() {
   const own = useQuery({ ...myResponseQuery, enabled: signedIn && !fromUrl })
   const token = deleted ? undefined : (fromUrl ?? own.data?.editToken ?? rememberedToken() ?? undefined)
   const [done, setDone] = useState<GuestView | null>(null)
-  const navigate = useNavigate()
 
   const waiting = signedIn && !fromUrl && own.isPending
-  if (!waiting && !deleted && !done && !token && !signedIn) {
-    return (
-      <section className="mx-auto flex min-h-[70svh] max-w-sm flex-col items-center justify-center px-6 py-16 text-center">
-        <span className="flex size-14 items-center justify-center rounded-full bg-secondary text-primary">
-          <KeyRound className="size-6" />
-        </span>
-        <h1 className="mt-6 font-display text-4xl text-primary">{t('Meine Antwort')}</h1>
-        <p className="mt-3 text-muted-foreground">{t('Meldet euch an, um eure Antwort zu sehen oder zu ändern.')}</p>
-        <div className="mt-8 w-full">
-          <PasskeyLogin onDone={(view) => navigate({ to: '/rsvp', search: { token: view.editToken }, replace: true })} />
-        </div>
-        <p className="mt-8 text-sm text-muted-foreground">
-          {t('Noch nicht geantwortet? Öffnet den Link aus eurer Einladung.')}
-        </p>
-        <a href="/" className="mt-3 text-sm text-primary underline underline-offset-4">{t('Zur Hochzeitsseite')}</a>
-      </section>
-    )
-  }
+  if (!waiting && !deleted && !done && !token && !signedIn) return <Navigate to="/login" />
 
   return (
     <section className="mx-auto max-w-2xl px-6 py-16">

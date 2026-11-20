@@ -37,6 +37,7 @@ function LoginPage() {
   const [keyOnly, setKeyOnly] = useState(false)
   const [offer, setOffer] = useState(false)
   const [explain, setExplain] = useState(false)
+  const [withPassword, setWithPassword] = useState(false)
 
   const enter = async () => {
     const me = await queryClient.fetchQuery({ ...meQuery, staleTime: 0 })
@@ -105,6 +106,8 @@ function LoginPage() {
     onSuccess: () => enter(),
   })
 
+  const showForm = withPassword || needsCode || keyOnly || !webauthnSupported()
+
   if (offer)
     return (
       <section className="mx-auto flex max-w-md flex-col px-6 py-24">
@@ -145,11 +148,11 @@ function LoginPage() {
       <Card>
         <CardHeader className="text-center">
           <CardTitle className="text-3xl">{t('Anmelden')}</CardTitle>
-          <CardDescription>{t('Bereich für Brautpaar und Trauzeugen.')}</CardDescription>
+          <CardDescription>{t('Für Gäste, Brautpaar und Trauzeugen.')}</CardDescription>
         </CardHeader>
         <CardContent>
           {webauthnSupported() && !needsCode && (
-            <div className="mb-5 space-y-3 border-b pb-5">
+            <div className="space-y-3">
               <Button type="button" className="w-full" disabled={passkey.isPending && !passkey.variables} onClick={() => passkey.mutate(false)}>
                 <KeyRound aria-hidden /> {t('Mit Passkey anmelden')}
               </Button>
@@ -166,11 +169,15 @@ function LoginPage() {
                   {t('Ein Passkey ersetzt das Passwort. Er liegt auf eurem Gerät, in eurem Passwortmanager oder auf einem Sicherheitsschlüssel und wird so freigegeben, wie ihr das Gerät entsperrt.')}
                 </p>
               )}
-              <p className="text-center text-xs text-muted-foreground">{t('oder mit Passwort')}</p>
             </div>
           )}
+          {!showForm && (
+            <button type="button" className="mt-5 block w-full text-center text-sm text-muted-foreground underline underline-offset-4" onClick={() => setWithPassword(true)}>
+              {t('Mit Passwort anmelden')}
+            </button>
+          )}
           <form
-            className="space-y-5"
+            className={showForm ? (webauthnSupported() && !needsCode ? 'mt-5 space-y-5 border-t pt-5' : 'space-y-5') : 'hidden'}
             onSubmit={(e) => {
               e.preventDefault()
               form.handleSubmit()

@@ -1,11 +1,10 @@
 import { Link, useNavigate, useRouterState } from '@tanstack/react-router'
 import { t } from '@/lib/i18n'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Heart, LogOut, Menu, UserRound } from 'lucide-react'
+import { Heart, LogOut, UserRound } from 'lucide-react'
 import { LanguageToggle } from './LanguageToggle'
 import { api } from '@/lib/api'
 import { meQuery, publicContentQuery } from '@/lib/queries'
-import { Button } from '@/components/ui/button'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
 
@@ -27,7 +26,12 @@ const accountLinks = [
   { to: '/account', label: 'Konto' },
 ] as const
 
-function linksFor(role: string | undefined) {
+function initials(name: string) {
+  const parts = name.trim().split(/\s+/).filter(Boolean)
+  return ((parts[0]?.[0] ?? '') + (parts.length > 1 ? parts[parts.length - 1][0] : '')) || '?'
+}
+
+export function linksFor(role: string | undefined) {
   if (role === 'admin') return [...coupleLinks, ...witnessLinks, ...adminLinks, ...accountLinks]
   if (role === 'guest') return [accountLinks[0]]
   if (role === 'witness') return [...witnessLinks, ...accountLinks]
@@ -83,28 +87,36 @@ export function AppNav() {
         <nav className={cn('flex min-w-0 items-center gap-1 text-sm', !authed && isPublic && 'absolute right-4 sm:right-6')}>
           {authed && (
             <>
-              <div className="hidden items-center gap-1 md:flex">
-                {links.map((l) => (
-                  <Link
-                    key={l.to}
-                    to={l.to}
-                    className="rounded-md px-3 py-2 text-muted-foreground transition-colors hover:text-foreground data-[status=active]:bg-accent data-[status=active]:text-accent-foreground"
-                  >
-                    {t(l.label)}
-                  </Link>
-                ))}
-                <Button variant="ghost" size="sm" onClick={() => logout.mutate()} disabled={logout.isPending}>
-                  <LogOut className="size-4" />
-                  {t('Abmelden')}
-                </Button>
+              <div className="hidden items-center gap-1 lg:flex">
+                {links
+                  .filter((l) => l.to !== '/rsvp' && l.to !== '/account')
+                  .map((l) => (
+                    <Link
+                      key={l.to}
+                      to={l.to}
+                      className="rounded-md px-3 py-2 text-muted-foreground transition-colors hover:text-foreground data-[status=active]:bg-accent data-[status=active]:text-accent-foreground"
+                    >
+                      {t(l.label)}
+                    </Link>
+                  ))}
               </div>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="md:hidden" aria-label={t('Menü')}>
-                    <Menu className="size-5" />
-                  </Button>
+                  <button
+                    type="button"
+                    aria-label={t('Menü')}
+                    className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-semibold tracking-wide text-primary-foreground uppercase"
+                  >
+                    {initials(me?.displayName || me?.username || '')}
+                  </button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuContent align="end" className="w-52">
+                  <p className="truncate px-2 py-1.5 text-xs text-muted-foreground">{me?.displayName || me?.username}</p>
+                  <DropdownMenuItem asChild>
+                    <Link to="/me" className="data-[status=active]:bg-accent">
+                      {t('Mein Bereich')}
+                    </Link>
+                  </DropdownMenuItem>
                   {links.map((l) => (
                     <DropdownMenuItem key={l.to} asChild>
                       <Link to={l.to} className="data-[status=active]:bg-accent">
@@ -122,9 +134,9 @@ export function AppNav() {
           )}
           {!authed && isPublic && (
             <Link
-              to="/rsvp"
-              aria-label={t('Meine Antwort')}
-              title={t('Meine Antwort')}
+              to="/login"
+              aria-label={t('Anmelden')}
+              title={t('Anmelden')}
               className="flex size-8 items-center justify-center rounded-full text-muted-foreground hover:text-foreground"
             >
               <UserRound className="size-[18px]" />

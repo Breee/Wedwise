@@ -53,12 +53,13 @@ test('guest answers through an invite link', async ({ page, request }) => {
 test('staff can sign in', async ({ page }) => {
   const errors = watchErrors(page)
   await page.goto('/login')
+  await page.getByRole('button', { name: 'Mit Passwort anmelden' }).click()
   await page.locator('#username').fill(STAFF.username)
   await page.locator('#password').fill(STAFF.password)
   await page.locator('form button[type=submit]').click()
   // An account without a passkey is offered one first.
   await page.getByRole('button', { name: 'Später' }).click()
-  await expect(page).toHaveURL(/\/couple\/dashboard/)
+  await expect(page).toHaveURL(/\/me/)
   await expect(page.locator('main h1, main h2').first()).toBeVisible()
   expect(errors).toEqual([])
 })
