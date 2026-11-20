@@ -16,6 +16,7 @@ import (
 	"github.com/Breee/Wedwise/internal/sealed"
 
 	"github.com/go-chi/chi/v5"
+	chimiddleware "github.com/go-chi/chi/v5/middleware"
 
 	"github.com/Breee/Wedwise/internal/audit"
 	"github.com/Breee/Wedwise/internal/auth"
@@ -213,6 +214,8 @@ func New(cfg configuration.Config, db *sql.DB) (*Server, error) {
 	r.Use(middleware.Logging)
 	r.Use(middleware.SecurityHeaders(cfg.ImageHosts))
 	r.Use(middleware.LimitBody)
+	r.Use(chimiddleware.Compress(5, "text/html", "text/css", "text/javascript", "application/javascript",
+		"application/json", "application/manifest+json", "image/svg+xml"))
 	r.Use(authService.Authenticate)
 	r.Use(authService.CSRF)
 
@@ -325,6 +328,10 @@ func spaHandler() (http.HandlerFunc, error) {
 				info, statErr := file.Stat()
 				_ = file.Close()
 				if statErr == nil && !info.IsDir() {
+					// Files under assets/ carry a hash in their name and never change.
+					if strings.HasPrefix(name, "assets/") {
+						w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+					}
 					fileServer.ServeHTTP(w, r)
 					return
 				}

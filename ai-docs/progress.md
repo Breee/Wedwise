@@ -116,3 +116,4 @@ Open work is tracked in GitHub issues and milestones (M1 Staff tools, M2 Accommo
 - 2026-11-20: Sign-in with a passkey alone (button on top, offered in the username field, offer to create one after a password sign-in; new keys are stored as passkeys). A response sent while signed in belongs to that account (one per account, 'Meine Antwort' in the menu, no extra passkey).
 - 2026-11-20: Sprachumschalter als Flaggen oben rechts; Footer neu gestaltet (Herzlinie, Namen, ruhige Linkzeile, Version klein). Closes #74.
 - 2026-11-20: Footer no longer flashes at the top while a page loads (main area keeps full screen height).
+- 2026-11-20: Faster first load: pages and scripts are sent compressed (335 kB → 108 kB main script), hashed assets cached for a year, two variable font files preloaded instead of nine per-weight files, sign-in state resolved before first paint so the header does not switch layout.

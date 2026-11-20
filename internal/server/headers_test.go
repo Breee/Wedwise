@@ -74,3 +74,21 @@ func TestImageHostsValidated(t *testing.T) {
 		}
 	}
 }
+
+func TestPagesAreCompressed(t *testing.T) {
+	app, _ := newTestAppWithUsers(t)
+
+	req, err := http.NewRequest(http.MethodGet, app.srv.URL+"/api/content/public", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Accept-Encoding", "gzip")
+	resp, err := http.DefaultTransport.RoundTrip(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	if got := resp.Header.Get("Content-Encoding"); got != "gzip" {
+		t.Fatalf("Content-Encoding = %q, want gzip", got)
+	}
+}

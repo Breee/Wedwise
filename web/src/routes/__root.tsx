@@ -6,11 +6,14 @@ import { Toaster } from '@/components/ui/sonner'
 import { AppNav } from '@/components/layout/AppNav'
 import { AppFooter } from '@/components/layout/AppFooter'
 import { ThemeApplier } from '@/components/layout/ThemeApplier'
-import { publicContentQuery } from '@/lib/queries'
+import { meQuery, publicContentQuery } from '@/lib/queries'
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
   loader: async ({ context }) => {
-    const data = await context.queryClient.ensureQueryData(publicContentQuery)
+    const [data] = await Promise.all([
+      context.queryClient.ensureQueryData(publicContentQuery),
+      context.queryClient.ensureQueryData(meQuery),
+    ])
     setLanguage(data.event.language)
     return data
   },
