@@ -3,6 +3,7 @@ import { Link } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { Heart } from 'lucide-react'
+import { siGithub } from 'simple-icons'
 import { t } from '@/lib/i18n'
 import { LanguageToggle } from './LanguageToggle'
 import { meQuery, publicContentQuery } from '@/lib/queries'
@@ -61,9 +62,13 @@ export function AppFooter({ language = false }: { language?: boolean }) {
         href="https://github.com/Breee/Wedwise"
         target="_blank"
         rel="noreferrer"
-        className="mt-6 inline-block text-[11px] text-muted-foreground/50 underline-offset-4 hover:underline"
+        aria-label="GitHub"
+        className="mt-6 inline-flex items-center gap-1.5 text-[11px] text-muted-foreground/60 hover:text-foreground"
       >
-        Wedwise{build?.version ? ` ${build.version}` : ''}
+        <svg viewBox="0 0 24 24" aria-hidden className="size-3.5 fill-current">
+          <path d={siGithub.path} />
+        </svg>
+        {build?.version ?? 'Wedwise'}
       </a>
     </footer>
   )
