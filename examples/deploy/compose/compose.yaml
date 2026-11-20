@@ -27,7 +27,7 @@ services:
       - ./config:/config:ro
 
   traefik:
-    image: traefik:v3.6
+    image: traefik:v3.6@sha256:31267173a15b4944e797a76ffd9c419707c8d8b32fe5b610f80cd0cfa05f372d
     restart: unless-stopped
     read_only: true
     cap_drop: [ALL]
