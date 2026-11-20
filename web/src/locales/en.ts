@@ -601,4 +601,6 @@ export const en: Record<string, string> = {
     'A passkey replaces the password. It lives on your device, in your password manager or on a security key and is released the way you unlock the device.',
   'oder mit Passwort': 'or with a password',
   'Gast': 'Guest',
+  'Schon geantwortet? Meldet euch an, um eure Antwort zu sehen. Noch nicht geantwortet? Nutzt den Link aus eurer Einladung.':
+    'Already answered? Sign in to see your response. Not answered yet? Use the link from your invitation.',
 }

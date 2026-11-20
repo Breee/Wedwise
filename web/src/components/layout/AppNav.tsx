@@ -1,7 +1,7 @@
 import { Link, useNavigate, useRouterState } from '@tanstack/react-router'
 import { t } from '@/lib/i18n'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Heart, LogOut, Menu } from 'lucide-react'
+import { Heart, LogOut, Menu, UserRound } from 'lucide-react'
 import { LanguageToggle } from './LanguageToggle'
 import { api } from '@/lib/api'
 import { meQuery, publicContentQuery } from '@/lib/queries'
@@ -120,12 +120,20 @@ export function AppNav() {
               </DropdownMenu>
             </>
           )}
-          {!authed && (
-            !isPublic && pathname !== '/login' && (
-              <Link to="/login" className="px-3 py-2 text-muted-foreground hover:text-foreground">
-                {t('Anmelden')}
-              </Link>
-            )
+          {!authed && isPublic && (
+            <Link
+              to="/rsvp"
+              aria-label={t('Meine Antwort')}
+              title={t('Meine Antwort')}
+              className="flex size-8 items-center justify-center rounded-full text-muted-foreground hover:text-foreground"
+            >
+              <UserRound className="size-[18px]" />
+            </Link>
+          )}
+          {!authed && !isPublic && pathname !== '/login' && (
+            <Link to="/login" className="px-3 py-2 text-muted-foreground hover:text-foreground">
+              {t('Anmelden')}
+            </Link>
           )}
           <LanguageToggle className="ml-1" />
         </nav>

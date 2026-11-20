@@ -39,7 +39,13 @@ function EditResponsePage() {
       ) : token ? (
         <ExistingResponse token={token} onDone={setDone} onDeleted={() => setDeleted(true)} />
       ) : (
-        <Notice text={t('Zum Antworten braucht ihr den Einladungslink aus eurer Einladung.')}>
+        <Notice
+          text={
+            signedIn
+              ? t('Zum Antworten braucht ihr den Einladungslink aus eurer Einladung.')
+              : t('Schon geantwortet? Meldet euch an, um eure Antwort zu sehen. Noch nicht geantwortet? Nutzt den Link aus eurer Einladung.')
+          }
+        >
           <PasskeyLogin onDone={(view) => navigate({ to: '/rsvp', search: { token: view.editToken }, replace: true })} />
         </Notice>
       )}
