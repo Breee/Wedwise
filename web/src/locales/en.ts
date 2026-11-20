@@ -182,7 +182,6 @@ export const en: Record<string, string> = {
   'Abmelden': 'Sign out',
   'Menü': 'Menu',
   'Anmelden': 'Sign in',
-  'Mit Liebe gemacht': 'Made with love',
   'Login': 'Login',
   'Bereich für Brautpaar und Trauzeugen.': 'Area for the couple and witnesses.',
   'Benutzername': 'Username',

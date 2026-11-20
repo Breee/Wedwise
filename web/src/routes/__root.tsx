@@ -28,7 +28,7 @@ function RootLayout() {
         <main className="flex-1">
           <Outlet />
         </main>
-        <AppFooter />
+        <AppFooter language={Boolean(invite)} />
         <Toaster position="top-center" richColors />
       </div>
     </MotionConfig>

@@ -62,7 +62,7 @@ export function AppNav() {
     >
       <div
         className={cn(
-          'mx-auto flex h-16 max-w-6xl items-center gap-3 px-4 sm:px-6',
+          'relative mx-auto flex h-16 max-w-6xl items-center gap-3 px-4 sm:px-6',
           !authed && isPublic ? 'justify-center' : 'justify-between',
         )}
       >
@@ -79,8 +79,7 @@ export function AppNav() {
             </>
           )}
         </Link>
-        <nav className="flex min-w-0 items-center gap-1 text-sm">
-          <LanguageToggle />
+        <nav className={cn('flex min-w-0 items-center gap-1 text-sm', !authed && isPublic && 'absolute right-4 sm:right-6')}>
           {authed && (
             <>
               <div className="hidden items-center gap-1 md:flex">
@@ -127,6 +126,7 @@ export function AppNav() {
               </Link>
             )
           )}
+          <LanguageToggle className="ml-1" />
         </nav>
       </div>
     </header>
