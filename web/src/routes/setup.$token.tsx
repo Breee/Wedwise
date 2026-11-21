@@ -5,6 +5,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { api, errorMessage } from '@/lib/api'
 import { meQuery } from '@/lib/queries'
 import { createKey, webauthnSupported } from '@/lib/webauthn'
+import { OpenInBrowser } from '@/components/OpenInBrowser'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -78,6 +79,7 @@ function SetupPage() {
       title={t('Hallo {name}', { name: user.displayName || user.username })}
       description={t('Richtet den Zugang für das Konto „{user}“ ein.', { user: user.username })}
     >
+      <OpenInBrowser className="mb-6" />
       {webauthnSupported() && (
         <div className="mb-6 space-y-3">
           <Button className="w-full" disabled={passkey.isPending} onClick={() => passkey.mutate()}>

@@ -5,6 +5,7 @@ import { useForm } from '@tanstack/react-form'
 import { useEffect, useState } from 'react'
 import { KeyRound } from 'lucide-react'
 import { ApiError, api, errorMessage } from '@/lib/api'
+import { OpenInBrowser } from '@/components/OpenInBrowser'
 import { autofillSupported, createKey, signWithKey, webauthnSupported } from '@/lib/webauthn'
 import { meQuery } from '@/lib/queries'
 import { dashboardFor } from '@/lib/auth'
@@ -151,6 +152,7 @@ function LoginPage() {
           <CardDescription>{t('Für Gäste, Brautpaar und Trauzeugen.')}</CardDescription>
         </CardHeader>
         <CardContent>
+          <OpenInBrowser className="mb-5" />
           {webauthnSupported() && !needsCode && (
             <div className="space-y-3">
               <Button type="button" className="w-full" disabled={passkey.isPending && !passkey.variables} onClick={() => passkey.mutate(false)}>
