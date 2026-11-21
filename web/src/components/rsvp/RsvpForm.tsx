@@ -20,8 +20,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { GENRES, NEEDS_OPTIONS, genreIcon, SongSearch, formatNeeds, joinList, parseNeeds, splitList } from '@/components/rsvp/music'
 import { MESSENGERS, MessengerIcon } from '@/lib/contact'
 import { rememberToken } from '@/lib/remember'
-import { createKey, inAppBrowser, webauthnSupported } from '@/lib/webauthn'
-import { OpenInBrowser } from '@/components/OpenInBrowser'
+import { createKey, webauthnSupported } from '@/lib/webauthn'
+import { PasskeyHelp } from '@/components/PasskeyHelp'
 import { InstallApp } from '@/components/public/InstallApp'
 import { GuestNotifications, Option } from '@/components/public/Notifications'
 
@@ -572,13 +572,19 @@ export function SavePasskey() {
     },
     onError: (e) => toast.error(errorMessage(e, t('Der Passkey konnte nicht gespeichert werden.'))),
   })
-  if (inAppBrowser() && keys.data?.keys.length === 0) return <OpenInBrowser />
   if (!webauthnSupported() || !keys.data || keys.data.keys.length > 0) return null
   return (
-    <Option icon={<KeyRound className="size-5" />} title={t('Mit Passkey sichern')} hint={t('Auf jedem Gerät ohne Passwort anmelden.')}>
-      <Button type="button" size="sm" variant="outline" disabled={save.isPending} onClick={() => save.mutate()}>
-        {t('Sichern')}
-      </Button>
-    </Option>
+    <>
+      <Option icon={<KeyRound className="size-5" />} title={t('Mit Passkey sichern')} hint={t('Auf jedem Gerät ohne Passwort anmelden.')}>
+        <Button type="button" size="sm" variant="outline" disabled={save.isPending} onClick={() => save.mutate()}>
+          {t('Sichern')}
+        </Button>
+      </Option>
+      {save.isError && (
+        <li className="pb-3">
+          <PasskeyHelp />
+        </li>
+      )}
+    </>
   )
 }

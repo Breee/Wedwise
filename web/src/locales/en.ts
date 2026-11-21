@@ -613,7 +613,6 @@ export const en: Record<string, string> = {
   'Konto und eure Antwort endgültig löschen?': 'Delete your account and your response for good?',
   'Euer Konto wurde gelöscht.': 'Your account was deleted.',
   'Das letzte Admin-Konto kann nicht gelöscht werden.': 'The last admin account cannot be deleted.',
-  'Öffnet diese Seite in Safari, um euch ohne Passwort mit Face ID oder Touch ID anzumelden. Hier in der App geht das nicht.':
-    'Open this page in Safari to sign in without a password, using Face ID or Touch ID. That is not possible here inside the app.',
-  'Kopiert. Jetzt in Safari einfügen.': 'Copied. Now paste it into Safari.',
+  'Habt ihr die Seite aus einer App wie WhatsApp geöffnet? Dort geht ein Passkey nicht. Öffnet die Seite in eurem Browser.':
+    'Did you open this page from an app such as WhatsApp? Passkeys do not work there. Open the page in your browser.',
 }

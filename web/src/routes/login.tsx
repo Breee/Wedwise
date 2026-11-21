@@ -5,7 +5,7 @@ import { useForm } from '@tanstack/react-form'
 import { useEffect, useState } from 'react'
 import { KeyRound } from 'lucide-react'
 import { ApiError, api, errorMessage } from '@/lib/api'
-import { OpenInBrowser } from '@/components/OpenInBrowser'
+import { PasskeyHelp } from '@/components/PasskeyHelp'
 import { autofillSupported, createKey, signWithKey, webauthnSupported } from '@/lib/webauthn'
 import { meQuery } from '@/lib/queries'
 import { dashboardFor } from '@/lib/auth'
@@ -139,6 +139,7 @@ function LoginPage() {
                 {t('Der Passkey konnte nicht eingerichtet werden.')}
               </p>
             )}
+            {create.isError && <PasskeyHelp />}
           </CardContent>
         </Card>
       </section>
@@ -152,7 +153,6 @@ function LoginPage() {
           <CardDescription>{t('Für Gäste, Brautpaar und Trauzeugen.')}</CardDescription>
         </CardHeader>
         <CardContent>
-          <OpenInBrowser className="mb-5" />
           {webauthnSupported() && !needsCode && (
             <div className="space-y-3">
               <Button type="button" className="w-full" disabled={passkey.isPending && !passkey.variables} onClick={() => passkey.mutate(false)}>
@@ -163,6 +163,7 @@ function LoginPage() {
                   {passkey.error instanceof ApiError ? errorMessage(passkey.error) : t('Die Anmeldung mit Passkey hat nicht geklappt.')}
                 </p>
               )}
+              {passkey.isError && !(passkey.error instanceof ApiError) && <PasskeyHelp />}
               <button type="button" className="relative after:absolute after:-inset-x-2 after:-inset-y-3 mx-auto block text-xs text-muted-foreground underline" aria-expanded={explain} onClick={() => setExplain(!explain)}>
                 {t('Was ist ein Passkey?')}
               </button>
