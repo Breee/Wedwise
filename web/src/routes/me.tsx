@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { api, errorMessage } from '@/lib/api'
 import { forgetToken } from '@/lib/remember'
-import { Copy, Download } from 'lucide-react'
+import { Copy, Download, PanelTop, Rows3 } from 'lucide-react'
 import { t } from '@/lib/i18n'
 import { copyText } from '@/lib/clipboard'
 import { djText, download, genreRanking, guestCsv, songWishes, venueText } from '@/lib/handover'
@@ -100,13 +100,26 @@ function Dashboard() {
                 {t(LABEL[name])}
               </button>
             ))}
-          <button
-            type="button"
-            onClick={() => layout(!all)}
-            className="relative after:absolute after:-inset-x-2 after:-inset-y-3 ml-auto text-xs text-muted-foreground underline underline-offset-4 hover:text-foreground"
-          >
-            {all ? t('Als Reiter anzeigen') : t('Alles auf einer Seite')}
-          </button>
+          <div className="ml-auto flex rounded-full border bg-card p-0.5">
+            {([[false, PanelTop, 'Als Reiter anzeigen'], [true, Rows3, 'Alles auf einer Seite']] as const).map(
+              ([value, Icon, label]) => (
+                <button
+                  key={label}
+                  type="button"
+                  aria-label={t(label)}
+                  title={t(label)}
+                  aria-pressed={all === value}
+                  onClick={() => layout(value)}
+                  className={cn(
+                    'flex size-9 items-center justify-center rounded-full transition-colors',
+                    all === value ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground',
+                  )}
+                >
+                  <Icon className="size-4" />
+                </button>
+              ),
+            )}
+          </div>
         </div>
       )}
 
