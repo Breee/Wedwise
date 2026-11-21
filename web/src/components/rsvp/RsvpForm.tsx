@@ -45,6 +45,8 @@ export type FormProps = {
   onDone: (view: GuestView) => void
 }
 
+const req = <span aria-hidden className="text-destructive">*</span>
+
 const newAttendee = (name = ''): Attendee => ({ name, isChild: false, age: 0, photoOk: true, diet: 'none', allergies: '' })
 const emptyContribution: ContributionRequest = { title: '', description: '', needs: '', phone: '', messengers: [] }
 
@@ -67,7 +69,7 @@ export function RsvpForm({ initial, link, onDone }: FormProps) {
 
   const attending = status === 'yes'
   const pages = attending
-    ? (['who', 'status', 'people', 'contribution', 'music', 'message'] as const)
+    ? (['who', 'status', 'count', 'people', 'contribution', 'music', 'message'] as const)
     : (['who', 'status', 'message'] as const)
   const [index, setIndex] = useState(0)
   const at = Math.min(index, pages.length - 1)
@@ -83,6 +85,13 @@ export function RsvpForm({ initial, link, onDone }: FormProps) {
   const go = (next: number) => {
     setIndex(next)
     reveal()
+    requestAnimationFrame(() => {
+      const title = formRef.current?.querySelector<HTMLElement>('[data-slot=card-title]')
+      if (!title) return
+      title.tabIndex = -1
+      title.style.outline = 'none'
+      title.focus({ preventScroll: true })
+    })
   }
   const Step = (_: { n?: number }) => (
     <div className="space-y-2">
@@ -150,10 +159,7 @@ export function RsvpForm({ initial, link, onDone }: FormProps) {
             return
           }
           if (last) submit.mutate()
-          else {
-            if (page === 'who' && attendees.length === 1 && !attendees[0].name.trim()) updateAttendee(0, { name: contactName })
-            go(at + 1)
-          }
+          else go(at + 1)
         }}
       >
         {page === 'who' && <Card>
@@ -164,8 +170,8 @@ export function RsvpForm({ initial, link, onDone }: FormProps) {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="contactName">{t('Name')}</Label>
-              <Input id="contactName" autoCapitalize="words" value={contactName} onChange={(e) => setContactName(e.target.value)} required autoComplete="name" enterKeyHint="next" />
+              <Label htmlFor="contactName">{t('Name')} {req}</Label>
+              <Input id="contactName" placeholder={t('z. B. Familie Müller oder Anna & Ben')} autoCapitalize="words" value={contactName} onChange={(e) => setContactName(e.target.value)} required autoComplete="name" enterKeyHint="next" />
             </div>
           </CardContent>
         </Card>}
@@ -196,6 +202,25 @@ export function RsvpForm({ initial, link, onDone }: FormProps) {
           </CardContent>
         </Card>}
 
+        {page === 'count' && (
+          <Card>
+            <CardHeader>
+              {Step({})}
+              <CardTitle>{t('Wie viele seid ihr?')}</CardTitle>
+              <CardDescription>{t('Bitte alle mitzählen, auch Kinder.')}</CardDescription>
+            </CardHeader>
+            <CardContent className="flex items-center justify-center gap-6">
+              <Button type="button" variant="outline" size="icon" className="size-12 rounded-full" aria-label={t('Eine Person weniger')} disabled={attendees.length <= 1} onClick={() => setAttendees((l) => l.slice(0, -1))}>
+                <Minus className="size-5" />
+              </Button>
+              <output className="w-16 text-center font-display text-5xl tabular-nums" aria-live="polite">{attendees.length}</output>
+              <Button type="button" variant="outline" size="icon" className="size-12 rounded-full" aria-label={t('Eine Person mehr')} disabled={attendees.length >= MAX_ATTENDEES} onClick={() => setAttendees((l) => [...l, newAttendee()])}>
+                <Plus className="size-5" />
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
         {page === 'people' && (
           <Card>
             <CardHeader>
@@ -208,7 +233,7 @@ export function RsvpForm({ initial, link, onDone }: FormProps) {
                 <div key={i} className="space-y-3">
                   {i > 0 && <Separator />}
                   <div className="space-y-2">
-                    <Label htmlFor={`name-${i}`}>{t('Name')}</Label>
+                    <Label htmlFor={`name-${i}`}>{t('Name')} {req}</Label>
                     <div className="flex items-center gap-2">
                       <Input id={`name-${i}`} value={a.name} onChange={(e) => updateAttendee(i, { name: e.target.value })} required autoCapitalize="words" enterKeyHint="done" />
                       {attendees.length > 1 && (
@@ -222,7 +247,15 @@ export function RsvpForm({ initial, link, onDone }: FormProps) {
                 </div>
               ))}
               {attendees.length < MAX_ATTENDEES && (
-                <Button type="button" variant="outline" onClick={() => setAttendees((l) => [...l, newAttendee()])}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    const next = attendees.length
+                    setAttendees((l) => [...l, newAttendee()])
+                    requestAnimationFrame(() => document.getElementById(`name-${next}`)?.focus())
+                  }}
+                >
                   <Plus className="size-4" /> {t('Person hinzufügen')}
                 </Button>
               )}
@@ -253,7 +286,7 @@ export function RsvpForm({ initial, link, onDone }: FormProps) {
                     {t('Bitte plant maximal ca. {minutes} Minuten ein, damit alle Beiträge Platz finden.', { minutes })}
                   </p>
                   <div className="space-y-2">
-                    <Label htmlFor="c-title">{t('Was habt ihr vor?')}</Label>
+                    <Label htmlFor="c-title">{t('Was habt ihr vor?')} {req}</Label>
                     <Input id="c-title" value={contribution.title} onChange={(e) => setContribution({ ...contribution, title: e.target.value })} placeholder={t('z. B. Rede, Spiel, Lied')} required />
                   </div>
                   <div className="space-y-2">
@@ -283,7 +316,7 @@ export function RsvpForm({ initial, link, onDone }: FormProps) {
                     <Input placeholder={t('Sonstiges …')} value={needs.other} onChange={(e) => setNeeds((n) => ({ ...n, other: e.target.value }))} />
                   </div>
                   <div className="space-y-3">
-                    <Label>{t('Wie erreichen euch die Trauzeugen?')}</Label>
+                    <Label>{t('Wie erreichen euch die Trauzeugen?')} {req}</Label>
                     <div className="flex flex-wrap gap-2">
                       {MESSENGERS.map((m) => {
                         const on = contribution.messengers.some((x) => x.kind === m.id)
