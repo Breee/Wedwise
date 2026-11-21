@@ -114,8 +114,8 @@ phone has to trust `local/certs/ca.crt` once:
 4. **Responses** — everyone lands on one dashboard, "Mein Bereich" (`/me`),
    after signing in. Its tabs depend on the role: your own response, all
    responses, food (diets and allergies), music wishes and, for witnesses and
-   admins only, contributions with the running order. Tabs can be switched to
-   a single long page. Staff can edit or delete responses.
+   admins only, contributions with the running order. Staff can edit or delete
+   responses.
 5. **Routes on the maps** — you only enter coordinates for the venue, stops
    and hotels. Routes and travel times are looked up with a free
    [OpenRouteService](https://openrouteservice.org/dev/#/signup) key

@@ -603,8 +603,6 @@ export const en: Record<string, string> = {
   'Auf jedem Gerät ohne Passwort anmelden.': 'Sign in on any device without a password.',
   'Lädt …': 'Loading …',
   'Essen': 'Food',
-  'Als Reiter anzeigen': 'Show as tabs',
-  'Alles auf einer Seite': 'Everything on one page',
   'Konto löschen': 'Delete account',
   'Konto und eure Antwort endgültig löschen?': 'Delete your account and your response for good?',
   'Euer Konto wurde gelöscht.': 'Your account was deleted.',

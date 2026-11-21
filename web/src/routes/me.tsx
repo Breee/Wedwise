@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { api, errorMessage } from '@/lib/api'
 import { forgetToken } from '@/lib/remember'
-import { Copy, Download, PanelTop, Rows3 } from 'lucide-react'
+import { Copy, Download } from 'lucide-react'
 import { t } from '@/lib/i18n'
 import { copyText } from '@/lib/clipboard'
 import { djText, download, genreRanking, guestCsv, songWishes, venueText } from '@/lib/handover'
@@ -42,7 +42,6 @@ const LABEL: Record<Tab, string> = {
   music: 'Musik',
   contributions: 'Beiträge',
 }
-const LAYOUT = 'wedwise:dashboard-layout'
 
 export const Route = createFileRoute('/me')({
   validateSearch: (search: Record<string, unknown>): { tab?: Tab } =>
@@ -58,18 +57,13 @@ function Dashboard() {
   const me = useQuery(meQuery).data
   const search = Route.useSearch()
   const navigate = Route.useNavigate()
-  const [all, setAll] = useState(() => localStorage.getItem(LAYOUT) === 'all')
   const may = (permission: string) => me?.permissions.includes(permission) ?? false
   const answers = may('rsvp.read')
   const tabs = TABS.filter((tab) =>
     tab === 'mine' ? true : tab === 'contributions' ? may('contribution.read') : answers,
   )
   const tab = search.tab && tabs.includes(search.tab) ? search.tab : tabs[0]
-  const shown = (name: Tab) => tabs.includes(name) && (all || tab === name)
-  const layout = (next: boolean) => {
-    localStorage.setItem(LAYOUT, next ? 'all' : 'tabs')
-    setAll(next)
-  }
+  const shown = (name: Tab) => tabs.includes(name) && tab === name
 
   return (
     <section className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
@@ -85,49 +79,28 @@ function Dashboard() {
 
       {tabs.length > 1 && (
         <div className="mt-6 flex flex-wrap items-center gap-2">
-          {!all &&
-            tabs.map((name) => (
-              <button
-                key={name}
-                type="button"
-                aria-pressed={tab === name}
-                onClick={() => navigate({ search: { tab: name }, replace: true })}
-                className={cn(
-                  'rounded-full border px-4 py-2 text-sm transition-colors',
-                  tab === name ? 'border-primary bg-primary text-primary-foreground' : 'bg-card hover:bg-accent',
-                )}
-              >
-                {t(LABEL[name])}
-              </button>
-            ))}
-          <div className="ml-auto flex rounded-full border bg-card p-0.5">
-            {([[false, PanelTop, 'Als Reiter anzeigen'], [true, Rows3, 'Alles auf einer Seite']] as const).map(
-              ([value, Icon, label]) => (
-                <button
-                  key={label}
-                  type="button"
-                  aria-label={t(label)}
-                  title={t(label)}
-                  aria-pressed={all === value}
-                  onClick={() => layout(value)}
-                  className={cn(
-                    'flex size-9 items-center justify-center rounded-full transition-colors',
-                    all === value ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground',
-                  )}
-                >
-                  <Icon className="size-4" />
-                </button>
-              ),
-            )}
-          </div>
+          {tabs.map((name) => (
+            <button
+              key={name}
+              type="button"
+              aria-pressed={tab === name}
+              onClick={() => navigate({ search: { tab: name }, replace: true })}
+              className={cn(
+                'rounded-full border px-4 py-2 text-sm transition-colors',
+                tab === name ? 'border-primary bg-primary text-primary-foreground' : 'bg-card hover:bg-accent',
+              )}
+            >
+              {t(LABEL[name])}
+            </button>
+          ))}
         </div>
       )}
 
-      {shown('mine') && <Mine title={all || tabs.length === 1} />}
-      {shown('responses') && <Responses title={all} />}
-      {shown('food') && <Food title={all} />}
-      {shown('music') && <Music title={all} />}
-      {shown('contributions') && <Contributions title={all} />}
+      {shown('mine') && <Mine title={tabs.length === 1} />}
+      {shown('responses') && <Responses />}
+      {shown('food') && <Food />}
+      {shown('music') && <Music />}
+      {shown('contributions') && <Contributions />}
     </section>
   )
 }
@@ -187,11 +160,11 @@ function useHandover() {
   return { responses, title, copy: (text: string) => copyText(text, t('Kopiert.')) }
 }
 
-function Responses({ title }: { title: boolean }) {
+function Responses() {
   const s = useQuery(summaryQuery).data
   const { responses } = useHandover()
   return (
-    <Part title={title && t(LABEL.responses)}>
+    <Part>
       {s && (
         <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
           <Stat label={t('Rückmeldungen')} value={s.responses} />
@@ -212,12 +185,12 @@ function Responses({ title }: { title: boolean }) {
   )
 }
 
-function Food({ title }: { title: boolean }) {
+function Food() {
   const s = useQuery(summaryQuery).data
   const { responses, title: event, copy } = useHandover()
   const diets = Object.entries(s?.dietCounts ?? {}).filter(([, n]) => n > 0)
   return (
-    <Part title={title && t(LABEL.food)}>
+    <Part>
       <Button variant="outline" onClick={() => copy(venueText(event, responses))}>
         <Copy /> {t('Für die Location kopieren')}
       </Button>
@@ -259,13 +232,13 @@ function Food({ title }: { title: boolean }) {
   )
 }
 
-function Music({ title }: { title: boolean }) {
+function Music() {
   const { responses, title: event, copy } = useHandover()
   const genres = genreRanking(responses)
   const genreMax = genres[0]?.[1] ?? 1
   const songs = songWishes(responses)
   return (
-    <Part title={title && t(LABEL.music)}>
+    <Part>
       <Button variant="outline" onClick={() => copy(djText(event, responses))}>
         <Copy /> {t('Für den DJ kopieren')}
       </Button>
@@ -308,7 +281,7 @@ function Music({ title }: { title: boolean }) {
   )
 }
 
-function Contributions({ title }: { title: boolean }) {
+function Contributions() {
   const contributions = useQuery(contributionsQuery).data ?? []
   const summary = useQuery(summaryQuery).data
   const [selected, setSelected] = useState<Contribution | null>(null)
@@ -317,7 +290,7 @@ function Contributions({ title }: { title: boolean }) {
   const scheduled = contributions.filter((c) => c.status !== 'rejected' && toMinutes(c.slotTime) !== null).length
   const minutes = confirmed.reduce((sum, c) => sum + c.durationMinutes, 0)
   return (
-    <Part title={title && t(LABEL.contributions)}>
+    <Part>
       <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         <Stat label={t('Beiträge')} value={contributions.length} />
         <Stat label={t('Offen')} value={open} hint={t('neu oder mit Rückfrage')} />
