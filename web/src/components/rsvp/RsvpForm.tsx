@@ -3,7 +3,7 @@ import { t } from '@/lib/i18n'
 import { Link, useNavigate } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { motion } from 'motion/react'
-import { CheckCircle2, Clock, KeyRound, Minus, Plus } from 'lucide-react'
+import { CheckCircle2, Clock, KeyRound, Minus, Plus, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { api, errorMessage } from '@/lib/api'
 import { meQuery, publicContentQuery, rsvpQuery } from '@/lib/queries'
@@ -17,7 +17,6 @@ import { Textarea } from '@/components/ui/textarea'
 import { Checkbox } from '@/components/ui/checkbox'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Separator } from '@/components/ui/separator'
 import { GENRES, NEEDS_OPTIONS, genreIcon, SongSearch, formatNeeds, joinList, parseNeeds, splitList } from '@/components/rsvp/music'
 import { MESSENGERS, MessengerIcon } from '@/lib/contact'
 import { rememberToken } from '@/lib/remember'
@@ -228,21 +227,18 @@ export function RsvpForm({ initial, link, onDone }: FormProps) {
               <CardTitle>{t('Wer kommt?')}</CardTitle>
               <CardDescription>{t('Bitte alle Personen eintragen, auch Kinder.')}</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-6">
+            <CardContent className="space-y-4">
               {attendees.map((a, i) => (
-                <div key={i} className="space-y-3">
-                  {i > 0 && <Separator />}
-                  <div className="space-y-2">
-                    <Label htmlFor={`name-${i}`}>{t('Name')} {req}</Label>
-                    <div className="flex items-center gap-2">
-                      <Input id={`name-${i}`} value={a.name} onChange={(e) => updateAttendee(i, { name: e.target.value })} required autoCapitalize="words" enterKeyHint="done" />
-                      {attendees.length > 1 && (
-                        <Button type="button" variant="ghost" size="icon" className="size-11 sm:size-9" title={t('Entfernen')} aria-label={t('Entfernen')} onClick={() => setAttendees((l) => l.filter((_, k) => k !== i))}>
-                          <Minus className="size-4" />
-                        </Button>
-                      )}
-                    </div>
+                <div key={i} className="space-y-3 rounded-lg border bg-background/60 p-4">
+                  <div className="flex min-h-6 items-center justify-between gap-2">
+                    <Label htmlFor={`name-${i}`}>{t('{n}. Person', { n: i + 1 })} {req}</Label>
+                    {attendees.length > 1 && (
+                      <Button type="button" variant="ghost" size="icon" className="-my-3 -mr-2 size-11 text-muted-foreground sm:size-9" title={t('Entfernen')} aria-label={t('Entfernen')} onClick={() => setAttendees((l) => l.filter((_, k) => k !== i))}>
+                        <X className="size-4" />
+                      </Button>
+                    )}
                   </div>
+                  <Input id={`name-${i}`} placeholder={t('Name')} value={a.name} onChange={(e) => updateAttendee(i, { name: e.target.value })} required autoCapitalize="words" enterKeyHint="done" />
                   <PersonDetails attendee={a} index={i} update={(patch) => updateAttendee(i, patch)} />
                 </div>
               ))}
@@ -250,6 +246,7 @@ export function RsvpForm({ initial, link, onDone }: FormProps) {
                 <Button
                   type="button"
                   variant="outline"
+                  className="w-full"
                   onClick={() => {
                     const next = attendees.length
                     setAttendees((l) => [...l, newAttendee()])
@@ -437,7 +434,7 @@ export function RsvpForm({ initial, link, onDone }: FormProps) {
   )
 }
 
-const pill = 'min-h-10 rounded-full border border-primary/60 sm:min-h-0'
+const check = 'flex min-h-10 items-center gap-3 font-normal sm:min-h-8'
 
 function PersonDetails({ attendee: a, index: i, update }: { attendee: Attendee; index: number; update: (patch: Partial<Attendee>) => void }) {
   const hasFood = (a.diet || 'none') !== 'none' || a.allergies.trim() !== ''
@@ -445,18 +442,21 @@ function PersonDetails({ attendee: a, index: i, update }: { attendee: Attendee; 
   const food = open || hasFood
   return (
     <>
-      <div className="flex flex-wrap gap-2">
-        <Button type="button" size="sm" variant={a.isChild ? 'default' : 'outline'} className={pill} aria-pressed={a.isChild} onClick={() => update({ isChild: !a.isChild, photoOk: a.isChild })}>
+      <div>
+        <Label className={check}>
+          <Checkbox checked={a.isChild} onCheckedChange={(c) => update({ isChild: c === true, photoOk: c !== true })} />
           {t('Kind')}
-        </Button>
-        <Button type="button" size="sm" variant={food ? 'default' : 'outline'} className={pill} aria-expanded={food}
-          onClick={() => {
-            if (food) update({ diet: 'none', allergies: '' })
-            setOpen(!food)
-          }}
-        >
+        </Label>
+        <Label className={check}>
+          <Checkbox
+            checked={food}
+            onCheckedChange={(c) => {
+              if (c !== true) update({ diet: 'none', allergies: '' })
+              setOpen(c === true)
+            }}
+          />
           {t('Besondere Ernährung oder Allergien')}
-        </Button>
+        </Label>
       </div>
       {a.isChild && (
         <div className="space-y-3 rounded-lg bg-secondary/40 p-3">

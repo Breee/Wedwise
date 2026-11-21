@@ -54,6 +54,7 @@ export const en: Record<string, string> = {
   'Name': 'Name',
   'Ja, wir kommen!': 'Yes, we\'ll be there!',
   'Leider nicht': 'Sadly not',
+  '{n}. Person': 'Person {n}',
   'Kind': 'Child',
   'Entfernen': 'Remove',
   'Alter': 'Age',
