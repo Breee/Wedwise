@@ -22,7 +22,7 @@ export function AppFooter({ language = false }: { language?: boolean }) {
     staleTime: Infinity,
   })
   const names = site?.event.couple.map((c) => c.name).filter(Boolean).join(' & ')
-  const link = 'cursor-pointer underline-offset-4 hover:text-foreground hover:underline'
+  const link = 'relative after:absolute after:-inset-x-2 after:-inset-y-3 cursor-pointer underline-offset-4 hover:text-foreground hover:underline'
   return (
     <footer className="mt-8 border-t border-border/60 px-6 pt-10 pb-[max(2rem,env(safe-area-inset-bottom))] text-center text-muted-foreground">
       <div className="mx-auto flex max-w-xs items-center gap-4 text-gold">

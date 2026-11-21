@@ -36,11 +36,11 @@ export function LanguageToggle({ className }: { className?: string }) {
       aria-label={label}
       title={label}
       className={cn(
-        'flex size-6 shrink-0 items-center justify-center overflow-hidden rounded-full opacity-80 ring-1 ring-border transition hover:opacity-100',
+        'relative flex size-6 shrink-0 items-center justify-center rounded-full opacity-80 ring-1 ring-border transition after:absolute after:-inset-1.5 hover:opacity-100',
         className,
       )}
     >
-      {FLAGS[other].flag}
+      <span className="flex size-full items-center justify-center overflow-hidden rounded-full">{FLAGS[other].flag}</span>
     </button>
   )
 }

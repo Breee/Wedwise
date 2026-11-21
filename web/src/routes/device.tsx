@@ -75,6 +75,11 @@ function DevicePage() {
                 value={typed}
                 onChange={(e) => setTyped(e.target.value)}
                 required
+                autoCapitalize="characters"
+                autoCorrect="off"
+                autoComplete="off"
+                spellCheck={false}
+                enterKeyHint="go"
               />
               <Button type="submit">{t('Weiter')}</Button>
             </form>

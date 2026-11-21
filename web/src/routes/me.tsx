@@ -103,7 +103,7 @@ function Dashboard() {
           <button
             type="button"
             onClick={() => layout(!all)}
-            className="ml-auto text-xs text-muted-foreground underline underline-offset-4 hover:text-foreground"
+            className="relative after:absolute after:-inset-x-2 after:-inset-y-3 ml-auto text-xs text-muted-foreground underline underline-offset-4 hover:text-foreground"
           >
             {all ? t('Als Reiter anzeigen') : t('Alles auf einer Seite')}
           </button>
@@ -350,7 +350,7 @@ function DeleteAccount() {
       onClick={() => {
         if (window.confirm(t('Konto und eure Antwort endgültig löschen?'))) remove.mutate()
       }}
-      className="mt-6 text-xs text-muted-foreground underline underline-offset-4 hover:text-destructive"
+      className="relative after:absolute after:-inset-x-2 after:-inset-y-3 mt-6 text-xs text-muted-foreground underline underline-offset-4 hover:text-destructive"
     >
       {t('Konto löschen')}
     </button>

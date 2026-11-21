@@ -161,7 +161,7 @@ function LoginPage() {
                   {passkey.error instanceof ApiError ? errorMessage(passkey.error) : t('Die Anmeldung mit Passkey hat nicht geklappt.')}
                 </p>
               )}
-              <button type="button" className="mx-auto block text-xs text-muted-foreground underline" aria-expanded={explain} onClick={() => setExplain(!explain)}>
+              <button type="button" className="relative after:absolute after:-inset-x-2 after:-inset-y-3 mx-auto block text-xs text-muted-foreground underline" aria-expanded={explain} onClick={() => setExplain(!explain)}>
                 {t('Was ist ein Passkey?')}
               </button>
               {explain && (
@@ -172,7 +172,7 @@ function LoginPage() {
             </div>
           )}
           {!showForm && (
-            <button type="button" className="mt-5 block w-full text-center text-sm text-muted-foreground underline underline-offset-4" onClick={() => setWithPassword(true)}>
+            <button type="button" className="relative after:absolute after:-inset-x-2 after:-inset-y-3 mt-5 block w-full text-center text-sm text-muted-foreground underline underline-offset-4" onClick={() => setWithPassword(true)}>
               {t('Mit Passwort anmelden')}
             </button>
           )}
@@ -190,6 +190,10 @@ function LoginPage() {
                   <Input
                     id={field.name}
                     autoComplete="username webauthn"
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    spellCheck={false}
+                    enterKeyHint="next"
                     value={field.state.value}
                     onChange={(e) => field.handleChange(e.target.value)}
                     required

@@ -200,7 +200,7 @@ function PlanItem({ c, onOpen, onRemove }: { c: Contribution; onOpen: (c: Contri
           {CONTRIBUTION_STATUS_LABEL[c.status]}
         </span>
       </button>
-      <Button variant="ghost" size="icon" className="mt-1.5 size-7" aria-label={t('Aus dem Plan entfernen')} onClick={() => onRemove(c)}>
+      <Button variant="ghost" size="icon" className="relative mt-1.5 size-7 after:absolute after:-inset-1" aria-label={t('Aus dem Plan entfernen')} onClick={() => onRemove(c)}>
         <X className="size-4" />
       </Button>
     </li>
