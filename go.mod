@@ -34,7 +34,8 @@ require (
 	github.com/tinylib/msgp v1.6.5 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
 	golang.org/x/sys v0.50.0 // indirect
-	modernc.org/libc v1.82.6 // indirect
+	modernc.org/libc v1.55.3 // indirect
+	modernc.org/libc/v2 v2.1.30 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.13.0 // indirect
 )
