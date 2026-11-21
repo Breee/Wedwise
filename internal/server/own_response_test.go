@@ -94,3 +94,29 @@ func TestAnswerCreatesGuestAccount(t *testing.T) {
 		t.Fatal("guest account outlived its response")
 	}
 }
+
+func TestDeleteOwnAccount(t *testing.T) {
+	app, _ := newTestAppWithUsers(t)
+	admin, _ := app.login("admin_user", "TestPass123!")
+	resp := app.do(http.MethodDelete, "/api/account/", nil, admin)
+	if resp.StatusCode != http.StatusConflict {
+		t.Fatalf("last administrator: got %d, want 409", resp.StatusCode)
+	}
+
+	witness, _ := app.login("witness_user", "TestPass123!")
+	resp = app.do(http.MethodPost, app.submitPath(t), validResponse(), witness)
+	if resp.StatusCode != http.StatusCreated {
+		t.Fatalf("answer: got %d", resp.StatusCode)
+	}
+	resp = app.do(http.MethodDelete, "/api/account/", nil, witness)
+	if resp.StatusCode != http.StatusNoContent {
+		t.Fatalf("delete account: got %d, want 204", resp.StatusCode)
+	}
+	if _, status := app.login("witness_user", "TestPass123!"); status == http.StatusOK {
+		t.Fatal("deleted account can still sign in")
+	}
+	resp = app.do(http.MethodGet, "/api/responses/", nil, admin)
+	if body := readBody(t, resp); strings.Contains(body, `"contactName"`) {
+		t.Fatalf("response of the deleted account is still there: %s", body)
+	}
+}

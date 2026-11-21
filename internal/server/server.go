@@ -138,6 +138,7 @@ func New(cfg configuration.Config, db *sql.DB) (*Server, error) {
 		return nil, err
 	}
 	rsvpHandler.SetPasskeys(guestPasskeys)
+	userHandler.OnDelete(rsvpStore.DeleteByUser)
 	rsvpHandler.SetGuests(func(ctx context.Context, name string) (int64, error) {
 		handle, err := rsvp.GenerateToken()
 		if err != nil {

@@ -306,6 +306,19 @@ func (s *Store) GetByUser(ctx context.Context, userID int64) (Response, error) {
 	return s.queryOne(ctx, "SELECT "+responseColumns+" FROM responses WHERE user_id = ?", userID)
 }
 
+// DeleteByUser removes the response that belongs to an account, if any.
+func (s *Store) DeleteByUser(ctx context.Context, userID int64) error {
+	response, err := s.GetByUser(ctx, userID)
+	if errors.Is(err, ErrNotFound) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	_, err = s.db.ExecContext(ctx, "DELETE FROM responses WHERE id = ?", response.ID)
+	return err
+}
+
 // GetByToken returns a response by its edit token.
 func (s *Store) GetByToken(ctx context.Context, token string) (Response, error) {
 	if token == "" {

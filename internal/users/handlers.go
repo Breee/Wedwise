@@ -16,7 +16,11 @@ import (
 )
 
 // Handler exposes user endpoints.
+// CodeLastAdmin marks the refusal to delete the only administrator.
+const CodeLastAdmin = "last_admin"
+
 type Handler struct {
+	onDelete func(ctx context.Context, userID int64) error
 	store    *Store
 	auth     *auth.Service
 	baseURL  string
@@ -318,7 +322,44 @@ const CodeInvalidPassword = "invalid_password"
 func (h *Handler) AccountRoutes(middlewares ...func(http.Handler) http.Handler) http.Handler {
 	r := chi.NewRouter()
 	r.With(middlewares...).Put("/password", h.changeOwnPassword)
+	r.With(middlewares...).Delete("/", h.deleteOwnAccount)
 	return r
+}
+
+// OnDelete sets what else goes when someone deletes their own account, such as
+// their response.
+func (h *Handler) OnDelete(fn func(ctx context.Context, userID int64) error) { h.onDelete = fn }
+
+// deleteOwnAccount removes the signed-in account and what belongs to it. The
+// last administrator stays, otherwise nobody could manage the site.
+func (h *Handler) deleteOwnAccount(w http.ResponseWriter, r *http.Request) {
+	identity, ok := auth.IdentityFrom(r.Context())
+	if !ok {
+		httpx.Unauthorized(w)
+		return
+	}
+	if identity.Role == auth.RoleAdmin {
+		admins, err := h.store.ActiveAdmins(r.Context())
+		if err != nil {
+			httpx.Internal(w, err)
+			return
+		}
+		if admins <= 1 {
+			httpx.WriteError(w, http.StatusConflict, CodeLastAdmin, "The last administrator cannot be deleted.")
+			return
+		}
+	}
+	if h.onDelete != nil {
+		if err := h.onDelete(r.Context(), identity.ID); err != nil {
+			httpx.Internal(w, err)
+			return
+		}
+	}
+	if err := h.store.Delete(r.Context(), identity.ID); err != nil {
+		httpx.Internal(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (h *Handler) changeOwnPassword(w http.ResponseWriter, r *http.Request) {

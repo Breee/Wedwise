@@ -81,7 +81,7 @@ function HomePage() {
         <h1 className="font-display text-4xl text-primary">{t('Noch nicht eingerichtet')}</h1>
         <p className="text-muted-foreground">{t('Diese Hochzeitsseite ist noch leer. Meldet euch an, um sie einzurichten.')}</p>
         <Button asChild>
-          <Link to="/login" search={{ redirect: '/couple/dashboard' }}>{t('Anmelden und einrichten')}</Link>
+          <Link to="/login" search={{ redirect: '/me' }}>{t('Anmelden und einrichten')}</Link>
         </Button>
       </section>
     )

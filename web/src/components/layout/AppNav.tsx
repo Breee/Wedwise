@@ -9,13 +9,13 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import { cn } from '@/lib/utils'
 
 const coupleLinks = [
-  { to: '/couple/dashboard', label: 'Übersicht' },
+  { to: '/me', label: 'Dashboard' },
   { to: '/couple/invites', label: 'Einladungslinks' },
   { to: '/couple/content', label: 'Inhalte' },
   { to: '/couple/broadcast', label: 'Nachricht' },
 ] as const
 
-const witnessLinks = [{ to: '/witness/dashboard', label: 'Beiträge' }] as const
+const witnessLinks = [{ to: '/me', label: 'Dashboard' }] as const
 const adminLinks = [
   { to: '/admin/users', label: 'Benutzer' },
   { to: '/admin/audit', label: 'Protokoll' },
@@ -32,8 +32,8 @@ function initials(name: string) {
 }
 
 export function linksFor(role: string | undefined) {
-  if (role === 'admin') return [...coupleLinks, ...witnessLinks, ...adminLinks, ...accountLinks]
-  if (role === 'guest') return [accountLinks[0]]
+  if (role === 'admin') return [...coupleLinks, ...adminLinks, ...accountLinks]
+  if (role === 'guest') return [witnessLinks[0], accountLinks[0]]
   if (role === 'witness') return [...witnessLinks, ...accountLinks]
   return role ? [...coupleLinks, ...accountLinks] : []
 }
@@ -112,11 +112,6 @@ export function AppNav() {
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-52">
                   <p className="truncate px-2 py-1.5 text-xs text-muted-foreground">{me?.displayName || me?.username}</p>
-                  <DropdownMenuItem asChild>
-                    <Link to="/me" className="data-[status=active]:bg-accent">
-                      {t('Mein Bereich')}
-                    </Link>
-                  </DropdownMenuItem>
                   {links.map((l) => (
                     <DropdownMenuItem key={l.to} asChild>
                       <Link to={l.to} className="data-[status=active]:bg-accent">

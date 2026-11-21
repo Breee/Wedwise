@@ -25,6 +25,7 @@ const MESSAGES: Record<string, string> = {
   internal_error: 'Auf dem Server ist etwas schiefgelaufen.',
   two_factor_required: 'Bitte gebt euren Anmeldecode ein.',
   invalid_code: 'Der Code stimmt nicht.',
+  last_admin: 'Das letzte Admin-Konto kann nicht gelöscht werden.',
   invalid_password: 'Das aktuelle Passwort stimmt nicht.',
   invalid_pin: 'Die PIN stimmt nicht.',
   unknown_code: 'Dieser Code ist unbekannt oder abgelaufen.',

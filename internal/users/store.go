@@ -129,6 +129,16 @@ func (s *Store) SetActive(ctx context.Context, username string, active bool) err
 	return checkAffected(res)
 }
 
+// ActiveAdmins counts the administrators who can still sign in.
+func (s *Store) ActiveAdmins(ctx context.Context) (int, error) {
+	var n int
+	err := s.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM users WHERE role = ? AND active = 1", auth.RoleAdmin).Scan(&n)
+	if err != nil {
+		return 0, fmt.Errorf("count administrators: %w", err)
+	}
+	return n, nil
+}
+
 // Delete removes a user; sessions, second factors and setup links go with it.
 func (s *Store) Delete(ctx context.Context, id int64) error {
 	res, err := s.db.ExecContext(ctx, "DELETE FROM users WHERE id = ?", id)
