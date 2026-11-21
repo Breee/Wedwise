@@ -1551,8 +1551,12 @@ func TestUserSetupLink(t *testing.T) {
 	if res := app.do(http.MethodPost, "/api/setup/"+token, map[string]any{"password": "short"}, nil); res.StatusCode != http.StatusBadRequest {
 		t.Fatalf("short password: got %d, want 400", res.StatusCode)
 	}
-	if res := app.do(http.MethodPost, "/api/setup/"+token, map[string]any{"password": "MyOwnSecret123"}, nil); res.StatusCode != http.StatusNoContent {
-		t.Fatalf("redeem: got %d, want 204", res.StatusCode)
+	res = app.do(http.MethodPost, "/api/setup/"+token, map[string]any{"password": "MyOwnSecret123"}, nil)
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("redeem: got %d, want 200", res.StatusCode)
+	}
+	if res := app.do(http.MethodGet, "/api/auth/me", nil, res.Cookies()[0]); res.StatusCode != http.StatusOK {
+		t.Fatalf("signed in after setup: got %d, want 200", res.StatusCode)
 	}
 	if _, status := app.login("neu", "MyOwnSecret123"); status != http.StatusOK {
 		t.Fatalf("login after setup: got %d", status)

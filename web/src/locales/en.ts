@@ -194,7 +194,6 @@ export const en: Record<string, string> = {
   'Link ungültig': 'Invalid link',
   'Dieser Einrichtungslink ist abgelaufen oder wurde schon benutzt. Bittet um einen neuen.': 'This setup link has expired or was already used. Ask for a new one.',
   'Geschafft': 'Done',
-  'Euer Passkey ist eingerichtet. Ihr könnt euch jetzt damit anmelden.': 'Your passkey is set up. You can now sign in with it.',
   'Euer Passwort ist gesetzt. Ihr könnt euch jetzt anmelden.': 'Your password is set. You can now sign in.',
   'Zur Anmeldung': 'Go to sign-in',
   'Hallo {name}': 'Hello {name}',

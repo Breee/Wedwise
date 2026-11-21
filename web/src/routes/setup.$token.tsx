@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import { t } from '@/lib/i18n'
-import { createFileRoute, Link } from '@tanstack/react-router'
-import { useMutation } from '@tanstack/react-query'
+import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { api, errorMessage } from '@/lib/api'
+import { meQuery } from '@/lib/queries'
 import { createKey, webauthnSupported } from '@/lib/webauthn'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -38,25 +39,32 @@ function SetupPage() {
   const user = Route.useLoaderData()
   const [password, setPassword] = useState('')
   const [repeat, setRepeat] = useState('')
-  const save = useMutation({ mutationFn: () => api.post(`/setup/${token}`, { password }) })
+  const navigate = useNavigate()
+  const queryClient = useQueryClient()
+  const enter = async ({ signedIn }: { signedIn: boolean }) => {
+    if (!signedIn) return
+    await queryClient.fetchQuery({ ...meQuery, staleTime: 0 })
+    navigate({ to: '/me' })
+  }
+  const save = useMutation({
+    mutationFn: () => api.post<{ signedIn: boolean }>(`/setup/${token}`, { password }),
+    onSuccess: enter,
+  })
   const passkey = useMutation({
     mutationFn: async () => {
       const options = await api.post<{ publicKey: unknown }>(`/setup/${token}/passkey/begin`)
       const credential = await createKey(options)
-      await api.post(`/setup/${token}/passkey`, { credential })
+      return api.post<{ signedIn: boolean }>(`/setup/${token}/passkey`, { credential })
     },
+    onSuccess: enter,
   })
   const mismatch = repeat !== '' && repeat !== password
 
-  if (save.isSuccess || passkey.isSuccess) {
+  if (save.data?.signedIn === false) {
     return (
       <Shell
         title={t('Geschafft')}
-        description={
-          passkey.isSuccess
-            ? t('Euer Passkey ist eingerichtet. Ihr könnt euch jetzt damit anmelden.')
-            : t('Euer Passwort ist gesetzt. Ihr könnt euch jetzt anmelden.')
-        }
+        description={t('Euer Passwort ist gesetzt. Ihr könnt euch jetzt anmelden.')}
       >
         <Button asChild className="w-full">
           <Link to="/login">{t('Zur Anmeldung')}</Link>

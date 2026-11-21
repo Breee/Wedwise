@@ -223,7 +223,28 @@ func (h *Handler) setupPasskey(w http.ResponseWriter, r *http.Request) {
 		httpx.Internal(w, err)
 		return
 	}
-	w.WriteHeader(http.StatusNoContent)
+	h.setupDone(w, r, user.ID, true)
+}
+
+// setupDone signs the user in on this device once the setup link is used. A
+// password alone does not sign in an account that has a second factor.
+func (h *Handler) setupDone(w http.ResponseWriter, r *http.Request, userID int64, passkey bool) {
+	signIn := passkey
+	if !passkey {
+		enabled, err := h.auth.SecondFactorEnabled(r.Context(), userID)
+		if err != nil {
+			httpx.Internal(w, err)
+			return
+		}
+		signIn = !enabled
+	}
+	if signIn {
+		if err := h.auth.StartSession(w, r, userID); err != nil {
+			httpx.Internal(w, err)
+			return
+		}
+	}
+	httpx.WriteJSON(w, http.StatusOK, map[string]bool{"signedIn": signIn})
 }
 
 func setupNotFound(w http.ResponseWriter) {
@@ -253,7 +274,10 @@ func (h *Handler) setupRedeem(w http.ResponseWriter, r *http.Request) {
 	if !validPassword(w, req.Password) {
 		return
 	}
-	err := h.store.RedeemSetupToken(r.Context(), chi.URLParam(r, "token"), req.Password)
+	user, err := h.store.SetupUser(r.Context(), chi.URLParam(r, "token"))
+	if err == nil {
+		err = h.store.RedeemSetupToken(r.Context(), chi.URLParam(r, "token"), req.Password)
+	}
 	if errors.Is(err, ErrNotFound) {
 		setupNotFound(w)
 		return
@@ -262,7 +286,7 @@ func (h *Handler) setupRedeem(w http.ResponseWriter, r *http.Request) {
 		httpx.Internal(w, err)
 		return
 	}
-	w.WriteHeader(http.StatusNoContent)
+	h.setupDone(w, r, user.ID, false)
 }
 
 func (h *Handler) target(w http.ResponseWriter, r *http.Request) (User, bool) {

@@ -219,6 +219,14 @@ func (s *Service) twoFactorMissing(ctx context.Context, identity Identity) (bool
 	return !enabled, err
 }
 
+// SecondFactorEnabled reports whether the user has a second sign-in step.
+func (s *Service) SecondFactorEnabled(ctx context.Context, userID int64) (bool, error) {
+	if s.secondFactor == nil {
+		return false, nil
+	}
+	return s.secondFactor.Enabled(ctx, userID)
+}
+
 // StartSession signs the user in on this device.
 func (s *Service) StartSession(w http.ResponseWriter, r *http.Request, userID int64) error {
 	session, err := s.sessions.Create(r.Context(), userID, r.UserAgent())
