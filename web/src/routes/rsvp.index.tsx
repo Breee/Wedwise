@@ -30,7 +30,7 @@ function EditResponsePage() {
   if (!waiting && !deleted && !done && !token && !signedIn) return <Navigate to="/login" />
 
   return (
-    <section className="mx-auto max-w-2xl px-6 py-16">
+    <section className="mx-auto max-w-2xl px-4 py-4 sm:px-6 sm:py-16">
       <RsvpHeader />
       {waiting ? (
         <p className="text-center text-muted-foreground">{t('Lädt…')}</p>

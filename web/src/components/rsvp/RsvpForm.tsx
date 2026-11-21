@@ -28,7 +28,7 @@ const MAX_ATTENDEES = 10
 
 export function RsvpHeader() {
   return (
-    <div className="mb-10 text-center">
+    <div className="mb-10 hidden text-center sm:block">
       <p className="text-xs font-medium tracking-[0.35em] text-primary uppercase">{t('Rückmeldung')}</p>
       <h1 className="mt-3 text-5xl">{t('Seid ihr dabei?')}</h1>
       <p className="mt-3 text-muted-foreground">{t('Wir freuen uns auf eure Antwort.')}</p>
