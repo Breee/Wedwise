@@ -44,7 +44,7 @@ function Page({ id, next, label, children }: { id: string; next: string; label?:
   return (
     <section
       id={id}
-      className="mx-auto flex min-h-svh max-w-xl flex-col justify-center px-6 pt-8 pb-4"
+      className="mx-auto flex min-h-svh max-w-xl snap-start snap-always flex-col justify-center px-6 pt-8 pb-4"
     >
       <div className="flex flex-1 flex-col justify-center">{children}</div>
       <button

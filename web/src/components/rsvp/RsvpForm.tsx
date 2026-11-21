@@ -150,7 +150,7 @@ export function RsvpForm({ initial, link, onDone }: FormProps) {
         initial={{ opacity: 0.4 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.2 }}
-        className="flex min-h-svh flex-col gap-6 sm:min-h-0"
+        className="flex min-h-[calc(100svh-2rem)] flex-col gap-6 sm:min-h-0"
         onSubmit={(e) => {
           e.preventDefault()
           if (page === 'contribution' && wantsContribution && contribution.messengers.length === 0) {
