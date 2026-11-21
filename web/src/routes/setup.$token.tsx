@@ -84,7 +84,7 @@ function SetupPage() {
             {t('Mit Passkey einrichten')}
           </Button>
           <p className="text-xs text-muted-foreground">
-            {t('Anmelden per Face ID, Fingerabdruck oder Geräte-PIN – ganz ohne Passwort.')}
+            {t('Ihr meldet euch so an, wie ihr euer Gerät entsperrt – ganz ohne Passwort.')}
           </p>
           {passkey.isError && (
             <p className="text-sm text-destructive">{t('Der Passkey konnte nicht eingerichtet werden.')}</p>

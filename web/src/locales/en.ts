@@ -199,7 +199,7 @@ export const en: Record<string, string> = {
   'Hallo {name}': 'Hello {name}',
   'Richtet den Zugang für das Konto „{user}“ ein.': 'Set up access for the account “{user}”.',
   'Mit Passkey einrichten': 'Set up with passkey',
-  'Anmelden per Face ID, Fingerabdruck oder Geräte-PIN – ganz ohne Passwort.': 'Sign in with Face ID, fingerprint or device PIN – no password needed.',
+  'Ihr meldet euch so an, wie ihr euer Gerät entsperrt – ganz ohne Passwort.': 'You sign in the way you unlock your device – no password needed.',
   'Der Passkey konnte nicht eingerichtet werden.': 'The passkey could not be set up.',
   'oder Passwort festlegen': 'or set a password',
   'Passwort (mind. {n} Zeichen)': 'Password (at least {n} characters)',
