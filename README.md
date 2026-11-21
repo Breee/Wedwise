@@ -111,9 +111,11 @@ phone has to trust `local/certs/ca.crt` once:
 3. **Invite links** — open **Einladungslinks**, create a link, optionally set
    a PIN, copy the URL and send it to your guests. Deactivate or regenerate a
    link at any time; existing responses are kept.
-4. **Responses** — the couple dashboard shows attendance, diets, allergies and
-   music wishes. Witnesses see contributions on a board and plan the running
-   order. Staff can edit or delete responses.
+4. **Responses** — everyone lands on one dashboard, "Mein Bereich" (`/me`),
+   after signing in. Its tabs depend on the role: your own response, all
+   responses, food (diets and allergies), music wishes and, for witnesses and
+   admins only, contributions with the running order. Tabs can be switched to
+   a single long page. Staff can edit or delete responses.
 5. **Routes on the maps** — you only enter coordinates for the venue, stops
    and hotels. Routes and travel times are looked up with a free
    [OpenRouteService](https://openrouteservice.org/dev/#/signup) key
@@ -194,9 +196,23 @@ is stored. They are bound to the host in `BASE_URL` and need HTTPS (or
 register two keys or add TOTP as a fallback.
 
 A setup link also offers "Mit Passkey einrichten": the user registers a
-passkey (Face ID, fingerprint, device PIN) instead of a password and then
-signs in with "Mit Passkey anmelden" on the login page, without username or
-password. Such passkeys require user verification on the device.
+passkey instead of a password and then signs in with "Mit Passkey anmelden"
+on the login page, without username or password. Such passkeys require user
+verification on the device. Using a setup link signs the person in right
+away – except when a password is set for an account that already has a
+second factor, which still has to sign in with both.
+
+The login page offers the passkey first; username and password are one tap
+away.
+
+**Guest accounts.** A guest who saves a passkey after answering gets an
+account with the role `guest`. It has no username to type, no e-mail and no
+password, only the passkey, and it can do one thing: see and change its own
+response.
+
+**Deleting an account.** Everyone can delete their own account under "Mein
+Bereich" ("Konto löschen"). This also deletes their own response and signs
+them out everywhere. The only admin cannot delete themselves.
 
 The first admin is created
 with the CLI inside the container (or via `USERS_PATH`):

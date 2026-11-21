@@ -13,6 +13,8 @@ and is meant to run behind a TLS-terminating reverse proxy.
 | Invite link tokens and PINs | Whoever has one can submit answers |
 | Edit tokens | Whoever has one can read, change or delete one answer |
 | Staff accounts, sessions, second factors | Give access to all of the above |
+| Guest accounts (passkey only) | Give access to one answer |
+| Setup links | Whoever has one can take over that account until it is used or expires |
 | `SESSION_SECRET`, `DATA_KEY` | Protect tokens, second-factor secrets, guest data and backups |
 | Page content and uploaded images | Shown to every guest |
 
@@ -21,7 +23,7 @@ and is meant to run behind a TLS-terminating reverse proxy.
 | Actor | Access | Trust |
 |---|---|---|
 | Visitor | Public page | None |
-| Guest | Invite link, own edit token | Low: may share links, may be careless |
+| Guest | Invite link, own edit token, optionally a passkey account limited to their own answer | Low: may share links, may be careless |
 | Couple | Content, invite links, answers without contributions | Trusted, but must not see contributions |
 | Witness | Answers and contributions | Trusted |
 | Admin | Everything, user management, audit log | Fully trusted |
@@ -43,6 +45,9 @@ and is meant to run behind a TLS-terminating reverse proxy.
 |---|---|
 | Guessing passwords | Argon2id, minimum length 10, per-IP rate limit, per-account lockout with backoff, optional enforced second factor (TOTP or passkey) |
 | Guessing invite links, PINs or edit tokens | 128-bit and 192-bit random tokens, PIN failure limit per link, per-IP rate limits, counters persisted across restarts |
+| Taking over a guest account | No password and no e-mail to guess or phish: guest accounts sign in with a passkey only, with user verification on the device; the role has no permissions beyond its own answer |
+| Leaked or reused setup link | Random token stored as a hash, valid 7 days, single use, replaced by a newer link; using it ends all sessions of that account; a password set this way does not sign in an account that has a second factor |
+| Account deleted by someone else | Deletion only for the signed-in account itself, state-changing request with origin check; the last admin cannot be deleted |
 | Session theft or fixation | HttpOnly cookie, `__Host-` prefix and SameSite=Strict in production, session ids stored hashed, idle and absolute timeouts, new session on credential change, device list with remote sign-out |
 | Stolen command-line token | Issued only after approval in a signed-in browser, stored hashed on the server and in the system keyring on the computer, limited to the role of the approving account and barred from password and sign-in settings, expires after 90 days, revocable on the account page, sign-in recorded in the audit log |
 | Cross-site request forgery | Origin/Referer check against `BASE_URL` on every state-changing request, SameSite cookies |
@@ -62,6 +67,13 @@ and is meant to run behind a TLS-terminating reverse proxy.
 - **Invite links and edit links are bearer secrets.** Anyone who receives a
   forwarded link can use it. Links can be capped, protected with a PIN,
   regenerated or deactivated; guests can delete their answer.
+- **Setup links are bearer secrets too.** Whoever opens one first sets the
+  credential and is signed in. They are single use and expire after 7 days.
+- **A lost guest passkey cannot be recovered.** There is no e-mail to fall
+  back on; staff change the answer for the guest instead.
+- **Deleting an account needs no second confirmation of identity.** A
+  signed-in session is enough; the damage is limited to that account and its
+  own answer.
 - **The operator and admins are trusted.** Someone with the environment
   variables can decrypt everything.
 - **No TLS in the application.** It must run behind a proxy that terminates
