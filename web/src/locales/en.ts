@@ -96,6 +96,7 @@ export const en: Record<string, string> = {
   'Link teilen': 'Share link',
   'Alle Infos zur Hochzeit ansehen': 'See all wedding information',
   'Antwort bearbeiten': 'Edit answer',
+  'Besondere Ernährung oder Allergien': 'Special diet or allergies',
   'Antwort löschen': 'Delete response',
   'Link nicht mehr lesbar – bitte neu erzeugen.': 'Link can no longer be read – please regenerate it.',
   'Eure Angaben sehen nur wir und unsere Trauzeugen.': 'Only we and our witnesses see your answers.',

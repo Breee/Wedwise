@@ -150,7 +150,10 @@ export function RsvpForm({ initial, link, onDone }: FormProps) {
             return
           }
           if (last) submit.mutate()
-          else go(at + 1)
+          else {
+            if (page === 'who' && attendees.length === 1 && !attendees[0].name.trim()) updateAttendee(0, { name: contactName })
+            go(at + 1)
+          }
         }}
       >
         {page === 'who' && <Card>
@@ -162,7 +165,7 @@ export function RsvpForm({ initial, link, onDone }: FormProps) {
           <CardContent className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="contactName">{t('Name')}</Label>
-              <Input id="contactName" value={contactName} onChange={(e) => setContactName(e.target.value)} required autoComplete="name" enterKeyHint="next" />
+              <Input id="contactName" autoCapitalize="words" value={contactName} onChange={(e) => setContactName(e.target.value)} required autoComplete="name" enterKeyHint="next" />
             </div>
           </CardContent>
         </Card>}
@@ -202,71 +205,20 @@ export function RsvpForm({ initial, link, onDone }: FormProps) {
             </CardHeader>
             <CardContent className="space-y-6">
               {attendees.map((a, i) => (
-                <div key={i} className="space-y-4">
+                <div key={i} className="space-y-3">
                   {i > 0 && <Separator />}
-                  <div className="flex items-end gap-3">
-                    <div className="flex-1 space-y-2">
-                      <Label htmlFor={`name-${i}`}>{t('Name')}</Label>
-                      <Input id={`name-${i}`} value={a.name} onChange={(e) => updateAttendee(i, { name: e.target.value })} required />
-                    </div>
-                    <Label className="flex h-9 items-center gap-2 text-sm font-normal">
-                      <Checkbox checked={a.isChild} onCheckedChange={(c) => updateAttendee(i, { isChild: c === true, photoOk: c !== true })} />
-                      {t('Kind')}
-                    </Label>
-                    {attendees.length > 1 && (
-                      <Button type="button" variant="ghost" size="icon" title={t('Entfernen')} onClick={() => setAttendees((l) => l.filter((_, k) => k !== i))}>
-                        <Minus className="size-4" />
-                      </Button>
-                    )}
-                  </div>
-                  {a.isChild && (
-                    <div className="space-y-3 rounded-lg bg-secondary/40 p-3">
-                      <div className="flex items-center gap-3">
-                        <Label htmlFor={`age-${i}`}>{t('Alter')}</Label>
-                        <Input
-                          id={`age-${i}`}
-                          type="number"
-                          inputMode="numeric"
-                          min={0}
-                          max={17}
-                          className="w-20"
-                          value={a.age || ''}
-                          onChange={(e) => updateAttendee(i, { age: Math.min(17, Math.max(0, Number(e.target.value) || 0)) })}
-                        />
-                        <span className="text-sm text-muted-foreground">{t('Jahre')}</span>
-                      </div>
-                      <Label className="flex items-start gap-2 text-sm leading-snug font-normal">
-                        <Checkbox className="mt-0.5" checked={a.photoOk} onCheckedChange={(c) => updateAttendee(i, { photoOk: c === true })} />
-                        <span>
-                          {t('Unsere Fotografin oder unser Fotograf darf {name} mit aufs Bild nehmen.', { name: a.name || t('euer Kind') })}
-                          <span className="mt-1 block text-muted-foreground">
-                            {t('Die Fotos bleiben eine private Erinnerung für uns und werden nicht veröffentlicht. Wenn ihr das lieber nicht möchtet, ist das völlig in Ordnung – lasst das Häkchen einfach weg.')}
-                          </span>
-                        </span>
-                      </Label>
-                    </div>
-                  )}
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label>{t('Ernährung')}</Label>
-                      <Select value={a.diet || 'none'} onValueChange={(v) => updateAttendee(i, { diet: v as Attendee['diet'] })}>
-                        <SelectTrigger className="w-full">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {DIET_OPTIONS.map((o) => (
-                            <SelectItem key={o.value} value={o.value}>
-                              {o.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor={`allergies-${i}`}>{t('Allergien')}</Label>
-                      <Input id={`allergies-${i}`} value={a.allergies} onChange={(e) => updateAttendee(i, { allergies: e.target.value })} />
+                  <div className="space-y-2">
+                    <Label htmlFor={`name-${i}`}>{t('Name')}</Label>
+                    <div className="flex items-center gap-2">
+                      <Input id={`name-${i}`} value={a.name} onChange={(e) => updateAttendee(i, { name: e.target.value })} required autoCapitalize="words" enterKeyHint="done" />
+                      {attendees.length > 1 && (
+                        <Button type="button" variant="ghost" size="icon" className="size-11 sm:size-9" title={t('Entfernen')} aria-label={t('Entfernen')} onClick={() => setAttendees((l) => l.filter((_, k) => k !== i))}>
+                          <Minus className="size-4" />
+                        </Button>
+                      )}
                     </div>
                   </div>
+                  <PersonDetails attendee={a} index={i} update={(patch) => updateAttendee(i, patch)} />
                 </div>
               ))}
               {attendees.length < MAX_ATTENDEES && (
@@ -396,7 +348,7 @@ export function RsvpForm({ initial, link, onDone }: FormProps) {
               <CardDescription>{t('Was bringt euch auf die Tanzfläche?')}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-5">
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-1.5">
                 {genreOptions.map((g) => {
                   const on = genres.includes(g)
                   return (
@@ -405,7 +357,8 @@ export function RsvpForm({ initial, link, onDone }: FormProps) {
                       type="button"
                       size="sm"
                       variant={on ? 'default' : 'outline'}
-                      className="min-h-10 rounded-full border border-primary/60 sm:min-h-0"
+                      className="min-h-10 rounded-full border border-primary/60 px-2.5 sm:min-h-0"
+                      aria-pressed={on}
                       onClick={() => setGenres((l) => (on ? l.filter((x) => x !== g) : [...l, g]))}
                     >
                       <span aria-hidden>{genreIcon(g)}</span> {g}
@@ -447,6 +400,81 @@ export function RsvpForm({ initial, link, onDone }: FormProps) {
           {last && <p className="mt-2 text-center text-xs text-muted-foreground">{t('Eure Angaben sehen nur wir und unsere Trauzeugen.')}</p>}
         </div>
       </motion.form>
+    </>
+  )
+}
+
+const pill = 'min-h-10 rounded-full border border-primary/60 sm:min-h-0'
+
+function PersonDetails({ attendee: a, index: i, update }: { attendee: Attendee; index: number; update: (patch: Partial<Attendee>) => void }) {
+  const hasFood = (a.diet || 'none') !== 'none' || a.allergies.trim() !== ''
+  const [open, setOpen] = useState(hasFood)
+  const food = open || hasFood
+  return (
+    <>
+      <div className="flex flex-wrap gap-2">
+        <Button type="button" size="sm" variant={a.isChild ? 'default' : 'outline'} className={pill} aria-pressed={a.isChild} onClick={() => update({ isChild: !a.isChild, photoOk: a.isChild })}>
+          {t('Kind')}
+        </Button>
+        <Button type="button" size="sm" variant={food ? 'default' : 'outline'} className={pill} aria-expanded={food}
+          onClick={() => {
+            if (food) update({ diet: 'none', allergies: '' })
+            setOpen(!food)
+          }}
+        >
+          {t('Besondere Ernährung oder Allergien')}
+        </Button>
+      </div>
+      {a.isChild && (
+        <div className="space-y-3 rounded-lg bg-secondary/40 p-3">
+          <div className="flex items-center gap-3">
+            <Label htmlFor={`age-${i}`}>{t('Alter')}</Label>
+            <Input
+              id={`age-${i}`}
+              type="number"
+              inputMode="numeric"
+              min={0}
+              max={17}
+              className="w-20"
+              value={a.age || ''}
+              onChange={(e) => update({ age: Math.min(17, Math.max(0, Number(e.target.value) || 0)) })}
+            />
+            <span className="text-sm text-muted-foreground">{t('Jahre')}</span>
+          </div>
+          <Label className="flex items-start gap-2 text-sm leading-snug font-normal">
+            <Checkbox className="mt-0.5" checked={a.photoOk} onCheckedChange={(c) => update({ photoOk: c === true })} />
+            <span>
+              {t('Unsere Fotografin oder unser Fotograf darf {name} mit aufs Bild nehmen.', { name: a.name || t('euer Kind') })}
+              <span className="mt-1 block text-muted-foreground">
+                {t('Die Fotos bleiben eine private Erinnerung für uns und werden nicht veröffentlicht. Wenn ihr das lieber nicht möchtet, ist das völlig in Ordnung – lasst das Häkchen einfach weg.')}
+              </span>
+            </span>
+          </Label>
+        </div>
+      )}
+      {food && (
+        <div className="space-y-3">
+          <div className="space-y-2">
+            <Label>{t('Ernährung')}</Label>
+            <Select value={a.diet || 'none'} onValueChange={(v) => update({ diet: v as Attendee['diet'] })}>
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {DIET_OPTIONS.map((o) => (
+                  <SelectItem key={o.value} value={o.value}>
+                    {o.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor={`allergies-${i}`}>{t('Allergien')}</Label>
+            <Input id={`allergies-${i}`} value={a.allergies} onChange={(e) => update({ allergies: e.target.value })} />
+          </div>
+        </div>
+      )}
     </>
   )
 }
