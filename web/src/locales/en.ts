@@ -17,7 +17,6 @@ export const en: Record<string, string> = {
   'Hochzeit {names}': 'Wedding of {names}',
   'hochzeit.ics': 'wedding.ics',
   'Zum Kalender hinzufügen': 'Add to calendar',
-  'Eure Antwort bearbeiten': 'Edit your response',
   'Willkommen': 'Welcome',
   'Schön, dass ihr da seid': 'So glad you are here',
   'Der Tag': 'The day',

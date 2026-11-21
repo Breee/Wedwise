@@ -122,7 +122,7 @@ function HomePage() {
             {rememberedToken() && (
               <Button asChild variant="outline" size="sm">
                 <Link to="/rsvp">
-                  <PencilLine className="size-4" /> {t('Eure Antwort bearbeiten')}
+                  <PencilLine className="size-4" /> {t('Antwort bearbeiten')}
                 </Link>
               </Button>
             )}

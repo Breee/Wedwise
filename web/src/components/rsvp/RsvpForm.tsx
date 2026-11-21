@@ -142,7 +142,7 @@ export function RsvpForm({ initial, link, onDone }: FormProps) {
         initial={{ opacity: 0.4 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.2 }}
-        className="space-y-6"
+        className="flex min-h-svh flex-col gap-6 sm:min-h-0"
         onSubmit={(e) => {
           e.preventDefault()
           if (page === 'contribution' && wantsContribution && contribution.messengers.length === 0) {
@@ -433,7 +433,7 @@ export function RsvpForm({ initial, link, onDone }: FormProps) {
           </CardContent>
         </Card>}
 
-        <div className="sticky bottom-0 z-10 -mx-4 bg-background/95 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur sm:static sm:mx-0 sm:bg-transparent sm:p-0 sm:pt-2 sm:backdrop-blur-none">
+        <div className="sticky bottom-0 z-10 -mx-4 mt-auto bg-background/95 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur sm:static sm:mx-0 sm:bg-transparent sm:p-0 sm:pt-2 sm:backdrop-blur-none">
           <div className="flex gap-3">
             {at > 0 && (
               <Button type="button" size="lg" variant="outline" onClick={() => go(at - 1)}>
