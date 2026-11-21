@@ -392,7 +392,7 @@ function SecurityKeys({ keys }: { keys: SecurityKey[] }) {
   const add = useMutation({
     mutationFn: async () => {
       const options = await api.post<{ publicKey: unknown }>('/account/2fa/keys/begin')
-      const credential = await createKey(options)
+      const credential = await createKey(options, true)
       await api.post('/account/2fa/keys', { name, credential })
     },
     onSuccess: () => {

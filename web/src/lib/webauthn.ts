@@ -15,8 +15,13 @@ function toJSON(credential: Credential | null): unknown {
   return (credential as PublicKeyCredential & { toJSON: () => unknown }).toJSON()
 }
 
-export async function createKey(options: { publicKey: unknown }) {
+// Unless anyKey is set, a device that can unlock itself (Face ID, fingerprint)
+// keeps the key itself, so phones do not offer QR codes or hardware keys.
+export async function createKey(options: { publicKey: unknown }, anyKey = false) {
   const publicKey = (PublicKeyCredential as PKC).parseCreationOptionsFromJSON!(options.publicKey)
+  if (!anyKey && (await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable().catch(() => false))) {
+    publicKey.authenticatorSelection = { ...publicKey.authenticatorSelection, authenticatorAttachment: 'platform' }
+  }
   return toJSON(await navigator.credentials.create({ publicKey }))
 }
 
