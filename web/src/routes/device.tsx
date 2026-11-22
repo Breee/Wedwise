@@ -94,8 +94,8 @@ function DevicePage() {
               </p>
               <ul className="list-disc space-y-1 pl-5">
                 <li>{t('Darf alles sehen und tun, was euer Konto ({role}) darf.', { role: pending.data.role })}</li>
-                <li>{t('Kann weder Passwort noch Anmeldung ändern.')}</li>
-                <li>{t('Lässt sich jederzeit im Konto wieder entziehen.')}</li>
+                <li>{t('Kann weder Passwort, Anmeldung noch Benutzerkonten ändern.')}</li>
+                <li>{t('Gilt einen Tag und lässt sich jederzeit im Konto wieder entziehen.')}</li>
               </ul>
               <p className="text-muted-foreground">
                 {t('Erlaubt das nur, wenn ihr die Anmeldung selbst gestartet habt und der Code übereinstimmt.')}

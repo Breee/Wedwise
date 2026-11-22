@@ -141,6 +141,12 @@ func (s *Service) RequirePermission(permission string) func(http.Handler) http.H
 				httpx.Forbidden(w)
 				return
 			}
+			// A device token must never be able to create accounts or
+			// change how anyone signs in.
+			if identity.Device && permission == PermUserManage {
+				httpx.Forbidden(w)
+				return
+			}
 			next.ServeHTTP(w, r)
 		})
 	}

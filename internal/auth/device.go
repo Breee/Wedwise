@@ -21,7 +21,7 @@ import (
 // client receives a token that may do what that user's role may do.
 const (
 	deviceRequestLifetime = 10 * time.Minute
-	DeviceTokenLifetime   = 90 * 24 * time.Hour
+	DeviceTokenLifetime   = 24 * time.Hour
 	devicePollSeconds     = 2
 	maxDeviceNameLength   = 80
 	userCodeAlphabet      = "BCDFGHJKLMNPQRSTVWXZ23456789"

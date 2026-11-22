@@ -270,7 +270,7 @@ picks one for a single command.
 
 The client may do what the role of the account that allowed it may do: an
 `admin` everything, a `couple` no contributions, a `witness` no content.
-Only password and sign-in settings stay in the browser. The access lasts 90 days, shows up on the account page under "Kommandozeile",
+Passwords, sign-in settings and user accounts stay in the browser. The access lasts one day, shows up on the account page under "Kommandozeile",
 can be withdrawn there, and is recorded in the audit log. The token is stored
 in the system keyring (Keychain, Windows Credential Manager, Secret Service).
 Only where none is available, for example on a server, it goes into a file
@@ -291,8 +291,7 @@ agent as a local server, for example:
 The agent can do everything the setup needs: read what is still missing, read
 and change every content section, search places, get nearby stops (with their lines and the walking
 time to the location) and places to stay, upload a photo, pick a design, create
-and change invite links (PIN, limit, on/off), post a message to guests and, as
-admin, create staff accounts with a setup link. With the matching role it also
+and change invite links (PIN, limit, on/off), and post a message to guests. With the matching role it also
 reads responses, contributions and users; tools the role may not use are not
 offered. What it cannot know: hotel ratings, prices or free rooms – ask the couple or check them yourself.
 

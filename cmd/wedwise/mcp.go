@@ -233,28 +233,6 @@ var mcpTools = []mcpTool{
 		},
 	},
 	{
-		Name:  "create_user",
-		needs: "user.manage",
-		Description: "Create a staff account (role couple, witness or admin) and return a one-time setup link " +
-			"the person opens to choose a password.",
-		InputSchema: schema([]string{"username", "role"}, map[string]any{
-			"username": map[string]any{"type": "string"}, "displayName": map[string]any{"type": "string"},
-			"email": map[string]any{"type": "string"},
-			"role":  map[string]any{"type": "string", "enum": []string{"couple", "witness", "admin"}},
-		}),
-		run: func(site Site, args map[string]any) (any, error) {
-			var user struct {
-				ID int64 `json:"id"`
-			}
-			if _, err := call(site, http.MethodPost, "/api/users/", args, &user); err != nil {
-				return nil, err
-			}
-			var link map[string]any
-			_, err := call(site, http.MethodPost, fmt.Sprintf("/api/users/%d/setup-link", user.ID), map[string]any{}, &link)
-			return link, err
-		},
-	},
-	{
 		Name:        "send_message",
 		needs:       "content.write",
 		Description: "Post a message to all guests: shown on the site and sent as a notification to guests who allowed it.",

@@ -97,6 +97,20 @@ func TestDeviceLogin(t *testing.T) {
 			}
 		}
 	}
+	// Even an admin's token cannot create accounts or change how anyone signs in.
+	adminToken := deviceToken(t, app, admin)
+	for _, call := range []struct {
+		method, path string
+		body         any
+	}{
+		{http.MethodPost, "/api/users/", map[string]string{"username": "intruder", "displayName": "Intruder", "role": "admin"}},
+		{http.MethodPost, "/api/users/1/setup-link", nil},
+		{http.MethodDelete, "/api/two-factor/1", nil},
+	} {
+		if resp := bearerDo(t, app, call.method, call.path, adminToken, call.body); resp.StatusCode != http.StatusForbidden {
+			t.Errorf("%s %s with admin token = %d, want 403", call.method, call.path, resp.StatusCode)
+		}
+	}
 	if resp := bearerDo(t, app, http.MethodGet, "/api/content/", "wrong", nil); resp.StatusCode != http.StatusUnauthorized {
 		t.Errorf("wrong token = %d", resp.StatusCode)
 	}
