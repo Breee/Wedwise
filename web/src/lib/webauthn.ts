@@ -12,8 +12,16 @@ export function webauthnSupported() {
   return browserSupportsWebAuthn()
 }
 
-export function createKey(options: { publicKey: unknown }) {
-  return startRegistration({ optionsJSON: options.publicKey as Creation })
+export function createKey(options: { publicKey: unknown }, auto = false) {
+  return startRegistration({ optionsJSON: options.publicKey as Creation, useAutoRegister: auto })
+}
+
+// Whether the password manager can create a passkey by itself right after a
+// password sign-in.
+export async function autoCreateSupported() {
+  if (!webauthnSupported()) return false
+  const capabilities = await PublicKeyCredential.getClientCapabilities?.().catch(() => null)
+  return capabilities?.conditionalCreate === true
 }
 
 export function signWithKey(options: { publicKey: unknown }, autofill = false) {

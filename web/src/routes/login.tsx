@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react'
 import { KeyRound } from 'lucide-react'
 import { ApiError, api, errorMessage } from '@/lib/api'
 import { PasskeyHelp } from '@/components/PasskeyHelp'
-import { autofillSupported, createKey, signWithKey, webauthnSupported } from '@/lib/webauthn'
+import { autoCreateSupported, autofillSupported, createKey, signWithKey, webauthnSupported } from '@/lib/webauthn'
 import { meQuery } from '@/lib/queries'
 import { dashboardFor } from '@/lib/auth'
 import type { Me } from '@/lib/types'
@@ -45,6 +45,22 @@ function LoginPage() {
     navigate({ to: search.redirect ?? dashboardFor(me.role) })
   }
 
+  const autoCreate = async () => {
+    if (!(await autoCreateSupported())) return false
+    try {
+      const options = await api.post<{ publicKey: unknown }>('/account/2fa/keys/begin?auto=1')
+      // Never keep the sign-in waiting for a browser that does not answer.
+      const credential = await Promise.race([
+        createKey(options, true),
+        new Promise<never>((_, reject) => setTimeout(reject, 5000)),
+      ])
+      await api.post('/account/2fa/keys', { name: t('Passkey'), credential })
+      return true
+    } catch {
+      return false
+    }
+  }
+
   const login = useMutation({
     mutationFn: (body: { username: string; password: string; code?: string; assertion?: unknown }) =>
       api.post<Me>('/auth/login', body),
@@ -59,10 +75,13 @@ function LoginPage() {
         .catch(() => setHasKey(false))
     },
     onSuccess: async () => {
-      // Signed in with a password: offer a passkey once, when the account has none.
-      if (webauthnSupported() && !localStorage.getItem(OFFERED)) {
+      // Signed in with a password and the account has no passkey: let the
+      // password manager create one by itself, otherwise offer it once.
+      if (webauthnSupported()) {
         const status = await api.get<{ keys: unknown[] }>('/account/2fa').catch(() => null)
-        if (status && status.keys.length === 0) return setOffer(true)
+        if (status && status.keys.length === 0 && !(await autoCreate()) && !localStorage.getItem(OFFERED)) {
+          return setOffer(true)
+        }
       }
       await enter()
     },

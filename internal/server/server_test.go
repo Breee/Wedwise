@@ -1729,6 +1729,21 @@ func TestSecurityKeys(t *testing.T) {
 	}
 	resp.Body.Close()
 
+	resp = app.do(http.MethodPost, "/api/account/2fa/keys/begin?auto=1", nil, cookie)
+	var auto struct {
+		Mediation string `json:"mediation"`
+		PublicKey struct {
+			AuthenticatorSelection map[string]any `json:"authenticatorSelection"`
+		} `json:"publicKey"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&auto); err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if auto.Mediation != "conditional" || auto.PublicKey.AuthenticatorSelection["authenticatorAttachment"] != nil {
+		t.Fatalf("automatic begin: %+v", auto)
+	}
+
 	resp = app.do(http.MethodPost, "/api/account/2fa/keys/begin", nil, cookie)
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("begin: %d", resp.StatusCode)

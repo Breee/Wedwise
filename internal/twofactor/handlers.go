@@ -78,7 +78,11 @@ func (h *Handler) keyBegin(w http.ResponseWriter, r *http.Request) {
 		httpx.NotFound(w, "Security keys are not available.")
 		return
 	}
-	options, err := h.store.keys.BeginRegister(r.Context(), identity.ID, keyLabel(identity))
+	begin := h.store.keys.BeginRegister
+	if r.URL.Query().Get("auto") != "" {
+		begin = h.store.keys.BeginAutoRegister
+	}
+	options, err := begin(r.Context(), identity.ID, keyLabel(identity))
 	if errors.Is(err, ErrAlreadyEnabled) {
 		httpx.WriteError(w, http.StatusConflict, httpx.CodeConflict, "Too many security keys.")
 		return

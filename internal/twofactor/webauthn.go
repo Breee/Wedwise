@@ -165,8 +165,19 @@ func (k *Keys) Count(ctx context.Context, userID int64) (int, error) {
 // keep the key themselves create a passkey that signs in without a password;
 // plain security keys still work as a second step.
 func (k *Keys) BeginRegister(ctx context.Context, userID int64, username string) (*protocol.CredentialCreation, error) {
-	return k.beginRegister(ctx, userID, username, webauthn.WithAuthenticatorSelection(protocol.AuthenticatorSelection{
+	return k.beginRegister(ctx, userID, username, protocol.MediationDefault, webauthn.WithAuthenticatorSelection(protocol.AuthenticatorSelection{
 		ResidentKey:      protocol.ResidentKeyRequirementPreferred,
+		UserVerification: protocol.VerificationPreferred,
+	}))
+}
+
+// BeginAutoRegister returns creation options for a passkey that the
+// password manager may create silently right after a password sign-in. The
+// pending challenge remembers this, so only its answer may come without a
+// user gesture.
+func (k *Keys) BeginAutoRegister(ctx context.Context, userID int64, username string) (*protocol.CredentialCreation, error) {
+	return k.beginRegister(ctx, userID, username, protocol.MediationConditional, webauthn.WithAuthenticatorSelection(protocol.AuthenticatorSelection{
+		ResidentKey:      protocol.ResidentKeyRequirementRequired,
 		UserVerification: protocol.VerificationPreferred,
 	}))
 }
@@ -174,13 +185,13 @@ func (k *Keys) BeginRegister(ctx context.Context, userID int64, username string)
 // BeginRegisterPasskey returns creation options for a key that can sign in
 // without a password: stored on the device and unlocked by the user.
 func (k *Keys) BeginRegisterPasskey(ctx context.Context, userID int64, username string) (any, error) {
-	return k.beginRegister(ctx, userID, username, webauthn.WithAuthenticatorSelection(protocol.AuthenticatorSelection{
+	return k.beginRegister(ctx, userID, username, protocol.MediationDefault, webauthn.WithAuthenticatorSelection(protocol.AuthenticatorSelection{
 		ResidentKey:      protocol.ResidentKeyRequirementRequired,
 		UserVerification: protocol.VerificationRequired,
 	}))
 }
 
-func (k *Keys) beginRegister(ctx context.Context, userID int64, username string, opts ...webauthn.RegistrationOption) (*protocol.CredentialCreation, error) {
+func (k *Keys) beginRegister(ctx context.Context, userID int64, username string, mediation protocol.CredentialMediationRequirement, opts ...webauthn.RegistrationOption) (*protocol.CredentialCreation, error) {
 	u, _, err := k.user(ctx, userID, username)
 	if err != nil {
 		return nil, err
@@ -192,7 +203,7 @@ func (k *Keys) beginRegister(ctx context.Context, userID int64, username string,
 	for _, c := range u.credentials {
 		exclude = append(exclude, c.Descriptor())
 	}
-	options, session, err := k.wa.BeginRegistration(u, append(opts, webauthn.WithExclusions(exclude))...)
+	options, session, err := k.wa.BeginMediatedRegistration(u, mediation, append(opts, webauthn.WithExclusions(exclude))...)
 	if err != nil {
 		return nil, err
 	}

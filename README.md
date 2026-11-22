@@ -203,7 +203,10 @@ away – except when a password is set for an account that already has a
 second factor, which still has to sign in with both.
 
 The login page offers the passkey first; username and password are one tap
-away.
+away. After a password sign-in to an account without a passkey, the page
+asks the browser's password manager to create one by itself (WebAuthn
+conditional create). Where the browser cannot do that, it offers
+"Passkey erstellen" once instead.
 
 **Guest accounts.** A guest who saves a passkey after answering gets an
 account with the role `guest`. It has no username to type, no e-mail and no
