@@ -547,6 +547,8 @@ func (h *Handler) writeError(w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, ErrNotFound):
 		httpx.NotFound(w, "Response not found.")
+	case errors.Is(err, ErrLinkFull):
+		httpx.WriteError(w, http.StatusForbidden, CodeLinkFull, "This invite link does not accept more responses.")
 	case errors.Is(err, ErrValidation), errors.Is(err, contributions.ErrValidation):
 		httpx.BadRequest(w, err.Error())
 	default:

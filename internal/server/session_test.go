@@ -294,6 +294,33 @@ func TestRequireTwoFactor(t *testing.T) {
 	}
 }
 
+func TestPlainHTTPIsSentToHTTPS(t *testing.T) {
+	app, _ := newTestAppWithOptions(t, func(cfg *configuration.Config) {
+		cfg.Environment = "production"
+		proxied := true
+		cfg.TrustProxyHeaders = &proxied
+	})
+	client := &http.Client{CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+	for proto, want := range map[string]int{"http": http.StatusPermanentRedirect, "https": http.StatusOK, "": http.StatusOK} {
+		req, _ := http.NewRequest(http.MethodGet, app.srv.URL+"/api/version?x=1", nil)
+		req.Host = "wedding.example"
+		if proto != "" {
+			req.Header.Set("X-Forwarded-Proto", proto)
+		}
+		resp, err := client.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		resp.Body.Close()
+		if resp.StatusCode != want {
+			t.Errorf("X-Forwarded-Proto %q = %d, want %d", proto, resp.StatusCode, want)
+		}
+		if proto == "http" && resp.Header.Get("Location") != "https://wedding.example/api/version?x=1" {
+			t.Errorf("redirect to %q", resp.Header.Get("Location"))
+		}
+	}
+}
+
 func TestProductionSessionCookie(t *testing.T) {
 	app, _ := newTestAppWithOptions(t, func(cfg *configuration.Config) {
 		cfg.Environment = "production"

@@ -20,6 +20,9 @@ var ErrNotFound = errors.New("response not found")
 // ErrValidation is returned when input validation fails.
 var ErrValidation = errors.New("invalid rsvp data")
 
+// ErrLinkFull is returned when the invite link has reached its response limit.
+var ErrLinkFull = errors.New("invite link is full")
+
 const (
 	maxShortLen   = 200
 	maxChildAge   = 17
@@ -173,12 +176,22 @@ func (s *Store) Create(ctx context.Context, inviteLinkID, userID int64, params S
 		owner = userID
 	}
 	now := time.Now().UTC()
+	// The limit is checked by the insert itself, so answers sent at the same
+	// moment cannot both slip under it.
 	res, err := tx.ExecContext(ctx,
 		`INSERT INTO responses (user_id, invite_link_id, edit_token_hash, edit_token_enc, contact_name, email, phone, status, message, music_genres, music_song, submitted_at, updated_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		owner, inviteLinkID, tokens.Hash(token), sealedToken, params.ContactName, private[0], private[1], params.Status, private[2], params.MusicGenres, params.MusicSong, now, now)
+		 SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+		 WHERE COALESCE((SELECT max_responses FROM invite_links WHERE id = ?), 0) = 0
+		    OR (SELECT COUNT(*) FROM responses WHERE invite_link_id = ?) < (SELECT max_responses FROM invite_links WHERE id = ?)`,
+		owner, inviteLinkID, tokens.Hash(token), sealedToken, params.ContactName, private[0], private[1], params.Status, private[2], params.MusicGenres, params.MusicSong, now, now,
+		inviteLinkID, inviteLinkID, inviteLinkID)
 	if err != nil {
 		return Response{}, "", fmt.Errorf("insert response: %w", err)
+	}
+	if inserted, err := res.RowsAffected(); err != nil {
+		return Response{}, "", fmt.Errorf("insert response: %w", err)
+	} else if inserted == 0 {
+		return Response{}, "", ErrLinkFull
 	}
 	id, err := res.LastInsertId()
 	if err != nil {

@@ -142,7 +142,7 @@ Settings come from a YAML file (`CONFIG_PATH`, default
 | – | `event.timezone` | `Europe/Berlin` | Time zone of the calendar entry. |
 | – | `event.contributionMinutes` | `15` | Time limit suggested for guest contributions. |
 | – | `event.musicGenres` | Pop, Rock, Metal, … (22) | Genres guests can pick in their response. |
-| `ENVIRONMENT` | `environment` | `development` | Set to `production` behind HTTPS: cookies become `Secure`. |
+| `ENVIRONMENT` | `environment` | `development` | Set to `production` behind HTTPS: cookies become `Secure`, and with trusted proxy headers plain HTTP requests are redirected to HTTPS. |
 | `LISTEN_ADDRESS` | `listenAddress` | `:8080` | Bind address. |
 | `DATABASE_PATH` | `databasePath` | `/data/wedding.db` | SQLite file. |
 | `CONFIG_PATH` | `configPath` | `/config/config.yaml` | This file. |

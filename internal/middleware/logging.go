@@ -167,6 +167,18 @@ func SecurityHeaders(imageHosts []string) func(http.Handler) http.Handler {
 	}
 }
 
+// HTTPSOnly sends requests that reached the proxy over plain HTTP to the
+// HTTPS address, so nothing is served or accepted unencrypted.
+func HTTPSOnly(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("X-Forwarded-Proto") == "http" {
+			http.Redirect(w, r, "https://"+r.Host+r.URL.RequestURI(), http.StatusPermanentRedirect)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
 // NoStore keeps API responses out of browser and proxy caches. Handlers that
 // serve public, cacheable data set their own Cache-Control.
 func NoStore(next http.Handler) http.Handler {

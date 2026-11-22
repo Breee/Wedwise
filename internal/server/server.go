@@ -221,6 +221,9 @@ func New(cfg configuration.Config, db *sql.DB) (*Server, error) {
 	r.Use(middleware.RequestID)
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.Logging)
+	if cfg.IsProduction() && cfg.TrustProxy() {
+		r.Use(middleware.HTTPSOnly)
+	}
 	r.Use(middleware.SecurityHeaders(cfg.ImageHosts))
 	r.Use(middleware.LimitBody)
 	r.Use(chimiddleware.Compress(5, "text/html", "text/css", "text/javascript", "application/javascript",

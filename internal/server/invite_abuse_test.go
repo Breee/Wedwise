@@ -72,6 +72,38 @@ func TestInviteLinkResponseCap(t *testing.T) {
 	submitResponse(t, app, validResponse())
 }
 
+func TestInviteLinkResponseCapHoldsUnderParallelSubmits(t *testing.T) {
+	app, _ := newTestAppWithUsers(t)
+	couple, _ := app.login("couple_user", "TestPass123!")
+	link := createLink(t, app)
+	app.linkToken = link.Token
+	resp := app.do("PUT", fmt.Sprintf("/api/invite-links/%d/limit", link.ID), map[string]any{"maxResponses": 2}, couple)
+	resp.Body.Close()
+
+	path := app.submitPath(t)
+	statuses := make(chan int, 8)
+	for i := 0; i < cap(statuses); i++ {
+		go func() {
+			resp := app.do("POST", path, validResponse(), nil)
+			resp.Body.Close()
+			statuses <- resp.StatusCode
+		}()
+	}
+	created := 0
+	for i := 0; i < cap(statuses); i++ {
+		switch status := <-statuses; status {
+		case http.StatusCreated:
+			created++
+		case http.StatusForbidden:
+		default:
+			t.Errorf("unexpected status %d", status)
+		}
+	}
+	if created != 2 {
+		t.Fatalf("%d responses accepted on a link limited to 2", created)
+	}
+}
+
 func TestInviteLinkSubmitRateLimit(t *testing.T) {
 	app, _ := newTestAppWithUsers(t)
 	submit := func(path string) int {
