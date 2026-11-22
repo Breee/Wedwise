@@ -511,6 +511,18 @@ func (s *Store) EditTokens(ctx context.Context) (map[int64]string, error) {
 	return result, rows.Err()
 }
 
+// GuestOf returns the guest account that owns a response, or 0 when the
+// response has no account or belongs to staff.
+func (s *Store) GuestOf(ctx context.Context, responseID int64) (int64, error) {
+	var id int64
+	err := s.db.QueryRowContext(ctx, `SELECT u.id FROM responses r JOIN users u ON u.id = r.user_id
+		WHERE r.id = ? AND u.role = 'guest'`, responseID).Scan(&id)
+	if errors.Is(err, sql.ErrNoRows) {
+		return 0, nil
+	}
+	return id, err
+}
+
 // EditToken returns the edit token of one response. It is ErrNotFound when
 // the token can no longer be read.
 func (s *Store) EditToken(ctx context.Context, id int64) (string, error) {

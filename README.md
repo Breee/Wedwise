@@ -211,7 +211,9 @@ conditional create). Where the browser cannot do that, it offers
 **Guest accounts.** A guest who saves a passkey after answering gets an
 account with the role `guest`. It has no username to type, no e-mail and no
 password, only the passkey, and it can do one thing: see and change its own
-response.
+response. A guest who lost the passkey gets the "Bearbeitungslink" of their
+response from the couple (replies table); saving through it signs them in
+again, and they can save a new passkey.
 
 **Deleting an account.** Everyone can delete their own account under "Mein
 Bereich" ("Konto löschen"). This also deletes their own response and signs

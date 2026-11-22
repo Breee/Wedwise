@@ -86,6 +86,17 @@ func TestAnswerCreatesGuestAccount(t *testing.T) {
 		t.Fatalf("guest account listed among users: %s", list)
 	}
 
+	// Saving through the edit link signs a guest without a session in again.
+	back := app.do("PUT", "/api/rsvp/"+sent.EditToken, validResponse(), nil)
+	again := sessionCookie(back)
+	back.Body.Close()
+	if back.StatusCode != http.StatusOK || again == nil || !strings.Contains(readBody(t, app.do("GET", "/api/auth/me", nil, again)), `"role":"guest"`) {
+		t.Fatalf("edit link: status %d, session %v", back.StatusCode, again)
+	}
+	if r := app.do("PUT", "/api/rsvp/"+sent.EditToken, validResponse(), admin); sessionCookie(r) != nil {
+		t.Fatal("edit link replaced a staff session")
+	}
+
 	// Deleting the response removes the account with it.
 	if r := app.do("DELETE", "/api/rsvp/"+sent.EditToken, nil, nil); r.StatusCode != http.StatusNoContent {
 		t.Fatalf("delete: %d", r.StatusCode)
@@ -107,6 +118,13 @@ func TestDeleteOwnAccount(t *testing.T) {
 	resp = app.do(http.MethodPost, app.submitPath(t), validResponse(), witness)
 	if resp.StatusCode != http.StatusCreated {
 		t.Fatalf("answer: got %d", resp.StatusCode)
+	}
+	var own responseView
+	_ = json.NewDecoder(resp.Body).Decode(&own)
+	resp.Body.Close()
+	// The edit link of a staff answer never signs anyone in.
+	if r := app.do(http.MethodPut, "/api/rsvp/"+own.EditToken, validResponse(), nil); r.StatusCode != http.StatusOK || sessionCookie(r) != nil {
+		t.Fatalf("staff edit link: status %d, session %v", r.StatusCode, sessionCookie(r))
 	}
 	resp = app.do(http.MethodDelete, "/api/account/", nil, witness)
 	if resp.StatusCode != http.StatusNoContent {

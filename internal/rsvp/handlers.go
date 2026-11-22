@@ -490,6 +490,18 @@ func (h *Handler) update(w http.ResponseWriter, r *http.Request) {
 		h.writeError(w, err)
 		return
 	}
+	// A guest who lost their passkey comes back with the edit link: saving
+	// signs them in to their guest account, so they can add a new one.
+	if _, signedIn := auth.IdentityFrom(r.Context()); !signedIn && h.signIn != nil {
+		guest, err := h.store.GuestOf(r.Context(), response.ID)
+		if err == nil && guest != 0 {
+			err = h.signIn(w, r, guest)
+		}
+		if err != nil {
+			httpx.Internal(w, err)
+			return
+		}
+	}
 	h.writeGuestView(w, r, http.StatusOK, response, token)
 }
 

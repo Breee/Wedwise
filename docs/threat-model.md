@@ -11,7 +11,7 @@ and is meant to run behind a TLS-terminating reverse proxy.
 | Guest answers: names, children's ages, allergies, e-mail, phone, messenger handles, messages | Personal, partly health-related data |
 | Contributions (surprises planned by guests) | Must stay hidden from the couple |
 | Invite link tokens and PINs | Whoever has one can submit answers |
-| Edit tokens | Whoever has one can read, change or delete one answer |
+| Edit tokens | Whoever has one can read, change or delete one answer, and sign in to the guest account that owns it |
 | Staff accounts, sessions, second factors | Give access to all of the above |
 | Guest accounts (passkey only) | Give access to one answer |
 | Setup links | Whoever has one can take over that account until it is used or expires |
@@ -69,8 +69,11 @@ and is meant to run behind a TLS-terminating reverse proxy.
   regenerated or deactivated; guests can delete their answer.
 - **Setup links are bearer secrets too.** Whoever opens one first sets the
   credential and is signed in. They are single use and expire after 7 days.
-- **A lost guest passkey cannot be recovered.** There is no e-mail to fall
-  back on; staff change the answer for the guest instead.
+- **A lost guest passkey is replaced through the edit link.** There is no
+  e-mail to fall back on. Staff send the guest the edit link of their
+  answer; saving through it signs the guest in to their guest account, where
+  they can save a new passkey. The edit link already gives full access to
+  that one answer, and it never signs anyone in to a staff account.
 - **Deleting an account needs no second confirmation of identity.** A
   signed-in session is enough; the damage is limited to that account and its
   own answer.
