@@ -219,12 +219,31 @@ func (s *Service) twoFactorMissing(ctx context.Context, identity Identity) (bool
 	return !enabled, err
 }
 
-// SecondFactorEnabled reports whether the user has a second sign-in step.
-func (s *Service) SecondFactorEnabled(ctx context.Context, userID int64) (bool, error) {
+// secondStepRequired reports whether the password alone is not enough to
+// sign in. That is the case once the user has switched on an authenticator
+// app, or when the role must use a second factor. A passkey by itself is
+// another way to sign in, not a second step.
+func (s *Service) secondStepRequired(ctx context.Context, identity Identity) (bool, error) {
 	if s.secondFactor == nil {
 		return false, nil
 	}
-	return s.secondFactor.Enabled(ctx, userID)
+	if totp, err := s.secondFactor.TOTPEnabled(ctx, identity.ID); err != nil || totp {
+		return totp, err
+	}
+	if !s.requireTwoFactor[identity.Role] {
+		return false, nil
+	}
+	return s.secondFactor.Enabled(ctx, identity.ID)
+}
+
+// SecondFactorEnabled reports whether the user has a second sign-in step
+// after the password.
+func (s *Service) SecondFactorEnabled(ctx context.Context, userID int64) (bool, error) {
+	identity, err := s.users.IdentityByID(ctx, userID)
+	if err != nil {
+		return false, err
+	}
+	return s.secondStepRequired(ctx, identity)
 }
 
 // StartSession signs the user in on this device.

@@ -243,7 +243,7 @@ export const en: Record<string, string> = {
   'Der Schlüssel konnte nicht hinzugefügt werden.': 'The key could not be added.',
   'Löschen fehlgeschlagen.': 'Could not delete.',
   'Passkeys und Sicherheitsschlüssel': 'Passkeys and security keys',
-  'Fingerabdruck, Gesichtserkennung oder ein Hardware-Schlüssel (z. B. YubiKey) als zweiter Schritt bei der Anmeldung. Gespeichert wird nur der öffentliche Schlüssel.': 'Fingerprint, face recognition or a hardware key (e.g. YubiKey) as a second step when signing in. Only the public key is stored.',
+  'Meldet euch mit Fingerabdruck, Gesichtserkennung oder einem Hardware-Schlüssel (z. B. YubiKey) an, ohne Passwort. Gespeichert wird nur der öffentliche Schlüssel.': 'Sign in with fingerprint, face recognition or a hardware key (e.g. YubiKey), without a password. Only the public key is stored.',
   'Schlüssel': 'Key',
   '{name} entfernen': 'Remove {name}',
   'Diesen Schlüssel entfernen?': 'Remove this key?',

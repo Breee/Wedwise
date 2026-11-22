@@ -190,7 +190,10 @@ one of them or all others. Changing the password or the second factor ends
 every other session and gives the current device a fresh one.
 
 Passkeys and hardware tokens (WebAuthn, e.g. YubiKey) can be added there as
-well and are used as the second step after the password. Only the public key
+well. A passkey is another way to sign in, not a second step: username and
+password still work alone, unless the user has switched on an authenticator
+app or the role is listed in `REQUIRE_TWO_FACTOR`. In that case the password
+is followed by the code or the key. Only the public key
 is stored. They are bound to the host in `BASE_URL` and need HTTPS (or
 `localhost`). Recovery codes exist only together with an authenticator app, so
 register two keys or add TOTP as a fallback.
@@ -199,8 +202,8 @@ A setup link also offers "Mit Passkey einrichten": the user registers a
 passkey instead of a password and then signs in with "Mit Passkey anmelden"
 on the login page, without username or password. Such passkeys require user
 verification on the device. Using a setup link signs the person in right
-away – except when a password is set for an account that already has a
-second factor, which still has to sign in with both.
+away – except when a password is set for an account that needs a second
+step after the password, which still has to sign in with both.
 
 The login page offers the passkey first; username and password are one tap
 away. After a password sign-in to an account without a passkey, the page

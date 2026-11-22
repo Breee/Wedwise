@@ -177,7 +177,7 @@ func (s *Store) RecoveryCodesLeft(ctx context.Context, userID int64) (int, error
 
 // Begin creates a new unconfirmed secret and returns it with its otpauth URL.
 func (s *Store) Begin(ctx context.Context, userID int64, account string) (secret, url string, err error) {
-	enabled, err := s.Enabled(ctx, userID)
+	enabled, err := s.TOTPEnabled(ctx, userID)
 	if err != nil {
 		return "", "", err
 	}

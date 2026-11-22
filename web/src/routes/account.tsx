@@ -416,7 +416,7 @@ function SecurityKeys({ keys }: { keys: SecurityKey[] }) {
           {t('Passkeys und Sicherheitsschlüssel')}
         </CardTitle>
         <CardDescription>
-          {t('Fingerabdruck, Gesichtserkennung oder ein Hardware-Schlüssel (z. B. YubiKey) als zweiter Schritt bei der Anmeldung. Gespeichert wird nur der öffentliche Schlüssel.')}
+          {t('Meldet euch mit Fingerabdruck, Gesichtserkennung oder einem Hardware-Schlüssel (z. B. YubiKey) an, ohne Passwort. Gespeichert wird nur der öffentliche Schlüssel.')}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">

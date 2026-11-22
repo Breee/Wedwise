@@ -363,3 +363,40 @@ func TestStaffChangeOwnPassword(t *testing.T) {
 		t.Fatalf("password change missing from the audit log: %s", body)
 	}
 }
+
+// A passkey is another way to sign in. It only becomes a second step after
+// the password where the role must use a second factor.
+func TestPasskeyIsNotASecondStep(t *testing.T) {
+	app, dbPath := newTestAppWithOptions(t, func(cfg *configuration.Config) {
+		cfg.Auth.RequireTwoFactor = []string{"admin"}
+	})
+	db, err := sql.Open("sqlite", dbPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	for _, username := range []string{"couple_user", "admin_user"} {
+		if _, err := db.Exec(`INSERT INTO user_webauthn_credentials (user_id, name, credential, created_at)
+			SELECT id, 'Passkey', '{}', '2026-01-01T00:00:00Z' FROM users WHERE username = ?`, username); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	couple, status := app.login("couple_user", "TestPass123!")
+	if status != http.StatusOK {
+		t.Fatalf("password alone with a passkey: %d", status)
+	}
+	resp := app.do(http.MethodPost, "/api/account/2fa/totp", nil, couple)
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("authenticator app next to a passkey: %d", resp.StatusCode)
+	}
+	resp.Body.Close()
+
+	resp = app.do(http.MethodPost, "/api/auth/login", map[string]string{"username": "admin_user", "password": "TestPass123!"}, nil)
+	var e struct{ Error struct{ Code string } }
+	json.NewDecoder(resp.Body).Decode(&e)
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusUnauthorized || e.Error.Code != "security_key_required" {
+		t.Fatalf("enforced role with a passkey: %d %s", resp.StatusCode, e.Error.Code)
+	}
+}

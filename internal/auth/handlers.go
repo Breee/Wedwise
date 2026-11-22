@@ -208,12 +208,12 @@ func (s *Service) HandleLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if s.secondFactor != nil {
-		enabled, err := s.secondFactor.Enabled(r.Context(), identity.ID)
+		required, err := s.secondStepRequired(r.Context(), identity)
 		if err != nil {
 			httpx.Internal(w, err)
 			return
 		}
-		if enabled {
+		if required {
 			code := strings.TrimSpace(req.Code)
 			if len(req.Assertion) > 0 {
 				code = string(req.Assertion)
