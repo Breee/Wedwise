@@ -613,6 +613,7 @@ export const en: Record<string, string> = {
   'Konto und eure Antwort endgültig löschen?': 'Delete your account and your response for good?',
   'Euer Konto wurde gelöscht.': 'Your account was deleted.',
   'Das letzte Admin-Konto kann nicht gelöscht werden.': 'The last admin account cannot be deleted.',
+  'Meldet euch dafür bitte neu an und versucht es dann noch einmal.': 'Please sign in again for this, then try once more.',
   'Habt ihr die Seite aus einer App wie WhatsApp geöffnet? Dort geht ein Passkey nicht. Öffnet die Seite in eurem Browser.':
     'Did you open this page from an app such as WhatsApp? Passkeys do not work there. Open the page in your browser.',
 }

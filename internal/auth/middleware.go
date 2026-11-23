@@ -254,7 +254,11 @@ func (s *Service) SecondFactorEnabled(ctx context.Context, userID int64) (bool, 
 
 // StartSession signs the user in on this device.
 func (s *Service) StartSession(w http.ResponseWriter, r *http.Request, userID int64) error {
-	session, err := s.sessions.Create(r.Context(), userID, r.UserAgent())
+	return s.startSession(w, r, userID, time.Time{})
+}
+
+func (s *Service) startSession(w http.ResponseWriter, r *http.Request, userID int64, signedIn time.Time) error {
+	session, err := s.sessions.create(r.Context(), userID, r.UserAgent(), signedIn)
 	if err != nil {
 		return err
 	}
@@ -262,9 +266,21 @@ func (s *Service) StartSession(w http.ResponseWriter, r *http.Request, userID in
 	return nil
 }
 
+// RecentSignIn is how long after signing in an account may be deleted
+// without signing in again.
+const RecentSignIn = 10 * time.Minute
+
+// SignedInRecently reports whether the request's session began within
+// RecentSignIn.
+func (s *Service) SignedInRecently(r *http.Request) bool {
+	session, ok := SessionFrom(r.Context())
+	return ok && s.sessions.now().Sub(session.CreatedAt) <= RecentSignIn
+}
+
 // RenewSession ends every session of the signed-in user and starts a fresh
 // one for this device. It is called whenever the user's login changes
-// (password, second factor), so a stolen session does not survive it.
+// (password, second factor), so a stolen session does not survive it. The new
+// session keeps the time of the sign-in.
 func (s *Service) RenewSession(w http.ResponseWriter, r *http.Request) error {
 	identity, ok := IdentityFrom(r.Context())
 	if !ok {
@@ -273,7 +289,8 @@ func (s *Service) RenewSession(w http.ResponseWriter, r *http.Request) error {
 	if err := s.sessions.DeleteByUser(r.Context(), identity.ID); err != nil {
 		return err
 	}
-	return s.StartSession(w, r, identity.ID)
+	session, _ := SessionFrom(r.Context())
+	return s.startSession(w, r, identity.ID, session.CreatedAt)
 }
 
 // EndSessions signs a user out everywhere.
@@ -323,7 +340,8 @@ func (s *Service) authenticateCredentials(ctx context.Context, username, passwor
 		}
 		return Identity{}, err
 	}
-	if !identity.Active {
+	if !identity.Active || identity.PasswordHash == "" {
+		_, _ = HashPassword(password)
 		return Identity{}, ErrInvalidCredentials
 	}
 	ok, err := VerifyPassword(password, identity.PasswordHash)

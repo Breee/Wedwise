@@ -16,6 +16,10 @@ import (
 )
 
 // Handler exposes user endpoints.
+// CodeSignInAgain marks the refusal to delete an account from a session that
+// is no longer fresh.
+const CodeSignInAgain = "sign_in_again"
+
 // CodeLastAdmin marks the refusal to delete the only administrator.
 const CodeLastAdmin = "last_admin"
 
@@ -360,6 +364,10 @@ func (h *Handler) deleteOwnAccount(w http.ResponseWriter, r *http.Request) {
 	identity, ok := auth.IdentityFrom(r.Context())
 	if !ok {
 		httpx.Unauthorized(w)
+		return
+	}
+	if !h.auth.SignedInRecently(r) {
+		httpx.WriteError(w, http.StatusForbidden, CodeSignInAgain, "Sign in again to delete the account.")
 		return
 	}
 	if identity.Role == auth.RoleAdmin {

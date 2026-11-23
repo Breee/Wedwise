@@ -210,7 +210,8 @@ func (h *Handler) list(w http.ResponseWriter, r *http.Request) {
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{"entries": entries})
 }
 
-var copyTargets = map[string]bool{"invite-link": true, "response": true}
+// copyTargets names the permission needed to see each kind of link.
+var copyTargets = map[string]string{"invite-link": auth.PermInviteManage, "response": auth.PermRSVPRead}
 
 type eventRequest struct {
 	Action string `json:"action"`
@@ -223,11 +224,15 @@ func (h *Handler) event(w http.ResponseWriter, r *http.Request) {
 	if !httpx.DecodeJSON(w, r, &req) {
 		return
 	}
-	if req.Action != ActionLinkCopy || !copyTargets[req.Kind] || req.ID <= 0 {
+	if req.Action != ActionLinkCopy || copyTargets[req.Kind] == "" || req.ID <= 0 {
 		httpx.BadRequest(w, "Unknown event.")
 		return
 	}
 	identity, _ := auth.IdentityFrom(r.Context())
+	if !identity.HasPermission(copyTargets[req.Kind]) {
+		httpx.Forbidden(w)
+		return
+	}
 	h.store.Record(r.Context(), identity.ID, identity.Username, ActionLinkCopy, req.Kind+"="+strconv.FormatInt(req.ID, 10))
 	w.WriteHeader(http.StatusNoContent)
 }

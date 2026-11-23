@@ -1,10 +1,12 @@
 package server_test
 
 import (
+	"database/sql"
 	"encoding/json"
 	"net/http"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestResponseBelongsToAccount(t *testing.T) {
@@ -107,7 +109,7 @@ func TestAnswerCreatesGuestAccount(t *testing.T) {
 }
 
 func TestDeleteOwnAccount(t *testing.T) {
-	app, _ := newTestAppWithUsers(t)
+	app, dbPath := newTestAppWithUsers(t)
 	admin, _ := app.login("admin_user", "TestPass123!")
 	resp := app.do(http.MethodDelete, "/api/account/", nil, admin)
 	if resp.StatusCode != http.StatusConflict {
@@ -126,6 +128,27 @@ func TestDeleteOwnAccount(t *testing.T) {
 	if r := app.do(http.MethodPut, "/api/rsvp/"+own.EditToken, validResponse(), nil); r.StatusCode != http.StatusOK || sessionCookie(r) != nil {
 		t.Fatalf("staff edit link: status %d, session %v", r.StatusCode, sessionCookie(r))
 	}
+	// Reporting a copied link needs the right to see that link.
+	if r := app.do(http.MethodPost, "/api/audit-log/events", map[string]any{"action": "link.copy", "kind": "invite-link", "id": 1}, witness); r.StatusCode != http.StatusForbidden {
+		t.Fatalf("link copy without permission: got %d, want 403", r.StatusCode)
+	}
+
+	// A session that is no longer fresh has to sign in again first.
+	db, err := sql.Open("sqlite", dbPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	age := func(d time.Duration) {
+		if _, err := db.Exec("UPDATE sessions SET created_at = ?", time.Now().Add(-d)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	age(time.Hour)
+	if r := app.do(http.MethodDelete, "/api/account/", nil, witness); r.StatusCode != http.StatusForbidden {
+		t.Fatalf("stale session: got %d, want 403", r.StatusCode)
+	}
+	age(0)
 	resp = app.do(http.MethodDelete, "/api/account/", nil, witness)
 	if resp.StatusCode != http.StatusNoContent {
 		t.Fatalf("delete account: got %d, want 204", resp.StatusCode)

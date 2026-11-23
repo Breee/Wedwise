@@ -112,6 +112,12 @@ func (s *SessionStore) SetTimeouts(maxAge, idle time.Duration) {
 
 // Create stores a new session for the given user.
 func (s *SessionStore) Create(ctx context.Context, userID int64, userAgent string) (Session, error) {
+	return s.create(ctx, userID, userAgent, time.Time{})
+}
+
+// create stores a session that counts as signed in at signedIn, or now when
+// that is zero.
+func (s *SessionStore) create(ctx context.Context, userID int64, userAgent string, signedIn time.Time) (Session, error) {
 	id, err := randomToken(32)
 	if err != nil {
 		return Session{}, err
@@ -120,13 +126,16 @@ func (s *SessionStore) Create(ctx context.Context, userID int64, userAgent strin
 		userAgent = userAgent[:maxUserAgentLength]
 	}
 	now := s.now()
+	if signedIn.IsZero() {
+		signedIn = now
+	}
 	session := Session{
 		ID:         id,
 		Key:        tokens.Hash(id),
 		UserID:     userID,
 		UserAgent:  userAgent,
 		ExpiresAt:  now.Add(s.maxAge),
-		CreatedAt:  now,
+		CreatedAt:  signedIn,
 		LastSeenAt: now,
 	}
 	_, err = s.db.ExecContext(ctx,

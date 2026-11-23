@@ -7,7 +7,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"image"
-	"image/gif"
+	_ "image/gif"
 	"io"
 	"net/http"
 	"os"
@@ -51,17 +51,8 @@ func sanitize(data []byte, contentType string) ([]byte, string, error) {
 		return nil, "", errInvalidImage
 	}
 	var out bytes.Buffer
-	if contentType == "image/gif" {
-		// Decoding keeps only the frames; the encoder writes no comments.
-		frames, err := gif.DecodeAll(bytes.NewReader(data))
-		if err != nil {
-			return nil, "", errInvalidImage
-		}
-		if err := gif.EncodeAll(&out, frames); err != nil {
-			return nil, "", err
-		}
-		return out.Bytes(), ".gif", nil
-	}
+	// Only the first frame of a GIF is kept: a small animated file can expand
+	// into gigabytes of frames.
 	// The orientation lives in EXIF, so it is applied before EXIF is dropped.
 	img, err := imaging.Decode(bytes.NewReader(data), imaging.AutoOrientation(true))
 	if err != nil {

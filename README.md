@@ -156,7 +156,7 @@ Settings come from a YAML file (`CONFIG_PATH`, default
 | `CONTENT_PATH` | `contentPath` | — | Optional JSON content file (shape of `examples/content.json`). Fills a fresh instance at first start; ignored once content exists, so it never overwrites the editor. Use export and import in the editor to move content later. |
 | `USERS_PATH` | `usersPath` | — | Optional YAML list of users (`username`, `role`, `password`, optional `email`, `displayName`) created at startup. Existing users are kept; a changed password is applied. |
 | `IMAGES_PATH` | `imagesPath` | — | Optional directory served read-only under `/images/<name>`, e.g. for `location.image`. |
-| `UPLOADS_PATH` | `uploadsPath` | `uploads/` next to the database | Where images uploaded in the content editor are stored (JPEG, PNG, WebP, GIF, max 8 MB). They are re-encoded on upload: EXIF data such as GPS position is removed and the longest side is capped at 2560 px. Served under `/uploads/<name>`. |
+| `UPLOADS_PATH` | `uploadsPath` | `uploads/` next to the database | Where images uploaded in the content editor are stored (JPEG, PNG, WebP, GIF as a still image, max 8 MB). They are re-encoded on upload: EXIF data such as GPS position is removed and the longest side is capped at 2560 px. Served under `/uploads/<name>`. |
 
 Keep secrets in environment variables, not in the config file.
 
@@ -220,7 +220,8 @@ again, and they can save a new passkey.
 
 **Deleting an account.** Everyone can delete their own account under "Mein
 Bereich" ("Konto löschen"). This also deletes their own response and signs
-them out everywhere. The only admin cannot delete themselves.
+them out everywhere. It works for ten minutes after signing in; later the page
+asks to sign in again first. The only admin cannot delete themselves.
 
 The first admin is created
 with the CLI inside the container (or via `USERS_PATH`):
