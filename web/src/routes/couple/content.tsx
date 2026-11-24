@@ -119,6 +119,17 @@ function ContentPage() {
                   <li key={k} title={k} className="size-7 rounded-full border" style={{ background: c }} />
                 ))}
               </ul>
+              <div className="grid gap-2">
+                <Label>{t('Einladung öffnen')}</Label>
+                <Select value={draft.inviteOpening || 'night'} onValueChange={(v) => set('inviteOpening', v as 'night' | 'envelope')}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="night">{t('Nachthimmel')}</SelectItem>
+                    <SelectItem value="envelope">{t('Umschlag mit Siegel')}</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-sm text-muted-foreground">{t('So sieht die Seite aus, auf der Gäste ihren Code eingeben.')}</p>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>

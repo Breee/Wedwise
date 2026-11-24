@@ -42,7 +42,8 @@ third-party SaaS required.
 - 💌 **Invite links** — create one or more links (optionally PIN-protected)
   and share them. Each link also has a six-character code that guests can
   type in at `/join-us`, and can carry a name ("Anna & Ben") that the
-  invitation greets. Guests answer per household and get a private link to
+  invitation greets. The code page is a night sky or an envelope with a wax
+  seal that breaks open; choose under "Inhalte" → "Design". Guests answer per household and get a private link to
   edit their answer later.
 - 🎁 **Contributions** — guests can offer a programme item. Only witnesses and
   admins see these (Kanban board, schedule planning); the couple only sees

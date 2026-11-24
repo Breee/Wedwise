@@ -40,6 +40,7 @@ const (
 	keyLocationImage        = "location.image"
 	keyTheme                = "theme"
 	keyPrivacy              = "privacy"
+	keyInviteOpening        = "invite.opening"
 	keyNames                = "names"
 	keyDate                 = "date"
 	maxNames                = 4
@@ -74,10 +75,11 @@ func (s *Store) Get(ctx context.Context) (Content, error) {
 			Bike:          blocks[keyLocationBike],
 			Image:         blocks[keyLocationImage],
 		},
-		Theme:     blocks[keyTheme],
-		Privacy:   blocks[keyPrivacy],
-		Date:      blocks[keyDate],
-		UpdatedAt: updatedAt,
+		Theme:         blocks[keyTheme],
+		Privacy:       blocks[keyPrivacy],
+		InviteOpening: blocks[keyInviteOpening],
+		Date:          blocks[keyDate],
+		UpdatedAt:     updatedAt,
 	}
 	if err := decodeBlock(blocks[keyNames], &result.Names); err != nil {
 		return Content{}, err
@@ -137,6 +139,7 @@ func (s *Store) Replace(ctx context.Context, updated Content) (Content, error) {
 		keyLocationImage:       normalized.Location.Image,
 		keyTheme:               normalized.Theme,
 		keyPrivacy:             normalized.Privacy,
+		keyInviteOpening:       normalized.InviteOpening,
 		keyNames:               encodeBlock(normalized.Names),
 		keyDate:                normalized.Date,
 		keyTravel:              encodeBlock(normalized.Travel),
@@ -273,6 +276,11 @@ func normalize(input Content) (Content, error) {
 		if _, err := time.Parse("2006-01-02", input.Date); err != nil {
 			return Content{}, fmt.Errorf("%w: date must be YYYY-MM-DD", ErrValidation)
 		}
+	}
+	switch input.InviteOpening {
+	case "", "night", "envelope":
+	default:
+		return Content{}, fmt.Errorf("%w: inviteOpening must be night or envelope", ErrValidation)
 	}
 	names := make([]string, 0, len(input.Names))
 	for _, name := range input.Names {

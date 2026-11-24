@@ -94,7 +94,8 @@ type Content struct {
 	Accommodation Accommodation   `json:"accommodation"`
 	Schedule      []ScheduleEntry `json:"schedule"`
 	FAQ           []FAQEntry      `json:"faq"`
-	Theme         string          `json:"theme"`   // name of the active theme preset
-	Privacy       string          `json:"privacy"` // optional privacy note shown in the footer
+	Theme         string          `json:"theme"`         // name of the active theme preset
+	Privacy       string          `json:"privacy"`       // optional privacy note shown in the footer
+	InviteOpening string          `json:"inviteOpening"` // how /join-us looks: night (default) or envelope
 	UpdatedAt     time.Time       `json:"updatedAt"`
 }

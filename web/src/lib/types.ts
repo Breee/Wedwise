@@ -120,6 +120,7 @@ export interface Content {
   schedule: ScheduleEntry[]
   faq: FAQEntry[]
   privacy?: string
+  inviteOpening?: '' | 'night' | 'envelope'
   updatedAt?: string
 }
 

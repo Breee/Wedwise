@@ -179,12 +179,13 @@ func newTestAppWithOptions(t *testing.T, configure func(*configuration.Config)) 
 
 func validContent() map[string]any {
 	return map[string]any{
-		"hero":         map[string]any{"headline": "Wir heiraten"},
-		"introduction": map[string]any{"text": "Herzlich willkommen"},
-		"location":     map[string]any{"name": "Waldsee", "navigationUrl": "https://maps.example.com"},
-		"privacy":      "Nur wir sehen eure Angaben.",
-		"names":        []string{" Anna ", "Ben", ""},
-		"date":         "2028-05-20",
+		"hero":          map[string]any{"headline": "Wir heiraten"},
+		"introduction":  map[string]any{"text": "Herzlich willkommen"},
+		"location":      map[string]any{"name": "Waldsee", "navigationUrl": "https://maps.example.com"},
+		"privacy":       "Nur wir sehen eure Angaben.",
+		"inviteOpening": "envelope",
+		"names":         []string{" Anna ", "Ben", ""},
+		"date":          "2028-05-20",
 		"schedule": []map[string]any{
 			{"time": "14:00", "title": "Ankunft"},
 			{"time": "14:30", "title": "Trauung"},
@@ -363,8 +364,9 @@ func TestContentUpdate_Couple(t *testing.T) {
 			Introduction struct {
 				Text string `json:"text"`
 			} `json:"introduction"`
-			Privacy  string `json:"privacy"`
-			Schedule []struct {
+			Privacy       string `json:"privacy"`
+			InviteOpening string `json:"inviteOpening"`
+			Schedule      []struct {
 				Title string `json:"title"`
 				Order int    `json:"order"`
 			} `json:"schedule"`
@@ -389,6 +391,9 @@ func TestContentUpdate_Couple(t *testing.T) {
 	}
 	if body.Event.Date != "2028-05-20" || len(body.Event.Couple) != 2 || body.Event.Couple[0].Name != "Anna" || body.Event.Couple[1].Name != "Ben" {
 		t.Fatalf("names and date from the editor must replace the configured ones: %+v", body.Event)
+	}
+	if body.Content.InviteOpening != "envelope" {
+		t.Fatalf("invite opening not persisted: %q", body.Content.InviteOpening)
 	}
 	if body.Content.Privacy != "Nur wir sehen eure Angaben." {
 		t.Fatalf("privacy not persisted: %q", body.Content.Privacy)
