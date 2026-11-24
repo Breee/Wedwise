@@ -123,6 +123,9 @@ func New(cfg configuration.Config, db *sql.DB) (*Server, error) {
 	if err := inviteStore.ProtectTokens(context.Background()); err != nil {
 		return nil, fmt.Errorf("protect invite tokens: %w", err)
 	}
+	if err := inviteStore.EnsureCodes(context.Background()); err != nil {
+		return nil, fmt.Errorf("invite codes: %w", err)
+	}
 	if err := rsvpStore.ProtectTokens(context.Background()); err != nil {
 		return nil, fmt.Errorf("protect edit tokens: %w", err)
 	}
@@ -133,6 +136,7 @@ func New(cfg configuration.Config, db *sql.DB) (*Server, error) {
 	rsvpHandler := rsvp.NewHandler(rsvpStore, contributionStore, inviteStore, inviteGate,
 		middleware.NewStoredLimiter(db, "pin", rsvp.PINFailureLimit, rsvp.PINFailureWindow),
 		middleware.NewStoredLimiter(db, "link", rsvp.LinkSubmitLimit, rsvp.LinkSubmitWindow))
+	rsvpHandler.SetCodes(middleware.NewStoredLimiter(db, "code", rsvp.CodeFailureLimit, rsvp.CodeFailureWindow), cfg.TrustProxy())
 	guestPasskeys, err := rsvp.NewPasskeys(db, cfg.BaseURL, cfg.Event.Title)
 	if err != nil {
 		return nil, err

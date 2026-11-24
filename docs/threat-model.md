@@ -10,7 +10,7 @@ and is meant to run behind a TLS-terminating reverse proxy.
 |---|---|
 | Guest answers: names, children's ages, allergies, e-mail, phone, messenger handles, messages | Personal, partly health-related data |
 | Contributions (surprises planned by guests) | Must stay hidden from the couple |
-| Invite link tokens and PINs | Whoever has one can submit answers |
+| Invite link tokens, codes and PINs | Whoever has one can submit answers. Codes are short (six characters), so wrong guesses are limited per address |
 | Edit tokens | Whoever has one can read, change or delete one answer, and sign in to the guest account that owns it |
 | Staff accounts, sessions, second factors | Give access to all of the above |
 | Guest accounts (passkey only) | Give access to one answer |

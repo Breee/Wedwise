@@ -17,7 +17,7 @@ const rise = (delay: number) => ({
   transition: { duration: 1.1, delay, ease: EASE },
 })
 
-export function InviteStory({ target }: { target: string }) {
+export function InviteStory({ target, name }: { target: string; name?: string }) {
   const { data } = useQuery(publicContentQuery)
   const deco = data?.theme?.decoration as SceneVariant | undefined
   const variant = deco && SCENES.includes(deco) ? deco : 'night'
@@ -30,7 +30,7 @@ export function InviteStory({ target }: { target: string }) {
       </div>
       <div className="relative -mt-[100svh]">
         <Page id="invite-title" next="invite-schedule">
-          <Title />
+          <Title guest={name} />
         </Page>
         <Page id="invite-schedule" next={target} label={t('Zur Rückmeldung')}>
           <Schedule />
@@ -86,12 +86,17 @@ function GoldLine({ delay }: { delay: number }) {
   )
 }
 
-function Title() {
+function Title({ guest }: { guest?: string }) {
   const { data } = useQuery(publicContentQuery)
   const location = data?.content.location
   const names = data?.event.couple?.map((c) => c.name).join(' & ') || data?.event.title
   return (
     <div className="text-center [text-shadow:0_1px_3px_rgba(0,0,0,0.9),0_2px_22px_rgba(0,0,0,0.75)]">
+      {guest && (
+        <motion.p className="mb-5 font-display text-3xl text-[#ecdcb0] text-balance" {...rise(0.1)}>
+          {t('Für {name}', { name: guest })}
+        </motion.p>
+      )}
       <Eyebrow>{t('Ihr seid eingeladen')}</Eyebrow>
       <motion.h1 className="mt-6 font-display text-5xl leading-tight text-balance md:text-7xl" {...rise(0.4)}>
         {names}

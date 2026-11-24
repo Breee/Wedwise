@@ -25,6 +25,10 @@ type pinRequest struct {
 	PIN string `json:"pin"`
 }
 
+type nameRequest struct {
+	Name string `json:"name"`
+}
+
 type activeRequest struct {
 	Active bool `json:"active"`
 }
@@ -40,6 +44,7 @@ func (h *Handler) Routes() http.Handler {
 	r.Get("/", h.list)
 	r.Post("/", h.create)
 	r.Put("/{id}/pin", h.setPIN)
+	r.Put("/{id}/name", h.setName)
 	r.Put("/{id}/active", h.setActive)
 	r.Put("/{id}/limit", h.setLimit)
 	r.Post("/{id}/regenerate", h.regenerate)
@@ -75,6 +80,19 @@ func (h *Handler) setPIN(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	link, err := h.store.SetPIN(r.Context(), id, req.PIN)
+	h.respond(w, link, err)
+}
+
+func (h *Handler) setName(w http.ResponseWriter, r *http.Request) {
+	id, ok := parseID(w, r)
+	if !ok {
+		return
+	}
+	var req nameRequest
+	if !httpx.DecodeJSON(w, r, &req) {
+		return
+	}
+	link, err := h.store.SetName(r.Context(), id, req.Name)
 	h.respond(w, link, err)
 }
 

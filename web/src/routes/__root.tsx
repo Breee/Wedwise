@@ -22,7 +22,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 })
 
 function RootLayout() {
-  const invite = useMatchRoute()({ to: '/rsvp/$link' })
+  const match = useMatchRoute()
+  const invite = match({ to: '/rsvp/$link' }) || match({ to: '/join-us' })
   return (
     <MotionConfig reducedMotion="user">
       <ThemeApplier />

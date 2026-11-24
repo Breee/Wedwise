@@ -3,7 +3,7 @@ import { copyText, reportLinkCopy } from '@/lib/clipboard'
 import { t } from '@/lib/i18n'
 import { createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQueryClient, useSuspenseQuery } from '@tanstack/react-query'
-import { Copy, Eye, EyeOff, Gauge, KeyRound, Plus, RefreshCw, Share2, Trash2 } from 'lucide-react'
+import { Copy, Eye, EyeOff, Gauge, KeyRound, Plus, RefreshCw, Share2, Trash2, UserRound } from 'lucide-react'
 import { toast } from 'sonner'
 import { api, errorMessage } from '@/lib/api'
 import { inviteLinksQuery } from '@/lib/queries'
@@ -31,12 +31,14 @@ export const Route = createFileRoute('/couple/invites')({
 })
 
 const linkUrl = (token: string) => `${window.location.origin}/rsvp/${token}`
+const codeUrl = (code: string) => `${window.location.origin}/join-us?code=${code}`
 
 function InvitesPage() {
   const queryClient = useQueryClient()
   const { data: links } = useSuspenseQuery(inviteLinksQuery)
   const [pinTarget, setPinTarget] = useState<InviteLink | null>(null)
   const [limitTarget, setLimitTarget] = useState<InviteLink | null>(null)
+  const [nameTarget, setNameTarget] = useState<InviteLink | null>(null)
   const [revealed, setRevealed] = useState<number | null>(null)
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: inviteLinksQuery.queryKey })
@@ -69,6 +71,10 @@ function InvitesPage() {
   const copy = (l: InviteLink) => {
     reportLinkCopy('invite-link', l.id)
     copyText(linkUrl(l.token), t('Link kopiert.'))
+  }
+  const copyCode = (l: InviteLink) => {
+    reportLinkCopy('invite-link', l.id)
+    copyText(codeUrl(l.code), t('Link kopiert.'))
   }
 
   return (
@@ -104,6 +110,7 @@ function InvitesPage() {
           {links.map((l) => (
             <TableRow key={l.id} className={`mb-3 flex flex-wrap items-center gap-x-4 gap-y-1 rounded-lg border bg-card p-3 sm:mb-0 sm:table-row sm:rounded-none sm:bg-transparent sm:p-0 ${l.active ? '' : 'opacity-60'}`}>
               <TableCell className="w-full min-w-0 p-0 sm:w-auto sm:p-2">
+                {l.name && <p className="font-medium">{l.name}</p>}
                 {l.token ? (
                   <div className="flex items-center gap-1 font-mono text-xs">
                     <span className="truncate">{revealed === l.id ? linkUrl(l.token) : `${window.location.origin}/rsvp/••••••••••••`}</span>
@@ -122,6 +129,15 @@ function InvitesPage() {
                 ) : (
                   <span className="text-xs text-muted-foreground">{t('Link nicht mehr lesbar – bitte neu erzeugen.')}</span>
                 )}
+                {l.token && l.code && (
+                  <div className="flex items-center gap-1 text-xs">
+                    <span className="text-muted-foreground">{t('Code')}</span>
+                    <span className="font-mono tracking-widest">{l.code}</span>
+                    <Button type="button" variant="ghost" size="icon" className="size-10 shrink-0 sm:size-7" title={t('Link mit Code kopieren')} aria-label={t('Link mit Code kopieren')} onClick={() => copyCode(l)}>
+                      <Copy className="size-3.5" />
+                    </Button>
+                  </div>
+                )}
               </TableCell>
               <TableCell className="p-0 sm:p-2">{l.hasPin ? <Badge>PIN</Badge> : <span className="text-muted-foreground"><span className="sm:hidden">{t('Kein PIN')}</span><span className="hidden sm:inline">–</span></span>}</TableCell>
               <TableCell className="p-0 sm:p-2">{l.responses}{l.maxResponses > 0 && ` / ${l.maxResponses}`}<span className="text-muted-foreground sm:hidden"> {t('Antworten')}</span></TableCell>
@@ -131,6 +147,10 @@ function InvitesPage() {
               </TableCell>
               <TableCell className="ml-auto p-0 text-right sm:p-2">
                 <div className="flex justify-end gap-1">
+                  <Button variant="ghost" size="icon" className="h-10 w-auto gap-1.5 px-2 sm:size-9 sm:px-0" title={t('Für wen ist der Link?')} onClick={() => setNameTarget(l)}>
+                    <UserRound className="size-4" />
+                    <span className="text-xs sm:hidden">{t('Name')}</span>
+                  </Button>
                   <Button variant="ghost" size="icon" className="h-10 w-auto gap-1.5 px-2 sm:size-9 sm:px-0" title={l.hasPin ? t('PIN ändern') : t('PIN setzen')} onClick={() => setPinTarget(l)}>
                     <KeyRound className="size-4" />
                     <span className="text-xs sm:hidden">PIN</span>
@@ -167,7 +187,48 @@ function InvitesPage() {
       </Table>
       <PinDialog link={pinTarget} onClose={() => setPinTarget(null)} onSaved={refresh} />
       {limitTarget && <LimitDialog key={limitTarget.id} link={limitTarget} onClose={() => setLimitTarget(null)} onSaved={refresh} />}
+      {nameTarget && <NameDialog key={nameTarget.id} link={nameTarget} onClose={() => setNameTarget(null)} onSaved={refresh} />}
     </>
+  )
+}
+
+function NameDialog({ link, onClose, onSaved }: { link: InviteLink; onClose: () => void; onSaved: () => void }) {
+  const [name, setName] = useState(link.name)
+  const save = useMutation({
+    mutationFn: () => api.put(`/invite-links/${link.id}/name`, { name }),
+    onSuccess: () => {
+      onSaved()
+      onClose()
+    },
+    onError: (e) => toast.error(errorMessage(e)),
+  })
+
+  return (
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault()
+            save.mutate()
+          }}
+          className="space-y-4"
+        >
+          <DialogHeader>
+            <DialogTitle>{t('Für wen ist der Link?')}</DialogTitle>
+            <DialogDescription>{t('Die Einladung begrüßt die Gäste mit diesem Namen, zum Beispiel „Anna & Ben“. Leer lassen für keine Begrüßung.')}</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="link-name">{t('Name')}</Label>
+            <Input id="link-name" value={name} onChange={(e) => setName(e.target.value)} maxLength={80} autoFocus autoComplete="off" />
+          </div>
+          <DialogFooter>
+            <Button type="submit" disabled={save.isPending}>
+              {t('Speichern')}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   )
 }
 

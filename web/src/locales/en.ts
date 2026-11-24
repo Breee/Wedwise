@@ -616,4 +616,11 @@ export const en: Record<string, string> = {
   'Meldet euch dafür bitte neu an und versucht es dann noch einmal.': 'Please sign in again for this, then try once more.',
   'Habt ihr die Seite aus einer App wie WhatsApp geöffnet? Dort geht ein Passkey nicht. Öffnet die Seite in eurem Browser.':
     'Did you open this page from an app such as WhatsApp? Passkeys do not work there. Open the page in your browser.',
+  'Euer Code': 'Your code',
+  'Dieser Code passt nicht.': 'This code does not fit.',
+  'Ihr findet ihn auf eurer Einladung.': 'You will find it on your invitation.',
+  'Für {name}': 'For {name}',
+  'Link mit Code kopieren': 'Copy link with code',
+  'Für wen ist der Link?': 'Who is the link for?',
+  'Die Einladung begrüßt die Gäste mit diesem Namen, zum Beispiel „Anna & Ben“. Leer lassen für keine Begrüßung.': 'The invitation greets the guests with this name, for example "Anna & Ben". Leave empty for no greeting.',
 }

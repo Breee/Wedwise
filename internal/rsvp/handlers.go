@@ -40,6 +40,11 @@ const (
 const (
 	PINFailureLimit  = 10
 	PINFailureWindow = 15 * time.Minute
+
+	// An address may type at most CodeFailureLimit wrong invite codes per
+	// CodeFailureWindow.
+	CodeFailureLimit  = 10
+	CodeFailureWindow = 15 * time.Minute
 )
 
 // Handler exposes the public RSVP endpoints and the protected response
@@ -50,6 +55,8 @@ type Handler struct {
 	links         *invites.Store
 	gate          *invites.Gate
 	pinFailures   *middleware.Limiter
+	codeFailures  *middleware.Limiter
+	trustProxy    bool
 	submissions   *middleware.Limiter
 	notify        func(response Response, withContribution bool)
 	passkeys      *Passkeys
@@ -152,6 +159,7 @@ type bulkDeleteRequest struct {
 func (h *Handler) PublicRoutes(middlewares ...func(http.Handler) http.Handler) http.Handler {
 	r := chi.NewRouter()
 	r.Use(middlewares...)
+	r.Post("/code", h.openCode)
 	r.Get("/links/{link}", h.linkStatus)
 	r.Post("/links/{link}/unlock", h.unlock)
 	r.Post("/links/{link}", h.create)
@@ -328,6 +336,7 @@ func (h *Handler) linkStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{
+		"name":        link.Name,
 		"pinRequired": link.HasPIN,
 		"unlocked":    h.gate.Unlocked(r, link),
 	})
@@ -354,6 +363,45 @@ func (h *Handler) unlock(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// SetCodes lets guests open a link with its short code. Wrong codes count
+// against failures per client address.
+func (h *Handler) SetCodes(failures *middleware.Limiter, trustProxy bool) {
+	h.codeFailures = failures
+	h.trustProxy = trustProxy
+}
+
+// openCode trades the short code of an active link for the link itself.
+func (h *Handler) openCode(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Code string `json:"code"`
+	}
+	if !httpx.DecodeJSON(w, r, &req) {
+		return
+	}
+	if h.codeFailures == nil {
+		httpx.NotFound(w, "Invite codes are not available.")
+		return
+	}
+	key := middleware.ClientIP(r, h.trustProxy)
+	if blocked, retryAfter := h.codeFailures.Blocked(key); blocked {
+		w.Header().Set("Retry-After", strconv.Itoa(int(retryAfter.Seconds())+1))
+		httpx.WriteError(w, http.StatusTooManyRequests, httpx.CodeTooManyRequests, "Too many wrong codes. Please try again later.")
+		return
+	}
+	link, err := h.links.GetByCode(r.Context(), req.Code)
+	if err != nil && !errors.Is(err, invites.ErrNotFound) {
+		httpx.Internal(w, err)
+		return
+	}
+	if err != nil || !link.Active || link.Token == "" {
+		h.codeFailures.Allow(key)
+		httpx.NotFound(w, "This code does not fit.")
+		return
+	}
+	w.Header().Set("Cache-Control", "no-store")
+	httpx.WriteJSON(w, http.StatusOK, map[string]string{"link": link.Token})
 }
 
 // OnResponse registers a callback that runs after a guest submits a new

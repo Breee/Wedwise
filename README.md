@@ -39,9 +39,11 @@ third-party SaaS required.
   hotels / holiday flats with price tier, filters and Booking.com links
   pre-filled with your dates.
 - 🎨 **Themes** — pick one in the editor; add your own as a YAML file.
-- 💌 **Invite links** — no personalised invitations. Create one or more links
-  (optionally PIN-protected) and share them. Guests answer per household and
-  get a private link to edit their answer later.
+- 💌 **Invite links** — create one or more links (optionally PIN-protected)
+  and share them. Each link also has a six-character code that guests can
+  type in at `/join-us`, and can carry a name ("Anna & Ben") that the
+  invitation greets. Guests answer per household and get a private link to
+  edit their answer later.
 - 🎁 **Contributions** — guests can offer a programme item. Only witnesses and
   admins see these (Kanban board, schedule planning); the couple only sees
   attendance and food.
@@ -109,8 +111,11 @@ phone has to trust `local/certs/ca.crt` once:
    `local/content.json` is only used to seed an empty database; you can also
    push it yourself with `PUT /api/content`.
 3. **Invite links** — open **Einladungslinks**, create a link, optionally set
-   a PIN, copy the URL and send it to your guests. Deactivate or regenerate a
-   link at any time; existing responses are kept.
+   a PIN, copy the URL and send it to your guests. For a printed card, use
+   the code (`/join-us`) or copy the link with the code attached
+   (`/join-us?code=…`). Set a name to greet the guests personally. Deactivate
+   or regenerate a link at any time; regenerating also replaces the code,
+   and existing responses are kept.
 4. **Responses** — everyone lands on one dashboard, "Mein Bereich" (`/me`),
    after signing in. Its tabs depend on the role: your own response, all
    responses, food (diets and allergies), music wishes and, for witnesses and
@@ -455,6 +460,8 @@ overview can count them. Backups are encrypted as a whole with the same key.
   login clears it.
 - After 10 wrong PINs an invite link is locked for 15 minutes, whatever the
   client IP. Unknown or inactive links answer `404`.
+- After 10 wrong invite codes a client IP is locked out of `/join-us` for 15
+  minutes. A code only opens the link; a PIN on the link still applies.
 - Each invite link can carry a maximum number of responses and accepts at most
   20 new responses per 10 minutes. Staff can filter responses by link and
   delete several at once.
