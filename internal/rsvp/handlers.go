@@ -400,6 +400,7 @@ func (h *Handler) openCode(w http.ResponseWriter, r *http.Request) {
 		httpx.NotFound(w, "This code does not fit.")
 		return
 	}
+	h.gate.Open(w, link)
 	w.Header().Set("Cache-Control", "no-store")
 	httpx.WriteJSON(w, http.StatusOK, map[string]string{"link": link.Token})
 }

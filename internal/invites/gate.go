@@ -50,6 +50,13 @@ func (g *Gate) Unlock(w http.ResponseWriter, link Link, pin string) bool {
 	if !link.VerifyPIN(pin) {
 		return false
 	}
+	g.Open(w, link)
+	return true
+}
+
+// Open sets the proof cookie without asking for the PIN, for a visitor who
+// came in with the link's code.
+func (g *Gate) Open(w http.ResponseWriter, link Link) {
 	if link.HasPIN {
 		http.SetCookie(w, &http.Cookie{
 			Name:     fmt.Sprintf("%s_%d", cookieName, link.ID),
@@ -61,5 +68,4 @@ func (g *Gate) Unlock(w http.ResponseWriter, link Link, pin string) bool {
 			SameSite: http.SameSiteLaxMode,
 		})
 	}
-	return true
 }

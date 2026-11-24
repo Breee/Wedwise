@@ -461,7 +461,7 @@ overview can count them. Backups are encrypted as a whole with the same key.
 - After 10 wrong PINs an invite link is locked for 15 minutes, whatever the
   client IP. Unknown or inactive links answer `404`.
 - After 10 wrong invite codes a client IP is locked out of `/join-us` for 15
-  minutes. A code only opens the link; a PIN on the link still applies.
+  minutes. A code opens the link by itself, without the link's PIN.
 - Each invite link can carry a maximum number of responses and accepts at most
   20 new responses per 10 minutes. Staff can filter responses by link and
   delete several at once.

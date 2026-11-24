@@ -44,7 +44,27 @@ func TestInviteCodeOpensLink(t *testing.T) {
 		t.Fatalf("open: got %d %q", status, token)
 	}
 
-	namePath := fmt.Sprintf("/api/invite-links/%d/name", link.ID)
+	// The code stands in for the link's PIN.
+	resp = app.do("PUT", fmt.Sprintf("/api/invite-links/%d/pin", link.ID), map[string]any{"pin": "4711"}, couple)
+	resp.Body.Close()
+	unlocked := func(cookie *http.Cookie) bool {
+		resp := app.do("GET", "/api/rsvp/links/"+link.Token, nil, cookie)
+		defer resp.Body.Close()
+		var out struct {
+			Unlocked bool `json:"unlocked"`
+		}
+		_ = json.NewDecoder(resp.Body).Decode(&out)
+		return out.Unlocked
+	}
+	if unlocked(nil) {
+		t.Fatal("link with a PIN is open without code or PIN")
+	}
+	resp = app.do("POST", "/api/rsvp/code", map[string]any{"code": link.Code}, nil)
+	resp.Body.Close()
+	if cookies := resp.Cookies(); len(cookies) != 1 || !unlocked(cookies[0]) {
+		t.Fatalf("code did not open the link with a PIN: %v", cookies)
+	}
+
 	resp = app.do("PUT", namePath, map[string]any{"name": "Anna & Ben"}, witness)
 	resp.Body.Close()
 	if resp.StatusCode != http.StatusForbidden {
