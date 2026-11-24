@@ -65,6 +65,7 @@ func TestInviteCodeOpensLink(t *testing.T) {
 		t.Fatalf("code did not open the link with a PIN: %v", cookies)
 	}
 
+	namePath := fmt.Sprintf("/api/invite-links/%d/name", link.ID)
 	resp = app.do("PUT", namePath, map[string]any{"name": "Anna & Ben"}, witness)
 	resp.Body.Close()
 	if resp.StatusCode != http.StatusForbidden {
