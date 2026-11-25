@@ -481,13 +481,21 @@ const FLAP = 'color-mix(in oklab, var(--gold) 34%, var(--card))'
 // its ring, which turns one step. The full code spins the ring and the seal
 // breaks.
 const SWEEP = 0.7
+const LINING = 'color-mix(in oklab, var(--primary) 16%, var(--card))'
+// Wax: pressed in at the rim, with a soft shine from the upper left.
+const WAX =
+  'relative block size-full rounded-full bg-primary text-primary-foreground ring-2 ring-primary-foreground/25 ring-inset shadow-[inset_0_3px_6px_rgba(255,255,255,0.22),inset_0_-6px_10px_rgba(0,0,0,0.28)]'
+const GLOSS = (
+  <span className="pointer-events-none absolute inset-0 rounded-full bg-[radial-gradient(circle_at_32%_26%,rgba(255,255,255,0.3),rgba(255,255,255,0)_45%)]" />
+)
 const STEP = 360 / LENGTH
 
 function Dial({ code, plain, active, opened, still }: { code: string; plain: boolean; active: boolean; opened: boolean; still: boolean }) {
   // A link that carries the code leaves a plain seal, which a tap breaks.
   if (plain) {
     return (
-      <span className="relative block size-full rounded-full bg-primary text-primary-foreground shadow-md ring-2 ring-primary-foreground/25 ring-inset">
+      <span className={WAX}>
+        {GLOSS}
         <span className="absolute inset-4 rounded-full ring-1 ring-primary-foreground/30" />
         <Heart className="absolute top-1/2 left-1/2 -mt-5 -ml-5 size-10 fill-current" />
       </span>
@@ -500,7 +508,8 @@ function Dial({ code, plain, active, opened, still }: { code: string; plain: boo
     ? { duration: SWEEP, ease: 'easeInOut' as const }
     : { type: 'spring' as const, stiffness: 260, damping: 22 }
   return (
-    <span className="relative block size-full rounded-full bg-primary text-primary-foreground shadow-md ring-2 ring-primary-foreground/25 ring-inset">
+    <span className={WAX}>
+      {GLOSS}
       <motion.span className="absolute inset-0" initial={false} animate={{ rotate: turn }} transition={spin}>
         {Array.from({ length: LENGTH }, (_, i) => (
           <span
@@ -575,35 +584,66 @@ function Envelope({
       <motion.div
         aria-hidden
         className="absolute inset-x-3 top-2 bottom-2 z-10 flex flex-col items-center gap-3 rounded-md border bg-card pt-9 shadow-sm"
-        animate={{ y: move ? '-40%' : '0%' }}
-        transition={{ duration: 0.8, delay: sweep + 1, ease: EASE }}
+        animate={move ? { y: ['0%', '-40%', '-40%', '0%'], scale: [1, 1, 1, 6] } : { y: '0%', scale: 1 }}
+        transition={{ duration: 1.6, times: [0, 0.5, 0.62, 1], delay: sweep + 1, ease: [EASE, 'linear', 'easeIn'] }}
       >
-        <span className="font-display text-xl">{t('Ihr seid eingeladen')}</span>
-        <Heart className="size-4 fill-current text-primary" />
+        <motion.span
+          className="flex flex-col items-center gap-3"
+          animate={{ opacity: move ? 0 : 1 }}
+          transition={{ duration: 0.3, delay: sweep + 1.9 }}
+        >
+          <span className="font-display text-xl">{t('Ihr seid eingeladen')}</span>
+          <Heart className="size-4 fill-current text-primary" />
+        </motion.span>
       </motion.div>
       <motion.div
         aria-hidden
         className="absolute inset-0 z-20 rounded-lg"
-        style={{ background: PAPER, clipPath: 'polygon(0 0, 50% 55%, 100% 0, 100% 100%, 0 100%)' }}
+        style={{
+          background: `linear-gradient(180deg, color-mix(in oklab, black 7%, ${PAPER}), ${PAPER} 55%)`,
+          clipPath: 'polygon(0 0, 50% 55%, 100% 0, 100% 100%, 0 100%)',
+        }}
         {...drop}
-      />
+      >
+        <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="size-full fill-none stroke-black/10">
+          <path d="M0 100 50 55 100 100" vectorEffect="non-scaling-stroke" />
+        </svg>
+      </motion.div>
       {/* The flap is edge-on halfway through, which hides its move behind the card. */}
       <motion.div
         aria-hidden
         className="absolute inset-x-0 top-0 h-[55%] [perspective:900px]"
-        style={{ zIndex: move ? 5 : 30, transition: `z-index 0s ${sweep + 0.75}s` }}
+        style={{ zIndex: move ? 5 : 30, transition: `z-index 0s ${sweep + 0.8}s` }}
         {...drop}
       >
         <motion.div
-          className="size-full origin-top rounded-t-lg"
-          style={{ background: FLAP, clipPath: 'polygon(0 0, 100% 0, 50% 100%)' }}
-          animate={{ rotateX: move ? 180 : 0, filter: move ? 'brightness(0.9)' : 'brightness(0.97)' }}
-          transition={{ duration: 0.6, delay: sweep + 0.45, ease: 'easeInOut' }}
-        />
+          className="size-full origin-top"
+          animate={{
+            rotateX: move ? 180 : 0,
+            filter: move ? 'drop-shadow(0 0 0 rgba(0,0,0,0))' : 'drop-shadow(0 3px 4px rgba(0,0,0,0.2))',
+          }}
+          transition={{ duration: 0.7, delay: sweep + 0.45, ease: 'easeInOut' }}
+        >
+          <div
+            className="size-full rounded-t-lg"
+            style={{
+              background: move ? LINING : FLAP,
+              clipPath: 'polygon(0 0, 100% 0, 50% 100%)',
+              transition: `background 0s ${sweep + 0.8}s`,
+            }}
+          />
+        </motion.div>
       </motion.div>
       <motion.div aria-hidden className="absolute top-[55%] left-1/2 z-40 -mt-[76px] -ml-[76px] size-[152px]" animate={shake}>
+        {plain && !opened && !still && (
+          <motion.span
+            className="absolute inset-1 rounded-full border-2 border-primary"
+            animate={{ scale: [1, 1.4], opacity: [0.55, 0] }}
+            transition={{ duration: 1.8, repeat: Infinity, repeatDelay: 0.9, delay: 1.2, ease: 'easeOut' }}
+          />
+        )}
         <motion.div
-          className="relative size-full"
+          className="relative size-full [filter:drop-shadow(0_3px_5px_rgba(0,0,0,0.35))]"
           animate={move ? { scale: [1, 0.92, 1] } : { scale: 1 }}
           transition={{ duration: 0.25, delay: sweep }}
         >
