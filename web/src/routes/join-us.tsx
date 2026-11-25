@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useRef, useState, type PointerEvent, type ReactNode } from 'react'
 import { t } from '@/lib/i18n'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useMutation, useQuery } from '@tanstack/react-query'
@@ -11,11 +11,17 @@ import { DuskScene, type SceneVariant } from '@/components/rsvp/DuskIntro'
 const LENGTH = 6
 const SCENES: SceneVariant[] = ['dusk', 'forest', 'night']
 const EASE = [0.22, 1, 0.36, 1] as const
+// What a guest does to open a link that carries its code.
+const PLAYS = ['light', 'fireflies', 'lantern', 'stars', 'seal', 'ribbon'] as const
+type Play = (typeof PLAYS)[number]
+const NIGHT_PLAYS: Play[] = ['fireflies', 'lantern', 'stars']
+const GLOW = 'bg-[radial-gradient(circle,#fff6cf_0%,#f7e9a8_18%,rgba(247,233,168,0.35)_34%,rgba(247,233,168,0)_62%)]'
 
 export const Route = createFileRoute('/join-us')({
-  validateSearch: (s: Record<string, unknown>): { code?: string; look?: 'night' | 'envelope' } => ({
+  validateSearch: (s: Record<string, unknown>): { code?: string; look?: 'night' | 'envelope'; play?: Play } => ({
     ...(typeof s.code === 'string' ? { code: s.code } : {}),
     ...(s.look === 'night' || s.look === 'envelope' ? { look: s.look } : {}),
+    ...(PLAYS.includes(s.play as Play) ? { play: s.play as Play } : {}),
   }),
   component: JoinPage,
 })
@@ -24,7 +30,7 @@ const clean = (value: string) => value.toUpperCase().replace(/[^A-Z0-9]/g, '').s
 
 function JoinPage() {
   const navigate = useNavigate()
-  const { code: given, look } = Route.useSearch()
+  const { code: given, look, play } = Route.useSearch()
   const { data } = useQuery(publicContentQuery)
   const deco = data?.theme?.decoration as SceneVariant | undefined
   const [code, setCode] = useState(() => clean(given ?? ''))
@@ -36,6 +42,17 @@ function JoinPage() {
   // ?look= overrides the setting, to try out the other look.
   const envelope = (look ?? data?.content.inviteOpening) === 'envelope'
   const still = useReducedMotion() ?? false
+  // ?play= picks the way to open; reduced motion always gets the single tap.
+  const game: Play = envelope ? (play === 'ribbon' && !still ? 'ribbon' : 'seal') : play && NIGHT_PLAYS.includes(play) && !still ? play : 'light'
+  const playing = direct && !tapped && game !== 'light' && game !== 'seal'
+  const finish = useCallback(() => setTapped(true), [])
+  // Nobody gets stuck on a game: the plain way in shows up after a while.
+  const [late, setLate] = useState(false)
+  useEffect(() => {
+    if (!playing) return
+    const timer = setTimeout(() => setLate(true), 8000)
+    return () => clearTimeout(timer)
+  }, [playing])
 
   const open = useMutation({
     mutationFn: (value: string) => api.post<{ link: string }>('/rsvp/code', { code: value }),
@@ -68,7 +85,15 @@ function JoinPage() {
       ? t('Zu viele Versuche. Bitte wartet einen Moment.')
       : t('Dieser Code passt nicht.')
     : direct
-    ? !tapped && (envelope ? t('Brecht das Siegel') : t('Tippt auf das Licht'))
+    ? !tapped &&
+      {
+        light: t('Tippt auf das Licht'),
+        fireflies: t('Fangt die drei Glühwürmchen'),
+        lantern: t('Haltet die Laterne, bis sie leuchtet'),
+        stars: t('Verbindet die drei Sterne'),
+        seal: t('Brecht das Siegel'),
+        ribbon: t('Zieht an der Schleife'),
+      }[game]
     : !opened && t('Ihr findet ihn auf eurer Einladung.')
   const tap = (
     <button
@@ -76,9 +101,20 @@ function JoinPage() {
       autoFocus
       aria-label={t('Einladung öffnen')}
       aria-describedby="join-hint"
-      onClick={() => setTapped(true)}
+      onClick={finish}
       className="absolute inset-0 z-50 size-full cursor-pointer rounded-lg"
     />
+  )
+  const skip = playing && (
+    <button
+      type="button"
+      onClick={finish}
+      className={`relative z-50 mx-auto block px-4 py-3 text-sm underline underline-offset-4 transition-opacity duration-700 ${
+        late ? 'opacity-80' : 'pointer-events-none opacity-0 focus-visible:opacity-100'
+      }`}
+    >
+      {t('Einfach öffnen')}
+    </button>
   )
   const field = (
     <input
@@ -115,8 +151,9 @@ function JoinPage() {
             {hint}
           </p>
           <Envelope code={code} plain={direct} active={focused && !busy} opened={opened} still={still} shake={row}>
-            {direct ? tap : field}
+            {!direct ? field : game === 'ribbon' ? <Ribbon gone={tapped} onDone={finish} /> : tap}
           </Envelope>
+          <div className="mt-4">{skip}</div>
         </div>
         {opened && (
           <motion.div
@@ -168,18 +205,23 @@ function JoinPage() {
           </>
         )}
 
-        <p id="join-hint" className={direct ? 'absolute inset-x-0 top-[calc(38svh+8.5rem)] text-base' : 'mt-6 h-12 text-base'} role="status">
+        <p id="join-hint" className={direct && game === 'light' ? 'absolute inset-x-0 top-[calc(38svh+8.5rem)] text-base' : 'mt-6 h-12 text-base'} role="status">
           {hint}
         </p>
       </div>
 
-      {direct && (
+      {direct && game === 'fireflies' && <Fireflies onDone={finish} />}
+      {direct && game === 'lantern' && <Lantern onDone={finish} />}
+      {direct && game === 'stars' && <Stars onDone={finish} />}
+      <div className="absolute inset-x-0 bottom-[6svh]">{skip}</div>
+
+      {direct && game === 'light' && (
         <motion.button
           type="button"
           autoFocus
           aria-label={t('Einladung öffnen')}
           aria-describedby="join-hint"
-          onClick={() => setTapped(true)}
+          onClick={finish}
           className="absolute top-[38svh] left-1/2 size-24 -translate-x-1/2 cursor-pointer rounded-full bg-[radial-gradient(circle,#fff6cf_0%,#f7e9a8_30%,rgba(247,233,168,0)_70%)] outline-none focus-visible:ring-2 focus-visible:ring-[#f7e9a8]"
           initial={{ opacity: 0, scale: 0.6 }}
           animate={still ? { opacity: 0.9, scale: 1 } : { opacity: [0.6, 1, 0.6], scale: [1, 1.14, 1] }}
@@ -197,6 +239,184 @@ function JoinPage() {
         />
       )}
     </div>
+  )
+}
+
+// Three fireflies drift about; each one caught flies to the middle.
+const FLIES = [
+  { left: '24%', top: '36svh', x: [0, 26, -18, 10, 0], y: [0, -20, 12, 24, 0], time: 9 },
+  { left: '74%', top: '50svh', x: [0, -24, 14, -8, 0], y: [0, 18, -22, 8, 0], time: 11 },
+  { left: '36%', top: '68svh', x: [0, 20, 30, -12, 0], y: [0, -16, 10, -24, 0], time: 10 },
+]
+
+function Fireflies({ onDone }: { onDone: () => void }) {
+  const [caught, setCaught] = useState<number[]>([])
+  useEffect(() => {
+    if (caught.length < FLIES.length) return
+    const timer = setTimeout(onDone, 800)
+    return () => clearTimeout(timer)
+  }, [caught, onDone])
+  return FLIES.map((fly, i) => {
+    const got = caught.includes(i)
+    return (
+      <motion.button
+        key={i}
+        type="button"
+        tabIndex={-1}
+        aria-hidden
+        data-fly={got ? 'caught' : 'free'}
+        className="absolute size-20 -translate-x-1/2 -translate-y-1/2 cursor-pointer touch-manipulation outline-none"
+        initial={{ left: fly.left, top: fly.top, opacity: 0 }}
+        animate={{ left: got ? '50%' : fly.left, top: got ? '44svh' : fly.top, opacity: 1 }}
+        transition={{ duration: 0.9, ease: EASE }}
+        onPointerDown={() => setCaught((c) => (c.includes(i) ? c : [...c, i]))}
+      >
+        <motion.span
+          className={`block size-full rounded-full ${GLOW}`}
+          animate={got ? { x: 0, y: 0, scale: 1.3, opacity: 1 } : { x: fly.x, y: fly.y, scale: 1, opacity: [0.55, 1, 0.55, 1, 0.55] }}
+          transition={got ? { duration: 0.6 } : { duration: fly.time, repeat: Infinity, ease: 'easeInOut' }}
+        />
+      </motion.button>
+    )
+  })
+}
+
+// A dark lantern that brightens for as long as a finger rests on it.
+const HOLD = 1600
+
+function Lantern({ onDone }: { onDone: () => void }) {
+  const [held, setHeld] = useState(false)
+  const [lit, setLit] = useState(false)
+  useEffect(() => {
+    if (!held || lit) return
+    const timer = setTimeout(() => {
+      setLit(true)
+      onDone()
+    }, HOLD)
+    return () => clearTimeout(timer)
+  }, [held, lit, onDone])
+  const on = held || lit
+  return (
+    <button
+      type="button"
+      tabIndex={-1}
+      aria-hidden
+      data-lantern={lit ? 'lit' : 'dark'}
+      className="absolute top-[36svh] left-1/2 flex h-44 w-28 -translate-x-1/2 cursor-pointer touch-none flex-col items-center outline-none select-none [-webkit-touch-callout:none]"
+      onPointerDown={() => setHeld(true)}
+      onPointerUp={() => setHeld(false)}
+      onPointerLeave={() => setHeld(false)}
+      onPointerCancel={() => setHeld(false)}
+      onContextMenu={(e) => e.preventDefault()}
+    >
+      <motion.span
+        className={`pointer-events-none absolute -inset-12 rounded-full ${GLOW}`}
+        initial={false}
+        animate={{ opacity: on ? 0.9 : 0, scale: on ? 1 : 0.6 }}
+        transition={{ duration: on ? HOLD / 1000 : 0.4, ease: 'linear' }}
+      />
+      <span className="size-6 rounded-full border-2 border-[#d9c9a3]/70" />
+      <span className="-mt-1 h-3 w-16 rounded-t-md bg-[#d9c9a3]/70" />
+      <span className="relative w-20 flex-1 overflow-hidden rounded-b-xl border-2 border-t-0 border-[#d9c9a3]/70 bg-black/45">
+        <motion.span
+          className="absolute inset-0 bg-[radial-gradient(circle,#fff6cf_0%,#f7e9a8_45%,rgba(247,233,168,0.25)_100%)]"
+          initial={false}
+          animate={{ opacity: on ? 1 : 0.1 }}
+          transition={{ duration: on ? HOLD / 1000 : 0.4, ease: 'linear' }}
+        />
+      </span>
+      <span className="h-2 w-24 rounded-sm bg-[#d9c9a3]/70" />
+    </button>
+  )
+}
+
+// Three stars to join with a finger, by dragging through them or tapping each.
+const STARS = [
+  { x: 26, y: 38 },
+  { x: 72, y: 46 },
+  { x: 44, y: 64 },
+]
+
+function Stars({ onDone }: { onDone: () => void }) {
+  const stage = useRef<HTMLDivElement>(null)
+  const [joined, setJoined] = useState<number[]>([])
+  const [at, setAt] = useState<{ x: number; y: number } | null>(null)
+  const done = joined.length === STARS.length
+  useEffect(() => {
+    if (!done) return
+    const timer = setTimeout(onDone, 800)
+    return () => clearTimeout(timer)
+  }, [done, onDone])
+  const touch = (e: PointerEvent) => {
+    const box = stage.current!.getBoundingClientRect()
+    const x = e.clientX - box.left
+    const y = e.clientY - box.top
+    setAt({ x: (x / box.width) * 100, y: (y / box.height) * 100 })
+    const hit = STARS.findIndex((s) => Math.hypot((s.x / 100) * box.width - x, (s.y / 100) * box.height - y) < 40)
+    if (hit >= 0) setJoined((j) => (j.includes(hit) ? j : [...j, hit]))
+  }
+  const path = joined.map((i) => STARS[i])
+  if (done) path.push(path[0])
+  else if (at && path.length) path.push(at)
+  return (
+    <div
+      ref={stage}
+      aria-hidden
+      className="absolute inset-0 cursor-pointer touch-none select-none"
+      onPointerDown={touch}
+      onPointerMove={(e) => at && touch(e)}
+      onPointerUp={() => setAt(null)}
+      onPointerCancel={() => setAt(null)}
+    >
+      <svg className="absolute inset-0 size-full">
+        {path.slice(1).map((to, i) => (
+          <line key={i} x1={`${path[i].x}%`} y1={`${path[i].y}%`} x2={`${to.x}%`} y2={`${to.y}%`} stroke="#f7e9a8" strokeWidth="1.5" strokeLinecap="round" opacity="0.85" />
+        ))}
+      </svg>
+      {STARS.map((star, i) => {
+        const on = joined.includes(i)
+        return (
+          <motion.span
+            key={i}
+            data-star={on ? 'joined' : 'free'}
+            className={`absolute size-16 -translate-x-1/2 -translate-y-1/2 rounded-full ${GLOW}`}
+            style={{ left: `${star.x}%`, top: `${star.y}%` }}
+            animate={on ? { scale: 1.3, opacity: 1 } : { scale: [0.7, 0.9, 0.7], opacity: [0.6, 1, 0.6] }}
+            transition={on ? { duration: 0.4 } : { duration: 3 + i * 0.7, repeat: Infinity, ease: 'easeInOut' }}
+          />
+        )
+      })}
+    </div>
+  )
+}
+
+// A ribbon tied around the envelope; pulling the bow undoes it.
+function Ribbon({ gone, onDone }: { gone: boolean; onDone: () => void }) {
+  const band = { background: 'var(--gold)' }
+  const loop = { borderColor: 'var(--gold)' }
+  return (
+    <>
+      <motion.span aria-hidden className="absolute inset-y-0 left-1/2 z-[35] -ml-2.5 w-5 shadow-sm" style={band} animate={{ scaleY: gone ? 0 : 1, opacity: gone ? 0 : 1 }} transition={{ duration: 0.5 }} />
+      <motion.span aria-hidden className="absolute inset-x-0 top-[88%] z-[35] -mt-2.5 h-5 shadow-sm" style={band} animate={{ scaleX: gone ? 0 : 1, opacity: gone ? 0 : 1 }} transition={{ duration: 0.5 }} />
+      <motion.button
+        type="button"
+        tabIndex={-1}
+        aria-hidden
+        data-bow
+        drag={!gone}
+        dragSnapToOrigin
+        onDrag={(_, info) => {
+          if (Math.hypot(info.offset.x, info.offset.y) > 70) onDone()
+        }}
+        className="absolute top-[88%] left-1/2 z-50 -mt-8 -ml-14 h-16 w-28 cursor-grab touch-none outline-none active:cursor-grabbing"
+        animate={{ opacity: gone ? 0 : 1 }}
+        transition={{ duration: 0.4 }}
+      >
+        <span className="absolute top-2 left-1 h-11 w-14 -rotate-12 rounded-[50%] border-[7px]" style={loop} />
+        <span className="absolute top-2 right-1 h-11 w-14 rotate-12 rounded-[50%] border-[7px]" style={loop} />
+        <span className="absolute top-1/2 left-1/2 -mt-3.5 -ml-3.5 size-7 rounded-md shadow-sm" style={band} />
+      </motion.button>
+    </>
   )
 }
 
