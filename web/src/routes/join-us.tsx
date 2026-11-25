@@ -150,7 +150,7 @@ function JoinPage() {
           <p id="join-hint" className={`mt-2 h-10 text-sm ${open.isError ? 'text-destructive' : 'text-muted-foreground'}`} role="status">
             {hint}
           </p>
-          <Envelope code={code} plain={direct} active={focused && !busy} opened={opened} still={still} shake={row}>
+          <Envelope code={code} plain={direct} bare={direct && game === 'ribbon'} active={focused && !busy} opened={opened} still={still} shake={row}>
             {!direct ? field : game === 'ribbon' ? <Ribbon gone={tapped} onDone={finish} /> : tap}
           </Envelope>
           <div className="mt-4">{skip}</div>
@@ -444,14 +444,17 @@ function Stars({ onDone }: { onDone: () => void }) {
   )
 }
 
-// A ribbon tied around the envelope; pulling the bow undoes it.
+// A satin ribbon tied around the envelope in place of a seal; pulling the bow
+// undoes it.
+const SATIN = 'color-mix(in oklab, var(--gold) 82%, black)'
+const SHEEN = 'color-mix(in oklab, var(--gold) 70%, white)'
+
 function Ribbon({ gone, onDone }: { gone: boolean; onDone: () => void }) {
-  const band = { background: 'var(--gold)' }
-  const loop = { borderColor: 'var(--gold)' }
+  const along = (deg: number) => ({ background: `linear-gradient(${deg}deg, ${SATIN}, var(--gold) 30%, ${SHEEN} 50%, var(--gold) 70%, ${SATIN})` })
   return (
     <>
-      <motion.span aria-hidden className="absolute inset-y-0 left-1/2 z-[35] -ml-2.5 w-5 shadow-sm" style={band} animate={{ scaleY: gone ? 0 : 1, opacity: gone ? 0 : 1 }} transition={{ duration: 0.5 }} />
-      <motion.span aria-hidden className="absolute inset-x-0 top-[88%] z-[35] -mt-2.5 h-5 shadow-sm" style={band} animate={{ scaleX: gone ? 0 : 1, opacity: gone ? 0 : 1 }} transition={{ duration: 0.5 }} />
+      <motion.span aria-hidden className="absolute inset-y-0 left-1/2 z-[35] -ml-2 w-4 shadow-[0_1px_3px_rgba(0,0,0,0.25)]" style={along(90)} animate={{ scaleY: gone ? 0 : 1, opacity: gone ? 0 : 1 }} transition={{ duration: 0.5 }} />
+      <motion.span aria-hidden className="absolute inset-x-0 top-[55%] z-[35] -mt-2 h-4 shadow-[0_1px_3px_rgba(0,0,0,0.25)]" style={along(180)} animate={{ scaleX: gone ? 0 : 1, opacity: gone ? 0 : 1 }} transition={{ duration: 0.5 }} />
       <motion.button
         type="button"
         tabIndex={-1}
@@ -462,13 +465,32 @@ function Ribbon({ gone, onDone }: { gone: boolean; onDone: () => void }) {
         onDrag={(_, info) => {
           if (Math.hypot(info.offset.x, info.offset.y) > 70) onDone()
         }}
-        className="absolute top-[88%] left-1/2 z-50 -mt-8 -ml-14 h-16 w-28 cursor-grab touch-none outline-none active:cursor-grabbing"
-        animate={{ opacity: gone ? 0 : 1 }}
+        className="absolute top-[55%] left-1/2 z-50 -mt-[52px] -ml-[90px] h-[120px] w-[180px] cursor-grab touch-none outline-none active:cursor-grabbing"
+        animate={{ opacity: gone ? 0 : 1, scale: gone ? 0.8 : 1 }}
         transition={{ duration: 0.4 }}
       >
-        <span className="absolute top-2 left-1 h-11 w-14 -rotate-12 rounded-[50%] border-[7px]" style={loop} />
-        <span className="absolute top-2 right-1 h-11 w-14 rotate-12 rounded-[50%] border-[7px]" style={loop} />
-        <span className="absolute top-1/2 left-1/2 -mt-3.5 -ml-3.5 size-7 rounded-md shadow-sm" style={band} />
+        <svg viewBox="0 0 180 120" className="size-full [filter:drop-shadow(0_3px_4px_rgba(0,0,0,0.3))]">
+          <defs>
+            <linearGradient id="bow-left" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stopColor={SHEEN} />
+              <stop offset="0.55" stopColor="var(--gold)" />
+              <stop offset="1" stopColor={SATIN} />
+            </linearGradient>
+            <linearGradient id="bow-right" x1="1" y1="0" x2="0" y2="1">
+              <stop offset="0" stopColor={SHEEN} />
+              <stop offset="0.55" stopColor="var(--gold)" />
+              <stop offset="1" stopColor={SATIN} />
+            </linearGradient>
+          </defs>
+          <path d="M84 56 62 112 76 104 86 116 94 60Z" fill={SATIN} />
+          <path d="M96 56 118 112 104 104 94 116 86 60Z" fill={SATIN} />
+          <path d="M90 50C66 14 22 4 10 26 0 46 22 78 90 54Z" fill="url(#bow-left)" />
+          <path d="M90 50C114 14 158 4 170 26 180 46 158 78 90 54Z" fill="url(#bow-right)" />
+          <path d="M82 50C62 30 36 24 28 34 24 44 44 58 82 52Z" fill={SATIN} opacity="0.45" />
+          <path d="M98 50C118 30 144 24 152 34 156 44 136 58 98 52Z" fill={SATIN} opacity="0.45" />
+          <rect x="78" y="38" width="24" height="26" rx="8" fill="var(--gold)" />
+          <rect x="82" y="40" width="6" height="22" rx="3" fill={SHEEN} opacity="0.6" />
+        </svg>
       </motion.button>
     </>
   )
@@ -481,7 +503,9 @@ const FLAP = 'color-mix(in oklab, var(--gold) 34%, var(--card))'
 // its ring, which turns one step. The full code spins the ring and the seal
 // breaks.
 const SWEEP = 0.7
-const LINING = 'color-mix(in oklab, var(--primary) 16%, var(--card))'
+const LINING = 'color-mix(in oklab, var(--primary) 55%, var(--card))'
+const INSIDE = 'color-mix(in oklab, color-mix(in oklab, var(--gold) 45%, var(--card)) 80%, black)'
+const SIDE = 'color-mix(in oklab, black 6%, ' + PAPER + ')'
 // Wax: pressed in at the rim, with a soft shine from the upper left.
 const WAX =
   'relative block size-full rounded-full bg-primary text-primary-foreground ring-2 ring-primary-foreground/25 ring-inset shadow-[inset_0_3px_6px_rgba(255,255,255,0.22),inset_0_-6px_10px_rgba(0,0,0,0.28)]'
@@ -553,6 +577,7 @@ function Dial({ code, plain, active, opened, still }: { code: string; plain: boo
 function Envelope({
   code,
   plain,
+  bare,
   active,
   opened,
   still,
@@ -561,6 +586,8 @@ function Envelope({
 }: {
   code: string
   plain: boolean
+  // Tied with a ribbon instead of sealed.
+  bare: boolean
   active: boolean
   opened: boolean
   still: boolean
@@ -580,10 +607,10 @@ function Envelope({
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.7, ease: EASE }}
     >
-      <motion.div className="absolute inset-0 rounded-lg shadow-lg" style={{ background: FLAP }} {...drop} />
+      <motion.div className="absolute inset-0 rounded-lg shadow-[0_18px_30px_-12px_rgba(0,0,0,0.35),0_2px_6px_rgba(0,0,0,0.12)]" style={{ background: INSIDE }} {...drop} />
       <motion.div
         aria-hidden
-        className="absolute inset-x-3 top-2 bottom-2 z-10 flex flex-col items-center gap-3 rounded-md border bg-card pt-9 shadow-sm"
+        className="absolute inset-x-4 top-2 bottom-2 z-10 flex flex-col items-center gap-3 rounded-md bg-card pt-10 shadow-[0_2px_10px_rgba(0,0,0,0.25)] ring-1 ring-black/5 before:absolute before:inset-2 before:rounded-sm before:border before:border-[color:var(--gold)] before:opacity-60"
         animate={move ? { y: ['0%', '-40%', '-40%', '0%'], scale: [1, 1, 1, 6] } : { y: '0%', scale: 1 }}
         transition={{ duration: 1.6, times: [0, 0.5, 0.62, 1], delay: sweep + 1, ease: [EASE, 'linear', 'easeIn'] }}
       >
@@ -596,17 +623,20 @@ function Envelope({
           <Heart className="size-4 fill-current text-primary" />
         </motion.span>
       </motion.div>
-      <motion.div
-        aria-hidden
-        className="absolute inset-0 z-20 rounded-lg"
-        style={{
-          background: `linear-gradient(180deg, color-mix(in oklab, black 7%, ${PAPER}), ${PAPER} 55%)`,
-          clipPath: 'polygon(0 0, 50% 55%, 100% 0, 100% 100%, 0 100%)',
-        }}
-        {...drop}
-      >
-        <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="size-full fill-none stroke-black/10">
-          <path d="M0 100 50 55 100 100" vectorEffect="non-scaling-stroke" />
+      <motion.div aria-hidden className="absolute inset-0 z-20 overflow-hidden rounded-lg" {...drop}>
+        <svg viewBox="0 0 344 300" preserveAspectRatio="none" className="size-full">
+          <defs>
+            <filter id="fold" x="-10%" y="-20%" width="120%" height="140%">
+              <feDropShadow dx="0" dy="-2" stdDeviation="3" floodColor="#000" floodOpacity="0.22" />
+            </filter>
+            <linearGradient id="front" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stopColor={SIDE} />
+              <stop offset="1" stopColor={PAPER} />
+            </linearGradient>
+          </defs>
+          <path d="M0 0 172 165 0 300Z" fill={SIDE} />
+          <path d="M344 0 172 165 344 300Z" fill={SIDE} />
+          <path d="M0 300 160 152Q172 142 184 152L344 300Z" fill="url(#front)" filter="url(#fold)" />
         </svg>
       </motion.div>
       {/* The flap is edge-on halfway through, which hides its move behind the card. */}
@@ -627,14 +657,14 @@ function Envelope({
           <div
             className="size-full rounded-t-lg"
             style={{
-              background: move ? LINING : FLAP,
-              clipPath: 'polygon(0 0, 100% 0, 50% 100%)',
+              background: move ? LINING : `linear-gradient(180deg, ${FLAP}, color-mix(in oklab, black 5%, ${FLAP}))`,
+              clipPath: 'polygon(0 0, 100% 0, 54% 96%, 50% 100%, 46% 96%)',
               transition: `background 0s ${sweep + 0.8}s`,
             }}
           />
         </motion.div>
       </motion.div>
-      <motion.div aria-hidden className="absolute top-[55%] left-1/2 z-40 -mt-[76px] -ml-[76px] size-[152px]" animate={shake}>
+      {!bare && <motion.div aria-hidden className="absolute top-[55%] left-1/2 z-40 -mt-[76px] -ml-[76px] size-[152px]" animate={shake}>
         {plain && !opened && !still && (
           <motion.span
             className="absolute inset-1 rounded-full border-2 border-primary"
@@ -664,7 +694,7 @@ function Envelope({
             </motion.span>
           ))}
         </motion.div>
-      </motion.div>
+      </motion.div>}
       {children}
     </motion.div>
   )
