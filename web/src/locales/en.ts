@@ -633,5 +633,5 @@ export const en: Record<string, string> = {
   'Bei welchem Lied müsst ihr einfach tanzen?': 'Which song gets you dancing every time?',
   'Anderes Lied': 'Another song',
   'Tippt auf das Licht': 'Tap the light',
-  'Tippt auf das Siegel': 'Tap the seal',
+  'Brecht das Siegel': 'Break the seal',
 }

@@ -58,7 +58,7 @@ function JoinPage() {
   // The light fills the screen before the invitation takes over.
   useEffect(() => {
     if (!opened || !link) return
-    const wait = envelope ? (still ? 700 : 3300) : direct ? 2400 : 1500
+    const wait = envelope ? (still ? 700 : direct ? 2700 : 3300) : direct ? 2400 : 1500
     const timer = setTimeout(() => navigate({ to: '/rsvp/$link', params: { link }, replace: true }), wait)
     return () => clearTimeout(timer)
   }, [opened, link, envelope, still, direct, navigate])
@@ -68,7 +68,7 @@ function JoinPage() {
       ? t('Zu viele Versuche. Bitte wartet einen Moment.')
       : t('Dieser Code passt nicht.')
     : direct
-    ? !tapped && (envelope ? t('Tippt auf das Siegel') : t('Tippt auf das Licht'))
+    ? !tapped && (envelope ? t('Brecht das Siegel') : t('Tippt auf das Licht'))
     : !opened && t('Ihr findet ihn auf eurer Einladung.')
   const tap = (
     <button
@@ -114,7 +114,7 @@ function JoinPage() {
           <p id="join-hint" className={`mt-2 h-10 text-sm ${open.isError ? 'text-destructive' : 'text-muted-foreground'}`} role="status">
             {hint}
           </p>
-          <Envelope code={direct ? '' : code} active={focused && !busy} opened={opened} still={still} shake={row}>
+          <Envelope code={code} plain={direct} active={focused && !busy} opened={opened} still={still} shake={row}>
             {direct ? tap : field}
           </Envelope>
         </div>
@@ -124,7 +124,7 @@ function JoinPage() {
             className="pointer-events-none absolute inset-0 bg-card"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            transition={{ duration: 0.4, delay: still ? 0.3 : 2.8 }}
+            transition={{ duration: 0.4, delay: still ? 0.3 : direct ? 2.2 : 2.8 }}
           />
         )}
       </div>
@@ -209,7 +209,16 @@ const FLAP = 'color-mix(in oklab, var(--gold) 34%, var(--card))'
 const SWEEP = 0.7
 const STEP = 360 / LENGTH
 
-function Dial({ code, active, opened, still }: { code: string; active: boolean; opened: boolean; still: boolean }) {
+function Dial({ code, plain, active, opened, still }: { code: string; plain: boolean; active: boolean; opened: boolean; still: boolean }) {
+  // A link that carries the code leaves a plain seal, which a tap breaks.
+  if (plain) {
+    return (
+      <span className="relative block size-full rounded-full bg-primary text-primary-foreground shadow-md ring-2 ring-primary-foreground/25 ring-inset">
+        <span className="absolute inset-4 rounded-full ring-1 ring-primary-foreground/30" />
+        <Heart className="absolute top-1/2 left-1/2 -mt-5 -ml-5 size-10 fill-current" />
+      </span>
+    )
+  }
   const turn = opened ? -720 : -code.length * STEP
   const spin = still
     ? { duration: 0 }
@@ -260,6 +269,7 @@ function Dial({ code, active, opened, still }: { code: string; active: boolean; 
 // and the card rises out; then the envelope drops away and leaves the card.
 function Envelope({
   code,
+  plain,
   active,
   opened,
   still,
@@ -267,6 +277,7 @@ function Envelope({
   children,
 }: {
   code: string
+  plain: boolean
   active: boolean
   opened: boolean
   still: boolean
@@ -274,9 +285,10 @@ function Envelope({
   children: ReactNode
 }) {
   const move = opened && !still
+  const sweep = plain ? 0 : SWEEP
   const drop = {
     animate: move ? { y: '140%', opacity: 0 } : { y: '0%', opacity: 1 },
-    transition: { duration: 0.6, delay: SWEEP + 1.7, ease: 'easeIn' as const },
+    transition: { duration: 0.6, delay: sweep + 1.7, ease: 'easeIn' as const },
   }
   return (
     <motion.div
@@ -290,7 +302,7 @@ function Envelope({
         aria-hidden
         className="absolute inset-x-3 top-2 bottom-2 z-10 flex flex-col items-center gap-3 rounded-md border bg-card pt-9 shadow-sm"
         animate={{ y: move ? '-40%' : '0%' }}
-        transition={{ duration: 0.8, delay: SWEEP + 1, ease: EASE }}
+        transition={{ duration: 0.8, delay: sweep + 1, ease: EASE }}
       >
         <span className="font-display text-xl">{t('Ihr seid eingeladen')}</span>
         <Heart className="size-4 fill-current text-primary" />
@@ -305,31 +317,36 @@ function Envelope({
       <motion.div
         aria-hidden
         className="absolute inset-x-0 top-0 h-[55%] [perspective:900px]"
-        style={{ zIndex: move ? 5 : 30, transition: `z-index 0s ${SWEEP + 0.75}s` }}
+        style={{ zIndex: move ? 5 : 30, transition: `z-index 0s ${sweep + 0.75}s` }}
         {...drop}
       >
         <motion.div
           className="size-full origin-top rounded-t-lg"
           style={{ background: FLAP, clipPath: 'polygon(0 0, 100% 0, 50% 100%)' }}
           animate={{ rotateX: move ? 180 : 0, filter: move ? 'brightness(0.9)' : 'brightness(0.97)' }}
-          transition={{ duration: 0.6, delay: SWEEP + 0.45, ease: 'easeInOut' }}
+          transition={{ duration: 0.6, delay: sweep + 0.45, ease: 'easeInOut' }}
         />
       </motion.div>
       <motion.div aria-hidden className="absolute top-[55%] left-1/2 z-40 -mt-[76px] -ml-[76px] size-[152px]" animate={shake}>
         <motion.div
           className="relative size-full"
           animate={move ? { scale: [1, 0.92, 1] } : { scale: 1 }}
-          transition={{ duration: 0.25, delay: SWEEP }}
+          transition={{ duration: 0.25, delay: sweep }}
         >
           {[0, 1].map((side) => (
             <motion.span
               key={side}
               className="absolute inset-0"
               style={{ clipPath: side ? 'polygon(52% 0, 100% 0, 100% 100%, 46% 100%, 56% 60%, 44% 40%)' : 'polygon(0 0, 52% 0, 44% 40%, 56% 60%, 46% 100%, 0 100%)' }}
-              animate={opened ? { x: side ? 30 : -30, y: 90, rotate: side ? 28 : -28, opacity: 0 } : { x: 0, y: 0, rotate: 0, opacity: 1 }}
-              transition={still ? { duration: 0 } : { duration: 0.5, delay: opened ? SWEEP + 0.2 : 0, ease: 'easeIn' }}
+              // The seal cracks apart first, then the halves fall.
+              animate={
+                opened
+                  ? { x: [0, side ? 5 : -5, side ? 30 : -30], y: [0, 0, 90], rotate: [0, side ? 4 : -4, side ? 28 : -28], opacity: [1, 1, 0] }
+                  : { x: 0, y: 0, rotate: 0, opacity: 1 }
+              }
+              transition={still ? { duration: 0 } : { duration: 0.7, times: [0, 0.3, 1], delay: opened ? sweep + 0.1 : 0, ease: 'easeIn' }}
             >
-              <Dial code={code} active={active} opened={opened} still={still} />
+              <Dial code={code} plain={plain} active={active} opened={opened} still={still} />
             </motion.span>
           ))}
         </motion.div>
