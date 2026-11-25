@@ -98,11 +98,10 @@ function JoinPage() {
   const tap = (
     <button
       type="button"
-      autoFocus
       aria-label={t('Einladung öffnen')}
       aria-describedby="join-hint"
       onClick={finish}
-      className="absolute inset-0 z-50 size-full cursor-pointer rounded-lg"
+      className="absolute inset-0 z-50 size-full cursor-pointer rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring"
     />
   )
   const skip = playing && (
@@ -151,7 +150,7 @@ function JoinPage() {
             {hint}
           </p>
           <Envelope code={code} plain={direct} bare={direct && game === 'ribbon'} active={focused && !busy} opened={opened} still={still} shake={row}>
-            {!direct ? field : game === 'ribbon' ? <Ribbon gone={tapped} onDone={finish} /> : tap}
+            {!direct ? field : game === 'ribbon' ? <Ribbon gone={tapped} onDone={finish} /> : !tapped && tap}
           </Envelope>
           <div className="mt-4">{skip}</div>
         </div>
@@ -602,7 +601,7 @@ function Envelope({
   }
   return (
     <motion.div
-      className="relative mx-auto mt-3 h-[300px] w-full max-w-[21.5rem]"
+      className={`relative mx-auto h-[300px] w-full max-w-[21.5rem] ${plain ? 'mt-[clamp(3.5rem,16svh,12rem)]' : 'mt-3 sm:mt-[clamp(3.5rem,16svh,12rem)]'}`}
       initial={still ? false : { opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.7, ease: EASE }}
@@ -636,7 +635,7 @@ function Envelope({
           </defs>
           <path d="M0 0 172 165 0 300Z" fill={SIDE} />
           <path d="M344 0 172 165 344 300Z" fill={SIDE} />
-          <path d="M0 300 160 152Q172 142 184 152L344 300Z" fill="url(#front)" filter="url(#fold)" />
+          <path d="M0 300 172 156 344 300Z" fill="url(#front)" filter="url(#fold)" />
         </svg>
       </motion.div>
       {/* The flap is edge-on halfway through, which hides its move behind the card. */}
