@@ -29,6 +29,9 @@ function JoinPage() {
   const deco = data?.theme?.decoration as SceneVariant | undefined
   const [code, setCode] = useState(() => clean(given ?? ''))
   const [focused, setFocused] = useState(false)
+  // A link that carries the code needs no typing: one tap opens the invitation.
+  const [direct, setDirect] = useState(() => clean(given ?? '').length === LENGTH)
+  const [tapped, setTapped] = useState(false)
   const row = useAnimationControls()
   // ?look= overrides the setting, to try out the other look.
   const envelope = (look ?? data?.content.inviteOpening) === 'envelope'
@@ -36,10 +39,8 @@ function JoinPage() {
 
   const open = useMutation({
     mutationFn: (value: string) => api.post<{ link: string }>('/rsvp/code', { code: value }),
-    // The light fills the screen before the invitation takes over.
-    onSuccess: ({ link }) =>
-      setTimeout(() => navigate({ to: '/rsvp/$link', params: { link }, replace: true }), !envelope ? 1500 : still ? 700 : 3300),
     onError: () => {
+      setDirect(false)
       setCode('')
       row.start({ x: [0, -12, 12, -8, 8, 0], transition: { duration: 0.45 } })
     },
@@ -50,13 +51,35 @@ function JoinPage() {
     if (code.length === LENGTH) submit(code)
   }, [code, submit])
 
-  const opened = open.isSuccess
-  const busy = open.isPending || opened
+  const opened = open.isSuccess && (!direct || tapped)
+  const busy = open.isPending || open.isSuccess
+  const link = open.data?.link
+
+  // The light fills the screen before the invitation takes over.
+  useEffect(() => {
+    if (!opened || !link) return
+    const wait = envelope ? (still ? 700 : 3300) : direct ? 2400 : 1500
+    const timer = setTimeout(() => navigate({ to: '/rsvp/$link', params: { link }, replace: true }), wait)
+    return () => clearTimeout(timer)
+  }, [opened, link, envelope, still, direct, navigate])
+
   const hint = open.isError
     ? open.error instanceof ApiError && open.error.status === 429
       ? t('Zu viele Versuche. Bitte wartet einen Moment.')
       : t('Dieser Code passt nicht.')
+    : direct
+    ? !tapped && (envelope ? t('Tippt auf das Siegel') : t('Tippt auf das Licht'))
     : !opened && t('Ihr findet ihn auf eurer Einladung.')
+  const tap = (
+    <button
+      type="button"
+      autoFocus
+      aria-label={t('Einladung öffnen')}
+      aria-describedby="join-hint"
+      onClick={() => setTapped(true)}
+      className="absolute inset-0 z-50 size-full cursor-pointer rounded-lg"
+    />
+  )
   const field = (
     <input
       value={code}
@@ -86,13 +109,13 @@ function JoinPage() {
       <div className="fixed inset-0 overflow-hidden bg-background text-foreground">
         <div className="relative mx-auto max-w-xl px-6 pt-[5svh] text-center">
           <motion.h1 className="font-display text-3xl leading-tight sm:text-4xl" animate={{ opacity: opened ? 0 : 1 }}>
-            {t('Euer Code')}
+            {direct ? t('Ihr seid eingeladen') : t('Euer Code')}
           </motion.h1>
           <p id="join-hint" className={`mt-2 h-10 text-sm ${open.isError ? 'text-destructive' : 'text-muted-foreground'}`} role="status">
             {hint}
           </p>
-          <Envelope code={code} active={focused && !busy} opened={opened} still={still} shake={row}>
-            {field}
+          <Envelope code={direct ? '' : code} active={focused && !busy} opened={opened} still={still} shake={row}>
+            {direct ? tap : field}
           </Envelope>
         </div>
         {opened && (
@@ -121,30 +144,48 @@ function JoinPage() {
         >
           {t('Ihr seid eingeladen')}
         </motion.p>
-        <motion.h1
-          className="mt-5 font-display text-4xl leading-tight sm:text-5xl"
-          initial={{ opacity: 0, y: 24 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 1.1, delay: 0.3, ease: EASE }}
-        >
-          {t('Euer Code')}
-        </motion.h1>
+        {!direct && (
+          <>
+            <motion.h1
+              className="mt-5 font-display text-4xl leading-tight sm:text-5xl"
+              initial={{ opacity: 0, y: 24 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 1.1, delay: 0.3, ease: EASE }}
+            >
+              {t('Euer Code')}
+            </motion.h1>
 
-        <motion.div className="mt-8" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 1, delay: 0.7 }}>
-          <div className="relative mx-auto w-fit">
-            <motion.div className="flex gap-2 sm:gap-3" animate={row} aria-hidden>
-              {Array.from({ length: LENGTH }, (_, i) => (
-                <Slot key={i} char={code[i]} active={focused && !busy && i === code.length} lit={opened} index={i} />
-              ))}
+            <motion.div className="mt-8" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 1, delay: 0.7 }}>
+              <div className="relative mx-auto w-fit">
+                <motion.div className="flex gap-2 sm:gap-3" animate={row} aria-hidden>
+                  {Array.from({ length: LENGTH }, (_, i) => (
+                    <Slot key={i} char={code[i]} active={focused && !busy && i === code.length} lit={opened} index={i} />
+                  ))}
+                </motion.div>
+                {field}
+              </div>
             </motion.div>
-            {field}
-          </div>
-        </motion.div>
+          </>
+        )}
 
-        <p id="join-hint" className="mt-6 h-12 text-base" role="status">
+        <p id="join-hint" className={direct ? 'absolute inset-x-0 top-[calc(38svh+8.5rem)] text-base' : 'mt-6 h-12 text-base'} role="status">
           {hint}
         </p>
       </div>
+
+      {direct && (
+        <motion.button
+          type="button"
+          autoFocus
+          aria-label={t('Einladung öffnen')}
+          aria-describedby="join-hint"
+          onClick={() => setTapped(true)}
+          className="absolute top-[38svh] left-1/2 size-24 -translate-x-1/2 cursor-pointer rounded-full bg-[radial-gradient(circle,#fff6cf_0%,#f7e9a8_30%,rgba(247,233,168,0)_70%)] outline-none focus-visible:ring-2 focus-visible:ring-[#f7e9a8]"
+          initial={{ opacity: 0, scale: 0.6 }}
+          animate={still ? { opacity: 0.9, scale: 1 } : { opacity: [0.6, 1, 0.6], scale: [1, 1.14, 1] }}
+          transition={still ? { duration: 0.6 } : { duration: 4.5, repeat: Infinity, ease: 'easeInOut' }}
+        />
+      )}
 
       {opened && (
         <motion.div
@@ -152,7 +193,7 @@ function JoinPage() {
           className="pointer-events-none absolute top-[38svh] left-1/2 size-24 -translate-x-1/2 rounded-full bg-[radial-gradient(circle,#fff6cf_0%,#f7e9a8_35%,rgba(247,233,168,0)_70%)]"
           initial={{ scale: 0, opacity: 0 }}
           animate={{ scale: 40, opacity: [0, 1, 1] }}
-          transition={{ duration: 1.3, delay: 0.5, ease: 'easeIn' }}
+          transition={direct ? { duration: 2.2, ease: 'easeInOut' } : { duration: 1.3, delay: 0.5, ease: 'easeIn' }}
         />
       )}
     </div>
