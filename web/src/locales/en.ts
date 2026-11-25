@@ -631,4 +631,5 @@ export const en: Record<string, string> = {
   'Nichts gefunden. Euer Text wird so übernommen.': 'Nothing found. Your text is kept as typed.',
   'Tippt mindestens drei Buchstaben.': 'Type at least three letters.',
   'Bei welchem Lied müsst ihr einfach tanzen?': 'Which song gets you dancing every time?',
+  'Anderes Lied': 'Another song',
 }

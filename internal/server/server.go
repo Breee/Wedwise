@@ -256,7 +256,9 @@ func New(cfg configuration.Config, db *sql.DB) (*Server, error) {
 		api.With(routeLimit).Method(http.MethodGet, "/route", routeHandler)
 		api.With(routeLimit).Get("/route/stop", routeHandler.Stop)
 		api.With(routeLimit).Get("/route/line", routeHandler.Line)
-		api.With(routeLimit).Method(http.MethodGet, "/songs", songs.NewHandler())
+		songSearch := songs.NewHandler()
+		api.With(routeLimit).Method(http.MethodGet, "/songs", songSearch)
+		api.With(routeLimit).Get("/songs/cover", songSearch.Cover)
 
 		api.Group(func(protected chi.Router) {
 			protected.Use(authService.RequireAuth)

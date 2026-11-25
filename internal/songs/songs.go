@@ -22,6 +22,9 @@ const (
 	maxQueryLen    = 100
 	maxResults     = 6
 	maxCacheSize   = 500
+	maxCoverSize   = 1 << 20
+	// Apple serves all cover art from this domain.
+	coverDomain = ".mzstatic.com"
 )
 
 // Track is one search hit.
@@ -29,12 +32,15 @@ type Track struct {
 	TrackID    int64  `json:"trackId"`
 	TrackName  string `json:"trackName"`
 	ArtistName string `json:"artistName"`
+	// Cover is a path on this server, see Handler.Cover.
+	Cover string `json:"cover"`
 }
 
 // Handler serves GET /api/songs?q=.
 type Handler struct {
 	baseURL string
 	client  *http.Client
+	covers  *http.Client
 
 	mu    sync.Mutex
 	cache map[string][]Track
@@ -45,7 +51,11 @@ func NewHandler() *Handler {
 	return &Handler{
 		baseURL: defaultBaseURL,
 		client:  &http.Client{Timeout: 5 * time.Second},
-		cache:   map[string][]Track{},
+		covers: &http.Client{
+			Timeout:       5 * time.Second,
+			CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
+		},
+		cache: map[string][]Track{},
 	}
 }
 
@@ -99,7 +109,10 @@ func (h *Handler) fetch(ctx context.Context, query string) ([]Track, error) {
 	}
 
 	var data struct {
-		Results []Track `json:"results"`
+		Results []struct {
+			Track
+			Artwork string `json:"artworkUrl100"`
+		} `json:"results"`
 	}
 	if err := json.NewDecoder(io.LimitReader(res.Body, 1<<20)).Decode(&data); err != nil {
 		return nil, err
@@ -109,7 +122,50 @@ func (h *Handler) fetch(ctx context.Context, query string) ([]Track, error) {
 		if len(tracks) == maxResults {
 			break
 		}
-		tracks = append(tracks, t)
+		track := t.Track
+		if coverURL(t.Artwork) != nil {
+			art := strings.Replace(t.Artwork, "100x100", "200x200", 1)
+			track.Cover = "/api/songs/cover?u=" + url.QueryEscape(art)
+		}
+		tracks = append(tracks, track)
 	}
 	return tracks, nil
+}
+
+// coverURL returns the address when it points at Apple's cover art.
+func coverURL(raw string) *url.URL {
+	u, err := url.Parse(raw)
+	if err != nil || u.Scheme != "https" || u.User != nil || u.Port() != "" || !strings.HasSuffix(u.Hostname(), coverDomain) {
+		return nil
+	}
+	return u
+}
+
+// Cover serves GET /api/songs/cover?u=, passing one cover image through so
+// the guest's browser never contacts Apple. Only Apple's cover art is fetched.
+func (h *Handler) Cover(w http.ResponseWriter, r *http.Request) {
+	u := coverURL(r.URL.Query().Get("u"))
+	if u == nil {
+		httpx.WriteError(w, http.StatusBadRequest, httpx.CodeBadRequest, "Invalid cover.")
+		return
+	}
+	req, err := http.NewRequestWithContext(r.Context(), http.MethodGet, u.String(), nil)
+	if err != nil {
+		httpx.WriteError(w, http.StatusBadRequest, httpx.CodeBadRequest, "Invalid cover.")
+		return
+	}
+	res, err := h.covers.Do(req)
+	if err != nil {
+		httpx.WriteError(w, http.StatusBadGateway, httpx.CodeInternal, "Cover is unavailable.")
+		return
+	}
+	defer res.Body.Close()
+	kind := res.Header.Get("Content-Type")
+	if res.StatusCode != http.StatusOK || (kind != "image/jpeg" && kind != "image/png") || res.ContentLength > maxCoverSize {
+		httpx.WriteError(w, http.StatusBadGateway, httpx.CodeInternal, "Cover is unavailable.")
+		return
+	}
+	w.Header().Set("Content-Type", kind)
+	w.Header().Set("Cache-Control", "public, max-age=604800, immutable")
+	_, _ = io.Copy(w, io.LimitReader(res.Body, maxCoverSize))
 }

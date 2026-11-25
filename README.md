@@ -476,8 +476,9 @@ overview can count them. Backups are encrypted as a whole with the same key.
   pages cannot be framed, and `Cross-Origin-Opener-Policy` and
   `Cross-Origin-Resource-Policy` are `same-origin`. API responses carry
   `Cache-Control: no-store`, apart from song search and route lookups.
-- Song search and route lookups are proxied by the backend, so guests'
-  browsers do not contact those services and the routing key stays private.
+- Song search, album covers and route lookups are proxied by the backend, so
+  guests' browsers do not contact those services and the routing key stays
+  private. The cover proxy only fetches from Apple's cover art domain.
   Map tiles are loaded from OpenFreeMap by the browser.
 - Request bodies are capped at 1 MB; unknown JSON fields are rejected.
 
