@@ -24,11 +24,11 @@ export function InviteStory({ target, name }: { target: string; name?: string })
 
   return (
     <div className="relative bg-[#121c17] text-[#f4efe2]">
-      <div className="sticky top-0 h-svh overflow-hidden">
+      <div className="sticky top-0 h-lvh overflow-hidden">
         <DuskScene variant={variant} />
         <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/55 to-black/80" />
       </div>
-      <div className="relative -mt-[100svh]">
+      <div className="relative -mt-[100lvh]">
         <Page id="invite-title" next="invite-schedule">
           <Title guest={name} />
         </Page>
@@ -42,20 +42,21 @@ export function InviteStory({ target, name }: { target: string; name?: string })
 
 function Page({ id, next, label, children }: { id: string; next: string; label?: string; children: ReactNode }) {
   return (
-    <section
-      id={id}
-      className="mx-auto flex min-h-svh max-w-xl snap-start snap-always flex-col justify-center px-6 pt-8 pb-4"
-    >
-      <div className="flex flex-1 flex-col justify-center">{children}</div>
-      <button
-        type="button"
-        aria-label={label ?? t('Weiter')}
-        onClick={() => document.getElementById(next)?.scrollIntoView({ behavior: 'smooth' })}
-        className="mx-auto mt-6 flex min-h-12 flex-col items-center justify-center gap-1 px-6 text-[#d9c9a3]"
-      >
-        {label && <span className="text-xs tracking-[0.3em] uppercase">{label}</span>}
-        <ChevronDown className="size-7 animate-bounce" aria-hidden />
-      </button>
+    // As tall as the screen with the browser bars hidden, so the next page
+    // never shows below; the content keeps to the height that is always visible.
+    <section id={id} className="mx-auto min-h-lvh max-w-xl snap-start snap-always px-6">
+      <div className="flex min-h-svh flex-col justify-center pt-8 pb-4">
+        <div className="flex flex-1 flex-col justify-center">{children}</div>
+        <button
+          type="button"
+          aria-label={label ?? t('Weiter')}
+          onClick={() => document.getElementById(next)?.scrollIntoView({ behavior: 'smooth' })}
+          className="mx-auto mt-6 flex min-h-12 flex-col items-center justify-center gap-1 px-6 text-[#d9c9a3]"
+        >
+          {label && <span className="text-xs tracking-[0.3em] uppercase">{label}</span>}
+          <ChevronDown className="size-7 animate-bounce" aria-hidden />
+        </button>
+      </div>
     </section>
   )
 }

@@ -13,7 +13,10 @@ const SCENES: SceneVariant[] = ['dusk', 'forest', 'night']
 const EASE = [0.22, 1, 0.36, 1] as const
 
 export const Route = createFileRoute('/join-us')({
-  validateSearch: (s: Record<string, unknown>): { code?: string } => (typeof s.code === 'string' ? { code: s.code } : {}),
+  validateSearch: (s: Record<string, unknown>): { code?: string; look?: 'night' | 'envelope' } => ({
+    ...(typeof s.code === 'string' ? { code: s.code } : {}),
+    ...(s.look === 'night' || s.look === 'envelope' ? { look: s.look } : {}),
+  }),
   component: JoinPage,
 })
 
@@ -21,13 +24,14 @@ const clean = (value: string) => value.toUpperCase().replace(/[^A-Z0-9]/g, '').s
 
 function JoinPage() {
   const navigate = useNavigate()
-  const given = Route.useSearch().code
+  const { code: given, look } = Route.useSearch()
   const { data } = useQuery(publicContentQuery)
   const deco = data?.theme?.decoration as SceneVariant | undefined
   const [code, setCode] = useState(() => clean(given ?? ''))
   const [focused, setFocused] = useState(false)
   const row = useAnimationControls()
-  const envelope = data?.content.inviteOpening === 'envelope'
+  // ?look= overrides the setting, to try out the other look.
+  const envelope = (look ?? data?.content.inviteOpening) === 'envelope'
   const still = useReducedMotion() ?? false
 
   const open = useMutation({
