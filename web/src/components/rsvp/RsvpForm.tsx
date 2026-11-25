@@ -69,7 +69,7 @@ export function RsvpForm({ initial, link, onDone }: FormProps) {
 
   const attending = status === 'yes'
   const pages = attending
-    ? (['who', 'status', 'count', 'people', 'contribution', 'music', 'message'] as const)
+    ? (['who', 'status', 'count', 'people', 'contribution', 'music', 'song', 'message'] as const)
     : (['who', 'status', 'message'] as const)
   const [index, setIndex] = useState(0)
   const at = Math.min(index, pages.length - 1)
@@ -397,17 +397,28 @@ export function RsvpForm({ initial, link, onDone }: FormProps) {
                   )
                 })}
               </div>
-              <div className="space-y-2">
-                <Label>{t('Euer Must-play-Song')} <span className="font-normal text-muted-foreground">{t('(optional)')}</span></Label>
-                <SongSearch value={song} onChange={setSong} />
-              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {page === 'song' && (
+          <Card>
+            <CardHeader>
+              {Step({ n: 6 })}
+              <CardTitle className="flex items-center gap-2">
+                {t('Euer Must-play-Song')} <span className="text-sm font-normal text-muted-foreground">{t('(optional)')}</span>
+              </CardTitle>
+              <CardDescription>{t('Bei welchem Lied müsst ihr einfach tanzen?')}</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <SongSearch value={song} onChange={setSong} />
             </CardContent>
           </Card>
         )}
 
         {page === 'message' && <Card>
           <CardHeader>
-            {Step({ n: 6 })}
+            {Step({ n: 7 })}
             <CardTitle className="flex items-center gap-2">
               {t('Nachricht an uns')} <span className="text-sm font-normal text-muted-foreground">{t('(optional)')}</span>
             </CardTitle>

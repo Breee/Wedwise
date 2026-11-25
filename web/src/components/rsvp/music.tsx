@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { t } from '@/lib/i18n'
-import { Music, Search } from 'lucide-react'
+import { Check, Music, Search } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 
 export const GENRES = ['Pop', 'Charts', 'Rock', 'Indie', 'Punk', 'Metal', 'Hardcore', 'Hip-Hop', 'R&B', 'Soul / Funk', 'Disco', 'House / Electro', 'Techno', 'Drum & Bass', 'Electro Swing', 'Jazz / Swing', 'Reggae', 'Latin', 'Schlager', '80er', '90er', '2000er'] as const
@@ -51,73 +51,96 @@ type Track = { trackId: number; trackName: string; artistName: string }
 export function SongSearch({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const [query, setQuery] = useState(value)
   const [results, setResults] = useState<Track[]>([])
-  const [open, setOpen] = useState(false)
+  const [state, setState] = useState<'idle' | 'searching' | 'done'>('idle')
   const [picked, setPicked] = useState(value)
+  const [pickedId, setPickedId] = useState(0)
 
   useEffect(() => {
     const q = query.trim()
-    if (q.length < 3 || q === picked) {
+    // A picked song keeps its list, so the choice stays visible.
+    if (q === picked) return
+    if (q.length < 3) {
       setResults([])
+      setState('idle')
       return
     }
     const ctrl = new AbortController()
-    const t = setTimeout(() => {
+    setState('searching')
+    const timer = setTimeout(() => {
       fetch(`/api/songs?q=${encodeURIComponent(q)}`, { signal: ctrl.signal })
         .then((r) => r.json())
         .then((d: { results?: Track[] }) => {
           setResults(d.results ?? [])
-          setOpen(true)
+          setState('done')
         })
         .catch(() => {})
     }, 300)
     return () => {
-      clearTimeout(t)
+      clearTimeout(timer)
       ctrl.abort()
     }
   }, [query, picked])
 
+  const hint =
+    results.length > 0 ? '' : state === 'searching' ? t('Sucht …') : state === 'done' ? t('Nichts gefunden. Euer Text wird so übernommen.') : t('Tippt mindestens drei Buchstaben.')
+
   return (
-    <div className="relative">
-      <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-      <Input
-        className="pl-9"
-        placeholder={t('Song oder Interpret suchen …')}
-        value={query}
-        onChange={(e) => {
-          setQuery(e.target.value)
-          onChange(e.target.value)
-        }}
-        onFocus={() => results.length && setOpen(true)}
-        onBlur={() => setTimeout(() => setOpen(false), 150)}
-      />
-      {open && results.length > 0 && (
-        <ul className="mt-1 w-full overflow-hidden rounded-md border bg-popover">
-          {results.map((t) => {
-            const label = `${t.artistName} – ${t.trackName}`
-            return (
-              <li key={t.trackId}>
-                <button
-                  type="button"
-                  className="flex w-full items-center gap-3 px-3 py-2 text-left text-sm hover:bg-accent"
-                  onMouseDown={(e) => e.preventDefault()}
-                  onClick={() => {
-                    setQuery(label)
-                    setPicked(label)
-                    onChange(label)
-                    setOpen(false)
-                  }}
-                >
-                  <Music className="size-4 text-muted-foreground" />
-                  <span>
-                    <span className="font-medium">{t.trackName}</span>
-                    <span className="text-muted-foreground"> · {t.artistName}</span>
-                  </span>
-                </button>
-              </li>
-            )
-          })}
-        </ul>
-      )}
+    <div className="space-y-3">
+      <div className="relative">
+        <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          type="search"
+          enterKeyHint="search"
+          autoComplete="off"
+          className="pl-9"
+          aria-label={t('Song oder Interpret suchen …')}
+          placeholder={t('Song oder Interpret suchen …')}
+          value={query}
+          onChange={(e) => {
+            setQuery(e.target.value)
+            setPicked('')
+            onChange(e.target.value)
+          }}
+          onKeyDown={(e) => {
+            if (e.key !== 'Enter') return
+            e.preventDefault()
+            e.currentTarget.blur()
+          }}
+        />
+      </div>
+      {/* Fixed height: results come and go without moving the page. */}
+      <div className="h-64 overflow-y-auto overscroll-contain rounded-md border" aria-live="polite">
+        {hint && <p className="flex h-full items-center justify-center px-4 text-center text-sm text-muted-foreground">{hint}</p>}
+        {results.length > 0 && (
+          <ul className="divide-y">
+            {results.map((track) => {
+              const label = `${track.artistName} – ${track.trackName}`
+              const on = track.trackId === pickedId && label === picked
+              return (
+                <li key={track.trackId}>
+                  <button
+                    type="button"
+                    aria-pressed={on}
+                    className={`flex min-h-12 w-full items-center gap-3 px-3 py-2 text-left text-sm ${on ? 'bg-primary/10' : 'hover:bg-accent'}`}
+                    onClick={() => {
+                      setQuery(label)
+                      setPicked(label)
+                      setPickedId(track.trackId)
+                      onChange(label)
+                    }}
+                  >
+                    {on ? <Check className="size-4 shrink-0 text-primary" /> : <Music className="size-4 shrink-0 text-muted-foreground" />}
+                    <span className="min-w-0">
+                      <span className="block truncate font-medium">{track.trackName}</span>
+                      <span className="block truncate text-muted-foreground">{track.artistName}</span>
+                    </span>
+                  </button>
+                </li>
+              )
+            })}
+          </ul>
+        )}
+      </div>
     </div>
   )
 }

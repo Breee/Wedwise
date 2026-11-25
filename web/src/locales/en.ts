@@ -627,4 +627,8 @@ export const en: Record<string, string> = {
   'Link mit Code kopieren': 'Copy link with code',
   'Für wen ist der Link?': 'Who is the link for?',
   'Die Einladung begrüßt die Gäste mit diesem Namen, zum Beispiel „Anna & Ben“. Leer lassen für keine Begrüßung.': 'The invitation greets the guests with this name, for example "Anna & Ben". Leave empty for no greeting.',
+  'Sucht …': 'Searching …',
+  'Nichts gefunden. Euer Text wird so übernommen.': 'Nothing found. Your text is kept as typed.',
+  'Tippt mindestens drei Buchstaben.': 'Type at least three letters.',
+  'Bei welchem Lied müsst ihr einfach tanzen?': 'Which song gets you dancing every time?',
 }
