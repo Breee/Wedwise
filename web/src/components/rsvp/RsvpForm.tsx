@@ -17,7 +17,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Checkbox } from '@/components/ui/checkbox'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { GENRES, NEEDS_OPTIONS, genreIcon, SongSearch, formatNeeds, joinList, parseNeeds, splitList } from '@/components/rsvp/music'
+import { GENRES, NEEDS_OPTIONS, genreIcon, SongSearch, type Track, formatNeeds, joinList, parseNeeds, splitList } from '@/components/rsvp/music'
 import { MESSENGERS, MessengerIcon } from '@/lib/contact'
 import { rememberToken } from '@/lib/remember'
 import { createKey, webauthnSupported } from '@/lib/webauthn'
@@ -50,6 +50,38 @@ const req = <span aria-hidden className="text-destructive">*</span>
 const newAttendee = (name = ''): Attendee => ({ name, isChild: false, age: 0, photoOk: true, diet: 'none', allergies: '' })
 const emptyContribution: ContributionRequest = { title: '', description: '', needs: '', phone: '', messengers: [] }
 
+// A half-filled form survives a reload: the draft stays in this tab until the
+// reply is sent or the tab is closed.
+const DRAFT_VERSION = 1
+
+type Draft = {
+  version: number
+  /** When the reply being edited was last saved; a draft for an older state is dropped. */
+  base: string
+  index: number
+  contactName: string
+  status: RsvpStatus
+  attendees: Attendee[]
+  message: string
+  genres: string[]
+  song: string
+  track: Track | null
+  wantsContribution: boolean
+  contribution: ContributionRequest
+  needs: { selected: string[]; other: string }
+}
+
+function readDraft(key: string, base: string): Draft | null {
+  try {
+    const draft = JSON.parse(sessionStorage.getItem(key) ?? 'null') as Draft | null
+    if (draft?.version === DRAFT_VERSION && draft.base === base && Array.isArray(draft.attendees)) return draft
+    sessionStorage.removeItem(key)
+  } catch {
+    // No storage or a broken draft: start from the saved reply.
+  }
+  return null
+}
+
 export function RsvpForm({ initial, link, onDone }: FormProps) {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -57,21 +89,36 @@ export function RsvpForm({ initial, link, onDone }: FormProps) {
   const genreOptions: readonly string[] = site?.event.musicGenres?.length ? site.event.musicGenres : GENRES
   const minutes = site?.event.contributionMinutes || 15
 
-  const [contactName, setContactName] = useState(initial?.contactName ?? '')
-  const [status, setStatus] = useState<RsvpStatus>(initial?.status ?? 'yes')
-  const [attendees, setAttendees] = useState<Attendee[]>(initial?.attendees?.length ? initial.attendees : [newAttendee()])
-  const [message, setMessage] = useState(initial?.message ?? '')
-  const [genres, setGenres] = useState<string[]>(splitList(initial?.musicGenres ?? ''))
-  const [song, setSong] = useState(initial?.musicSong ?? '')
-  const [wantsContribution, setWantsContribution] = useState(Boolean(initial?.contribution))
-  const [contribution, setContribution] = useState<ContributionRequest>(initial?.contribution ?? emptyContribution)
-  const [needs, setNeeds] = useState(() => parseNeeds(initial?.contribution?.needs ?? ''))
+  const draftKey = `wedwise.reply.${link ?? ''}.${initial?.id ?? 'new'}`
+  const draftBase = initial?.updatedAt ?? ''
+  const [draft] = useState(() => readDraft(draftKey, draftBase))
+
+  const [contactName, setContactName] = useState(draft?.contactName ?? initial?.contactName ?? '')
+  const [status, setStatus] = useState<RsvpStatus>(draft?.status ?? initial?.status ?? 'yes')
+  const [attendees, setAttendees] = useState<Attendee[]>(draft?.attendees ?? (initial?.attendees?.length ? initial.attendees : [newAttendee()]))
+  const [message, setMessage] = useState(draft?.message ?? initial?.message ?? '')
+  const [genres, setGenres] = useState<string[]>(draft?.genres ?? splitList(initial?.musicGenres ?? ''))
+  const [song, setSong] = useState(draft?.song ?? initial?.musicSong ?? '')
+  const [track, setTrack] = useState<Track | null>(draft?.track ?? null)
+  const [wantsContribution, setWantsContribution] = useState(draft?.wantsContribution ?? Boolean(initial?.contribution))
+  const [contribution, setContribution] = useState<ContributionRequest>(draft?.contribution ?? initial?.contribution ?? emptyContribution)
+  const [needs, setNeeds] = useState(() => draft?.needs ?? parseNeeds(initial?.contribution?.needs ?? ''))
 
   const attending = status === 'yes'
   const pages = attending
     ? (['who', 'status', 'count', 'people', 'contribution', 'music', 'song', 'message'] as const)
     : (['who', 'status', 'message'] as const)
-  const [index, setIndex] = useState(0)
+  const [index, setIndex] = useState(draft?.index ?? 0)
+  const sent = useRef(false)
+  useEffect(() => {
+    if (sent.current) return
+    const next: Draft = { version: DRAFT_VERSION, base: draftBase, index, contactName, status, attendees, message, genres, song, track, wantsContribution, contribution, needs }
+    try {
+      sessionStorage.setItem(draftKey, JSON.stringify(next))
+    } catch {
+      // Without storage the form simply starts over after a reload.
+    }
+  }, [draftKey, draftBase, index, contactName, status, attendees, message, genres, song, track, wantsContribution, contribution, needs])
   const at = Math.min(index, pages.length - 1)
   const page = pages[at]
   const last = at === pages.length - 1
@@ -130,6 +177,12 @@ export function RsvpForm({ initial, link, onDone }: FormProps) {
         : api.post<GuestView>(`/rsvp/links/${encodeURIComponent(link ?? '')}`, body)
     },
     onSuccess: (view) => {
+      sent.current = true
+      try {
+        sessionStorage.removeItem(draftKey)
+      } catch {
+        // Nothing was stored.
+      }
       queryClient.setQueryData(rsvpQuery(view.editToken).queryKey, view)
       onDone(view)
       queryClient.invalidateQueries({ queryKey: ['rsvp', 'mine'] })
@@ -411,7 +464,7 @@ export function RsvpForm({ initial, link, onDone }: FormProps) {
               <CardDescription>{t('Bei welchem Lied müsst ihr einfach tanzen?')}</CardDescription>
             </CardHeader>
             <CardContent>
-              <SongSearch value={song} onChange={setSong} />
+              <SongSearch value={song} onChange={setSong} chosen={track} onChosen={setTrack} />
             </CardContent>
           </Card>
         )}

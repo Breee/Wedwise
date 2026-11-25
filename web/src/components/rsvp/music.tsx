@@ -47,7 +47,7 @@ export function formatNeeds(selected: string[], other: string): string {
   return joinList([...selected, ...(o ? [OTHER_PREFIX + o] : [])])
 }
 
-type Track = { trackId: number; trackName: string; artistName: string; cover?: string }
+export type Track = { trackId: number; trackName: string; artistName: string; cover?: string }
 
 function Cover({ track, className }: { track: Track; className: string }) {
   const [broken, setBroken] = useState(false)
@@ -97,11 +97,20 @@ function Chosen({ track, onChange }: { track: Track; onChange: () => void }) {
   )
 }
 
-export function SongSearch({ value, onChange }: { value: string; onChange: (v: string) => void }) {
-  const [query, setQuery] = useState(value)
+export function SongSearch({
+  value,
+  onChange,
+  chosen,
+  onChosen: setChosen,
+}: {
+  value: string
+  onChange: (v: string) => void
+  chosen: Track | null
+  onChosen: (track: Track | null) => void
+}) {
+  const [query, setQuery] = useState(chosen ? '' : value)
   const [results, setResults] = useState<Track[]>([])
   const [state, setState] = useState<'idle' | 'searching' | 'done'>('idle')
-  const [chosen, setChosen] = useState<Track | null>(null)
 
   useEffect(() => {
     const q = query.trim()
