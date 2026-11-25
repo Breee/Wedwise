@@ -635,7 +635,7 @@ export const en: Record<string, string> = {
   'Tippt auf das Licht': 'Tap the light',
   'Brecht das Siegel': 'Break the seal',
   'Fangt die drei Glühwürmchen': 'Catch the three fireflies',
-  'Haltet die Laterne, bis sie leuchtet': 'Hold the lantern until it glows',
+  'Zündet die Laterne an': 'Light the lantern',
   'Verbindet die drei Sterne': 'Join the three stars',
   'Zieht an der Schleife': 'Pull the bow',
   'Einfach öffnen': 'Just open it',

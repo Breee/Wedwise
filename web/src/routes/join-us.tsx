@@ -39,12 +39,13 @@ function JoinPage() {
   const [direct, setDirect] = useState(() => clean(given ?? '').length === LENGTH)
   const [tapped, setTapped] = useState(false)
   const row = useAnimationControls()
+  const input = useRef<HTMLInputElement>(null)
   // ?look= overrides the setting, to try out the other look.
   const envelope = (look ?? data?.content.inviteOpening) === 'envelope'
   const still = useReducedMotion() ?? false
   // ?play= picks the way to open; reduced motion always gets the single tap.
-  const game: Play = envelope ? (play === 'ribbon' && !still ? 'ribbon' : 'seal') : play && NIGHT_PLAYS.includes(play) && !still ? play : 'light'
-  const playing = direct && !tapped && game !== 'light' && game !== 'seal'
+  const game: Play = envelope ? (play === 'ribbon' && !still ? 'ribbon' : 'seal') : still || play === 'light' ? 'light' : play && NIGHT_PLAYS.includes(play) ? play : 'lantern'
+  const playing = direct && !tapped && (game === 'fireflies' || game === 'stars' || game === 'ribbon')
   const finish = useCallback(() => setTapped(true), [])
   // Nobody gets stuck on a game: the plain way in shows up after a while.
   const [late, setLate] = useState(false)
@@ -75,10 +76,12 @@ function JoinPage() {
   // The light fills the screen before the invitation takes over.
   useEffect(() => {
     if (!opened || !link) return
-    const wait = envelope ? (still ? 700 : direct ? 2700 : 3300) : direct ? 2400 : 1500
+    const wait = envelope ? (still ? 700 : direct ? 2700 : 3300) : game === 'lantern' ? 4300 : direct ? 2400 : 1500
+    // The keyboard goes away so the lantern can be seen rising.
+    if (game === 'lantern') input.current?.blur()
     const timer = setTimeout(() => navigate({ to: '/rsvp/$link', params: { link }, replace: true }), wait)
     return () => clearTimeout(timer)
-  }, [opened, link, envelope, still, direct, navigate])
+  }, [opened, link, envelope, still, direct, game, navigate])
 
   const hint = open.isError
     ? open.error instanceof ApiError && open.error.status === 429
@@ -89,7 +92,7 @@ function JoinPage() {
       {
         light: t('Tippt auf das Licht'),
         fireflies: t('Fangt die drei Glühwürmchen'),
-        lantern: t('Haltet die Laterne, bis sie leuchtet'),
+        lantern: t('Zündet die Laterne an'),
         stars: t('Verbindet die drei Sterne'),
         seal: t('Brecht das Siegel'),
         ribbon: t('Zieht an der Schleife'),
@@ -117,6 +120,7 @@ function JoinPage() {
   )
   const field = (
     <input
+      ref={input}
       value={code}
       onChange={(e) => {
         if (busy) return
@@ -167,11 +171,25 @@ function JoinPage() {
     )
   }
 
+  const lantern = game === 'lantern'
   return (
     <div className="fixed inset-0 overflow-hidden bg-[#121c17] text-[#f4efe2]">
-      <DuskScene variant={deco && SCENES.includes(deco) ? deco : 'night'} />
-      <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/55 to-black/80" />
-      <div className="relative mx-auto max-w-xl px-6 pt-[14svh] text-center [text-shadow:0_1px_3px_rgba(0,0,0,0.9),0_2px_22px_rgba(0,0,0,0.75)]">
+      {/* Growing from the top edge, the picture moves up into the sky with the lantern. */}
+      <motion.div
+        className="absolute inset-0 origin-top"
+        initial={false}
+        animate={{ scale: lantern && opened ? 1.7 : 1 }}
+        transition={{ duration: 2.8, delay: 0.9, ease: 'easeInOut' }}
+      >
+        <DuskScene variant={deco && SCENES.includes(deco) ? deco : 'night'} />
+        <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/55 to-black/80" />
+      </motion.div>
+      <motion.div
+        className="relative mx-auto max-w-xl px-6 pt-[14svh] text-center [text-shadow:0_1px_3px_rgba(0,0,0,0.9),0_2px_22px_rgba(0,0,0,0.75)]"
+        initial={false}
+        animate={{ opacity: lantern && opened ? 0 : 1 }}
+        transition={{ duration: 0.8 }}
+      >
         <motion.p
           className="text-sm font-medium text-[#ecdcb0] uppercase"
           initial={{ opacity: 0, letterSpacing: '0.1em' }}
@@ -207,10 +225,11 @@ function JoinPage() {
         <p id="join-hint" className={direct && game === 'light' ? 'absolute inset-x-0 top-[calc(38svh+8.5rem)] text-base' : 'mt-6 h-12 text-base'} role="status">
           {hint}
         </p>
-      </div>
+      </motion.div>
 
+      {lantern && <SkyLantern lit={opened} onTap={direct && !tapped ? finish : undefined} />}
+      {lantern && !direct && <Candles count={code.length} gone={opened} />}
       {direct && game === 'fireflies' && <Fireflies onDone={finish} />}
-      {direct && game === 'lantern' && <Lantern onDone={finish} />}
       {direct && game === 'stars' && <Stars onDone={finish} />}
       <div className="absolute inset-x-0 bottom-[6svh]">{skip}</div>
 
@@ -228,7 +247,7 @@ function JoinPage() {
         />
       )}
 
-      {opened && (
+      {opened && !lantern && (
         <motion.div
           aria-hidden
           className="pointer-events-none absolute top-[38svh] left-1/2 size-24 -translate-x-1/2 rounded-full bg-[radial-gradient(circle,#fff6cf_0%,#f7e9a8_35%,rgba(247,233,168,0)_70%)]"
@@ -334,52 +353,131 @@ function Fireflies({ onDone }: { onDone: () => void }) {
   )
 }
 
-// A dark lantern that brightens for as long as a finger rests on it.
-const HOLD = 1600
+// A paper lantern at the water. Lit, it lifts off into the sky, more lanterns
+// follow in the distance, and its light becomes the invitation.
+const PAPER_LANTERN = 'M12 22C12 6 84 6 84 22L88 66C90 92 78 108 72 114L24 114C18 108 6 92 8 66Z'
+const AWAY = [
+  { left: '12%', size: 20, up: 46, delay: 0.5 },
+  { left: '27%', size: 14, up: 38, delay: 0.1 },
+  { left: '70%', size: 16, up: 42, delay: 0.3 },
+  { left: '84%', size: 24, up: 50, delay: 0.7 },
+  { left: '40%', size: 11, up: 34, delay: 0.9 },
+  { left: '61%', size: 12, up: 36, delay: 1.1 },
+]
 
-function Lantern({ onDone }: { onDone: () => void }) {
-  const [held, setHeld] = useState(false)
-  const [lit, setLit] = useState(false)
-  useEffect(() => {
-    if (!held || lit) return
-    const timer = setTimeout(() => {
-      setLit(true)
-      onDone()
-    }, HOLD)
-    return () => clearTimeout(timer)
-  }, [held, lit, onDone])
-  const on = held || lit
+function SkyLantern({ lit, onTap }: { lit: boolean; onTap?: () => void }) {
   return (
-    <button
-      type="button"
-      tabIndex={-1}
-      aria-hidden
-      data-lantern={lit ? 'lit' : 'dark'}
-      className="absolute top-[36svh] left-1/2 flex h-44 w-28 -translate-x-1/2 cursor-pointer touch-none flex-col items-center outline-none select-none [-webkit-touch-callout:none]"
-      onPointerDown={() => setHeld(true)}
-      onPointerUp={() => setHeld(false)}
-      onPointerLeave={() => setHeld(false)}
-      onPointerCancel={() => setHeld(false)}
-      onContextMenu={(e) => e.preventDefault()}
-    >
+    <>
+      {lit &&
+        AWAY.map((l) => (
+          <motion.span
+            key={l.left}
+            aria-hidden
+            className="pointer-events-none absolute top-[66svh] rounded-[45%_45%_35%_35%] bg-[radial-gradient(circle_at_50%_85%,#fff6cf,#f3b25e_60%,#b9602a)] shadow-[0_0_14px_4px_rgba(243,178,94,0.45)]"
+            style={{ left: l.left, width: l.size, height: l.size * 1.3 }}
+            initial={{ opacity: 0, y: 0 }}
+            animate={{ opacity: [0, 0.9, 0.9], y: `-${l.up}vh`, x: [0, 8, -4] }}
+            transition={{ duration: 3.4, delay: 1 + l.delay, ease: 'easeOut' }}
+          />
+        ))}
       <motion.span
-        className={`pointer-events-none absolute -inset-12 rounded-full ${GLOW}`}
+        aria-hidden
+        className="pointer-events-none absolute top-[calc(50svh+9rem)] left-1/2 -ml-8 h-20 w-16 rounded-full bg-[#f3b25e] blur-xl"
         initial={false}
-        animate={{ opacity: on ? 0.9 : 0, scale: on ? 1 : 0.6 }}
-        transition={{ duration: on ? HOLD / 1000 : 0.4, ease: 'linear' }}
+        animate={lit ? { opacity: [0, 0.55, 0], y: [0, 0, 70] } : { opacity: 0, y: 0 }}
+        transition={{ duration: 3.2, times: [0, 0.3, 1] }}
       />
-      <span className="size-6 rounded-full border-2 border-[#d9c9a3]/70" />
-      <span className="-mt-1 h-3 w-16 rounded-t-md bg-[#d9c9a3]/70" />
-      <span className="relative w-20 flex-1 overflow-hidden rounded-b-xl border-2 border-t-0 border-[#d9c9a3]/70 bg-black/45">
+      <motion.div
+        className="absolute top-[50svh] left-1/2 -ml-12 h-32 w-24"
+        initial={{ opacity: 0 }}
+        animate={lit ? { opacity: 1, y: '-28vh', x: [0, 12, -6, 0], scale: 0.85 } : { opacity: 1, y: 0, x: 0, scale: 1 }}
+        transition={lit ? { duration: 2.8, delay: 0.9, ease: 'easeInOut' } : { duration: 1.2, delay: 0.6 }}
+      >
         <motion.span
-          className="absolute inset-0 bg-[radial-gradient(circle,#fff6cf_0%,#f7e9a8_45%,rgba(247,233,168,0.25)_100%)]"
+          aria-hidden
+          className={`pointer-events-none absolute -inset-16 rounded-full ${GLOW}`}
           initial={false}
-          animate={{ opacity: on ? 1 : 0.1 }}
-          transition={{ duration: on ? HOLD / 1000 : 0.4, ease: 'linear' }}
+          animate={lit ? { opacity: 1, scale: 1.1 } : onTap ? { opacity: [0.15, 0.4, 0.15], scale: 1 } : { opacity: 0.12, scale: 1 }}
+          transition={lit ? { duration: 0.9 } : { duration: 3.5, repeat: Infinity, ease: 'easeInOut' }}
         />
-      </span>
-      <span className="h-2 w-24 rounded-sm bg-[#d9c9a3]/70" />
-    </button>
+        <svg aria-hidden viewBox="0 0 96 128" className="relative size-full overflow-visible">
+          <defs>
+            <radialGradient id="sky-lit" cx="50%" cy="92%" r="95%">
+              <stop offset="0" stopColor="#fff8d8" />
+              <stop offset="0.35" stopColor="#fbd98a" />
+              <stop offset="0.75" stopColor="#ee9a45" />
+              <stop offset="1" stopColor="#b9602a" />
+            </radialGradient>
+            <linearGradient id="sky-dark" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stopColor="#cdbb93" stopOpacity="0.85" />
+              <stop offset="1" stopColor="#8f7f62" stopOpacity="0.8" />
+            </linearGradient>
+          </defs>
+          <path d={PAPER_LANTERN} fill="url(#sky-dark)" stroke="#d9c9a3" strokeOpacity="0.6" />
+          <path d="M30 11Q23 62 30 114M48 10V114M66 11Q73 62 66 114" fill="none" stroke="#2c2015" strokeOpacity="0.25" />
+          <motion.g initial={false} animate={{ opacity: lit ? 1 : 0 }} transition={{ duration: 0.9 }}>
+            <path d={PAPER_LANTERN} fill="url(#sky-lit)" />
+            <path d="M30 11Q23 62 30 114M48 10V114M66 11Q73 62 66 114" fill="none" stroke="#b9602a" strokeOpacity="0.3" />
+          </motion.g>
+          <ellipse cx="48" cy="114" rx="24" ry="4" fill="none" stroke="#2c2015" strokeOpacity="0.75" strokeWidth="2" />
+          <motion.path
+            d="M48 96C41 105 43 115 48 115 53 115 55 105 48 96Z"
+            fill="#fff6cf"
+            style={{ transformOrigin: '48px 115px' }}
+            initial={false}
+            animate={lit ? { opacity: 1, scale: [0, 1.3, 1] } : { opacity: 0, scale: 0 }}
+            transition={{ duration: 0.7 }}
+          />
+        </svg>
+        {onTap && (
+          <button
+            type="button"
+            aria-label={t('Einladung öffnen')}
+            aria-describedby="join-hint"
+            onClick={onTap}
+            className="absolute -inset-5 cursor-pointer rounded-full outline-none focus-visible:ring-2 focus-visible:ring-[#f7e9a8]"
+          />
+        )}
+      </motion.div>
+      {lit && (
+        <motion.div
+          aria-hidden
+          className="pointer-events-none absolute top-[calc(22svh+2rem)] left-1/2 -ml-12 size-24 rounded-full bg-[radial-gradient(circle,#fff6cf_0%,#f7e9a8_35%,rgba(247,233,168,0)_70%)]"
+          initial={{ scale: 0, opacity: 0 }}
+          animate={{ scale: 40, opacity: [0, 1, 1] }}
+          transition={{ duration: 1.3, delay: 3, ease: 'easeIn' }}
+        />
+      )}
+    </>
+  )
+}
+
+// One candle on the water for each character of a typed code.
+function Candles({ count, gone }: { count: number; gone: boolean }) {
+  return (
+    <motion.div
+      aria-hidden
+      className="pointer-events-none absolute inset-x-0 top-[76svh] flex justify-center gap-6"
+      animate={{ opacity: gone ? 0 : 1 }}
+      transition={{ duration: 1.2, delay: 1.2 }}
+    >
+      {Array.from({ length: LENGTH }, (_, i) => {
+        const on = i < count
+        return (
+          <span key={i} data-candle={on ? 'lit' : 'dark'} className="relative flex flex-col items-center" style={{ marginTop: i % 2 ? 12 : 0 }}>
+            <motion.span className={`absolute -top-5 size-12 rounded-full ${GLOW}`} initial={false} animate={{ opacity: on ? 0.9 : 0, scale: on ? 1 : 0.4 }} />
+            <motion.span
+              className="h-3.5 w-2 origin-bottom rounded-[50%_50%_50%_50%/65%_65%_35%_35%] bg-[#fff6cf]"
+              initial={false}
+              animate={on ? { opacity: 1, scaleY: [0, 1.4, 1] } : { opacity: 0.12, scaleY: 1 }}
+              transition={{ duration: 0.4 }}
+            />
+            <span className="mt-0.5 h-1.5 w-4 rounded-sm bg-[#d9c9a3]/60" />
+            <motion.span className="mt-1 h-9 w-1.5 rounded-full bg-gradient-to-b from-[#f7e9a8]/70 to-transparent blur-[2px]" initial={false} animate={{ opacity: on ? 1 : 0 }} />
+          </span>
+        )
+      })}
+    </motion.div>
   )
 }
 
