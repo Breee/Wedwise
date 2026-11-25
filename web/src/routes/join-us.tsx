@@ -242,43 +242,97 @@ function JoinPage() {
   )
 }
 
-// Three fireflies drift about; each one caught flies to the middle.
+// Three fireflies drift about. A ring around each shows where to tap; each
+// one caught flies into the jar, which glows a little more.
 const FLIES = [
-  { left: '24%', top: '36svh', x: [0, 26, -18, 10, 0], y: [0, -20, 12, 24, 0], time: 9 },
-  { left: '74%', top: '50svh', x: [0, -24, 14, -8, 0], y: [0, 18, -22, 8, 0], time: 11 },
-  { left: '36%', top: '68svh', x: [0, 20, 30, -12, 0], y: [0, -16, 10, -24, 0], time: 10 },
+  { left: '22%', top: '30svh', x: [0, 26, -18, 10, 0], y: [0, -20, 12, 24, 0], time: 9, rest: [-13, 10] },
+  { left: '78%', top: '58svh', x: [0, -24, 14, -8, 0], y: [0, 18, -22, 8, 0], time: 11, rest: [12, 2] },
+  { left: '30%', top: '72svh', x: [0, 20, 30, -12, 0], y: [0, -16, 10, -24, 0], time: 10, rest: [-1, 26] },
 ]
 
 function Fireflies({ onDone }: { onDone: () => void }) {
   const [caught, setCaught] = useState<number[]>([])
+  const full = caught.length === FLIES.length
   useEffect(() => {
-    if (caught.length < FLIES.length) return
-    const timer = setTimeout(onDone, 800)
+    if (!full) return
+    const timer = setTimeout(onDone, 1100)
     return () => clearTimeout(timer)
-  }, [caught, onDone])
-  return FLIES.map((fly, i) => {
-    const got = caught.includes(i)
-    return (
-      <motion.button
-        key={i}
-        type="button"
-        tabIndex={-1}
-        aria-hidden
-        data-fly={got ? 'caught' : 'free'}
-        className="absolute size-20 -translate-x-1/2 -translate-y-1/2 cursor-pointer touch-manipulation outline-none"
-        initial={{ left: fly.left, top: fly.top, opacity: 0 }}
-        animate={{ left: got ? '50%' : fly.left, top: got ? '44svh' : fly.top, opacity: 1 }}
-        transition={{ duration: 0.9, ease: EASE }}
-        onPointerDown={() => setCaught((c) => (c.includes(i) ? c : [...c, i]))}
-      >
-        <motion.span
-          className={`block size-full rounded-full ${GLOW}`}
-          animate={got ? { x: 0, y: 0, scale: 1.3, opacity: 1 } : { x: fly.x, y: fly.y, scale: 1, opacity: [0.55, 1, 0.55, 1, 0.55] }}
-          transition={got ? { duration: 0.6 } : { duration: fly.time, repeat: Infinity, ease: 'easeInOut' }}
+  }, [full, onDone])
+  return (
+    <>
+      <div aria-hidden className="pointer-events-none absolute top-[44svh] left-1/2 h-32 w-24 -translate-x-1/2 -translate-y-1/2">
+        <motion.div
+          className={`absolute -inset-10 rounded-full ${GLOW}`}
+          animate={{ opacity: full ? 1 : caught.length * 0.22, scale: full ? 1.5 : 1 }}
+          transition={{ duration: 0.9, ease: EASE }}
         />
-      </motion.button>
-    )
-  })
+        <motion.svg
+          viewBox="0 0 96 128"
+          className="absolute inset-0 size-full fill-none stroke-[#ecdcb0] [stroke-linecap:round] [stroke-linejoin:round] [stroke-width:2]"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: full ? 0 : 0.75 }}
+          transition={{ duration: 1, delay: full ? 0.5 : 0.4 }}
+        >
+          <rect x="26" y="4" width="44" height="12" rx="3" />
+          <path d="M30 16v8C18 30 12 38 12 50v56c0 10 7 18 18 18h36c11 0 18-8 18-18V50c0-12-6-20-18-26v-8" />
+          <path d="M22 54v40" opacity="0.5" />
+        </motion.svg>
+        <div className="absolute inset-x-0 -bottom-8 flex justify-center gap-2">
+          {FLIES.map((_, i) => (
+            <motion.span
+              key={i}
+              className="size-2 rounded-full border border-[#ecdcb0]"
+              animate={{ backgroundColor: i < caught.length ? '#f7e9a8' : 'rgba(247,233,168,0)', scale: i < caught.length ? [1, 1.6, 1] : 1, opacity: full ? 0 : 1 }}
+              transition={{ duration: 0.5 }}
+            />
+          ))}
+        </div>
+      </div>
+      {FLIES.map((fly, i) => {
+        const got = caught.includes(i)
+        return (
+          <motion.div
+            key={i}
+            aria-hidden
+            className="absolute size-20 -translate-x-1/2 -translate-y-1/2"
+            initial={{ left: fly.left, top: fly.top, opacity: 0 }}
+            animate={{ left: got ? '50%' : fly.left, top: got ? '44svh' : fly.top, opacity: 1 }}
+            transition={{ left: { duration: 0.9, ease: EASE }, top: { duration: 0.9, ease: EASE }, opacity: { duration: 1.2, delay: 0.5 + i * 0.3 } }}
+          >
+            <motion.button
+              type="button"
+              tabIndex={-1}
+              data-fly={got ? 'caught' : 'free'}
+              className={`relative block size-full touch-manipulation outline-none ${got ? 'pointer-events-none' : 'cursor-pointer'}`}
+              animate={got ? { x: fly.rest[0], y: fly.rest[1] } : { x: fly.x, y: fly.y }}
+              transition={got ? { duration: 0.9, ease: EASE } : { duration: fly.time, repeat: Infinity, ease: 'easeInOut' }}
+              onPointerDown={() => setCaught((c) => (c.includes(i) ? c : [...c, i]))}
+            >
+              <motion.span
+                className={`absolute inset-0 rounded-full ${GLOW}`}
+                animate={got ? { scale: 0.45, opacity: [1, 0.7, 1] } : { scale: 1, opacity: [0.6, 1, 0.75, 1, 0.6] }}
+                transition={got ? { scale: { duration: 0.9, ease: EASE }, opacity: { duration: 2.4, repeat: Infinity } } : { duration: 2.6, repeat: Infinity, ease: 'easeInOut' }}
+              />
+              {got ? (
+                <motion.span
+                  className="absolute inset-2 rounded-full border-2 border-[#f7e9a8]"
+                  initial={{ scale: 0.5, opacity: 0.9 }}
+                  animate={{ scale: 2.4, opacity: 0 }}
+                  transition={{ duration: 0.7, ease: 'easeOut' }}
+                />
+              ) : (
+                <motion.span
+                  className="absolute inset-2 rounded-full border border-[#f7e9a8]"
+                  animate={{ scale: [0.45, 1.15], opacity: [0.8, 0] }}
+                  transition={{ duration: 1.8, repeat: Infinity, repeatDelay: 0.9, delay: 1.5 + i * 0.6, ease: 'easeOut' }}
+                />
+              )}
+            </motion.button>
+          </motion.div>
+        )
+      })}
+    </>
+  )
 }
 
 // A dark lantern that brightens for as long as a finger rests on it.
