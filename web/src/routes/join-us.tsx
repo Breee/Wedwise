@@ -38,7 +38,7 @@ function JoinPage() {
     mutationFn: (value: string) => api.post<{ link: string }>('/rsvp/code', { code: value }),
     // The light fills the screen before the invitation takes over.
     onSuccess: ({ link }) =>
-      setTimeout(() => navigate({ to: '/rsvp/$link', params: { link }, replace: true }), !envelope ? 1500 : still ? 700 : 2000),
+      setTimeout(() => navigate({ to: '/rsvp/$link', params: { link }, replace: true }), !envelope ? 1500 : still ? 700 : 2600),
     onError: () => {
       setCode('')
       row.start({ x: [0, -12, 12, -8, 8, 0], transition: { duration: 0.45 } })
@@ -92,7 +92,9 @@ function JoinPage() {
     return (
       <div className="fixed inset-0 overflow-hidden bg-background text-foreground">
         <div className="relative mx-auto max-w-xl px-6 pt-[5svh] text-center">
-          <h1 className="font-display text-3xl leading-tight sm:text-4xl">{t('Euer Code')}</h1>
+          <motion.h1 className="font-display text-3xl leading-tight sm:text-4xl" animate={{ opacity: opened ? 0 : 1 }}>
+            {t('Euer Code')}
+          </motion.h1>
           <p id="join-hint" className={`mt-2 h-10 text-sm ${open.isError ? 'text-destructive' : 'text-muted-foreground'}`} role="status">
             {hint}
           </p>
@@ -106,7 +108,7 @@ function JoinPage() {
             className="pointer-events-none absolute inset-0 bg-card"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            transition={{ duration: 0.4, delay: still ? 0.3 : 1.5 }}
+            transition={{ duration: 0.4, delay: still ? 0.3 : 2.1 }}
           />
         )}
       </div>
@@ -161,54 +163,73 @@ const PAPER = 'color-mix(in oklab, var(--gold) 22%, var(--card))'
 const FLAP = 'color-mix(in oklab, var(--gold) 34%, var(--card))'
 
 // A sealed envelope seen from the back, with the code slots on it. The right
-// code breaks the seal, lifts the flap and lets the card rise out.
+// code breaks the seal, lifts the flap and lets the card rise out; then the
+// envelope drops away and leaves the card.
 function Envelope({ opened, still, children }: { opened: boolean; still: boolean; children: ReactNode }) {
   const move = opened && !still
+  const drop = {
+    animate: move ? { y: '140%', opacity: 0 } : { y: '0%', opacity: 1 },
+    transition: { duration: 0.6, delay: 1.7, ease: 'easeIn' as const },
+  }
   return (
-    <div className="relative mx-auto mt-3 h-[230px] w-full max-w-[21.5rem] [perspective:900px]">
-      <div className="absolute inset-0 rounded-lg shadow-lg" style={{ background: FLAP }} />
+    <motion.div
+      className="relative mx-auto mt-3 h-[230px] w-full max-w-[21.5rem]"
+      initial={still ? false : { opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.7, ease: EASE }}
+    >
+      <motion.div className="absolute inset-0 rounded-lg shadow-lg" style={{ background: FLAP }} {...drop} />
       <motion.div
         aria-hidden
-        className="absolute inset-x-3 top-2 bottom-2 rounded-md border bg-card shadow-sm"
-        style={{ zIndex: move ? 50 : 10, transition: 'z-index 0s 1.3s' }}
-        animate={move ? { y: ['0%', '-70%', '-70%'], scale: [1, 1, 7] } : { y: '0%', scale: 1 }}
-        transition={{ duration: 1, delay: 0.8, times: [0, 0.5, 1], ease: 'easeInOut' }}
-      />
-      <div
+        className="absolute inset-x-3 top-2 bottom-2 z-10 flex flex-col items-center gap-3 rounded-md border bg-card pt-7 shadow-sm"
+        animate={{ y: move ? '-50%' : '0%' }}
+        transition={{ duration: 0.8, delay: 1, ease: EASE }}
+      >
+        <span className="font-display text-xl">{t('Ihr seid eingeladen')}</span>
+        <Heart className="size-4 fill-current text-primary" />
+      </motion.div>
+      <motion.div
         className="absolute inset-0 z-20 flex items-end justify-center rounded-lg pb-3.5"
         style={{ background: PAPER, clipPath: 'polygon(0 0, 50% 55%, 100% 0, 100% 100%, 0 100%)' }}
+        {...drop}
       >
         {children}
-      </div>
+      </motion.div>
+      {/* The flap is edge-on halfway through, which hides its move behind the card. */}
       <motion.div
         aria-hidden
-        className="absolute inset-x-0 top-0 h-[55%] origin-top rounded-t-lg"
-        style={{
-          background: FLAP,
-          clipPath: 'polygon(0 0, 100% 0, 50% 100%)',
-          zIndex: move ? 5 : 30,
-          transition: 'z-index 0s 0.55s',
-          filter: 'brightness(0.97)',
-        }}
-        animate={{ rotateX: move ? 180 : 0 }}
-        transition={{ duration: 0.5, delay: 0.3, ease: 'easeInOut' }}
-      />
-      <div aria-hidden className="absolute top-[55%] left-1/2 z-40 size-14 -translate-x-1/2 -translate-y-1/2">
+        className="absolute inset-x-0 top-0 h-[55%] [perspective:900px]"
+        style={{ zIndex: move ? 5 : 30, transition: 'z-index 0s 0.75s' }}
+        {...drop}
+      >
+        <motion.div
+          className="size-full origin-top rounded-t-lg"
+          style={{ background: FLAP, clipPath: 'polygon(0 0, 100% 0, 50% 100%)' }}
+          animate={{ rotateX: move ? 180 : 0, filter: move ? 'brightness(0.9)' : 'brightness(0.97)' }}
+          transition={{ duration: 0.6, delay: 0.45, ease: 'easeInOut' }}
+        />
+      </motion.div>
+      <motion.div
+        aria-hidden
+        className="absolute top-[55%] left-1/2 z-40 -mt-7 -ml-7 size-14"
+        animate={move ? { scale: [1, 0.88, 1] } : { scale: 1 }}
+        transition={{ duration: 0.25 }}
+      >
         {[0, 1].map((side) => (
           <motion.span
             key={side}
             className="absolute inset-0"
             style={{ clipPath: side ? 'polygon(52% 0, 100% 0, 100% 100%, 46% 100%, 56% 60%, 44% 40%)' : 'polygon(0 0, 52% 0, 44% 40%, 56% 60%, 46% 100%, 0 100%)' }}
-            animate={opened ? { x: side ? 16 : -16, y: 10, rotate: side ? 22 : -22, opacity: 0 } : { x: 0, y: 0, rotate: 0, opacity: 1 }}
-            transition={{ duration: still ? 0 : 0.4, ease: 'easeOut' }}
+            animate={opened ? { x: side ? 20 : -20, y: 56, rotate: side ? 32 : -32, opacity: 0 } : { x: 0, y: 0, rotate: 0, opacity: 1 }}
+            transition={still ? { duration: 0 } : { duration: 0.5, delay: 0.2, ease: 'easeIn' }}
           >
             <span className="flex size-full items-center justify-center rounded-full bg-primary text-primary-foreground shadow-md ring-2 ring-primary-foreground/25 ring-inset">
               <Heart className="size-5 fill-current" />
             </span>
           </motion.span>
         ))}
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   )
 }
 
@@ -222,7 +243,9 @@ function Slot({ char, active, lit, index, paper }: { char?: string; active: bool
           : `bg-black/35 backdrop-blur-sm sm:h-16 sm:w-13 ${char || active ? 'border-[#f7e9a8]' : 'border-[#d9c9a3]/45'}`
       }`}
       animate={
-        lit
+        paper
+          ? { y: 0, opacity: lit ? 0 : 1 }
+          : lit
           ? { y: [0, -10, 0], boxShadow: '0 0 28px 6px rgba(247,233,168,0.85)' }
           : { y: 0, boxShadow: char ? '0 0 16px 2px rgba(247,233,168,0.45)' : '0 0 0 0 rgba(247,233,168,0)' }
       }
