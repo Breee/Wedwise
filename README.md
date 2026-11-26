@@ -45,7 +45,8 @@ third-party SaaS required.
   type in at `/join-us`, and can carry the names of the people it is for:
   the invitation greets them ("Liebe Anna und Ben,") and the reply form starts
   with their names filled in. The code page is a night sky or an envelope with a wax
-  seal that breaks open; choose under "Inhalte" → "Design". Guests answer per household and get a private link to
+  seal that breaks open; choose under "Inhalte" → "Design", where the heading
+  font can be picked too. Guests answer per household and get a private link to
   edit their answer later.
 - 🎁 **Contributions** — guests can offer a programme item. Only witnesses and
   admins see these (Kanban board, schedule planning); the couple only sees

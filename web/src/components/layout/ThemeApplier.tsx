@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { useEffect } from 'react'
 import { publicContentQuery } from '@/lib/queries'
+import { displayFamily } from '@/lib/fonts'
 import type { Theme } from '@/lib/types'
 
 const COLOR_VARS: Record<keyof Theme['colors'], string[]> = {
@@ -25,13 +26,13 @@ const COLOR_VARS: Record<keyof Theme['colors'], string[]> = {
 
 const CACHE_KEY = 'wedwise:theme-vars'
 
-export function applyTheme(theme: Theme) {
+export function applyTheme(theme: Theme, font?: string) {
   const root = document.documentElement
   const vars: Record<string, string> = {}
   for (const [key, list] of Object.entries(COLOR_VARS) as [keyof Theme['colors'], string[]][]) {
     for (const v of list) vars[v] = theme.colors[key]
   }
-  vars['--font-display-family'] = theme.fonts.display
+  vars['--font-display-family'] = displayFamily(font, theme.fonts.display)
   vars['--font-script-family'] = theme.fonts.script
   vars['--font-body-family'] = theme.fonts.body
   for (const [v, value] of Object.entries(vars)) root.style.setProperty(v, value)
@@ -73,9 +74,9 @@ export function ThemeApplier() {
   const { data } = useQuery(publicContentQuery)
   useEffect(() => {
     if (!data?.theme) return
-    applyTheme(data.theme)
+    applyTheme(data.theme, data.content.displayFont)
     applyFavicon(data.theme)
-  }, [data?.theme])
+  }, [data?.theme, data?.content.displayFont])
   useEffect(() => {
     if (!data) return
     const names = data.event.couple.map((c) => c.name).filter(Boolean)

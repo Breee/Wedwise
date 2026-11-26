@@ -96,6 +96,7 @@ type Content struct {
 	FAQ           []FAQEntry      `json:"faq"`
 	Theme         string          `json:"theme"`         // name of the active theme preset
 	Privacy       string          `json:"privacy"`       // optional privacy note shown in the footer
+	DisplayFont   string          `json:"displayFont"`   // heading font: empty for the theme's own
 	InviteOpening string          `json:"inviteOpening"` // how /join-us looks: night (default) or envelope
 	UpdatedAt     time.Time       `json:"updatedAt"`
 }

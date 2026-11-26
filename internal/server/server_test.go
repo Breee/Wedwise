@@ -184,6 +184,7 @@ func validContent() map[string]any {
 		"location":      map[string]any{"name": "Waldsee", "navigationUrl": "https://maps.example.com"},
 		"privacy":       "Nur wir sehen eure Angaben.",
 		"inviteOpening": "envelope",
+		"displayFont":   "playfair",
 		"names":         []string{" Anna ", "Ben", ""},
 		"date":          "2028-05-20",
 		"schedule": []map[string]any{
@@ -366,6 +367,7 @@ func TestContentUpdate_Couple(t *testing.T) {
 			} `json:"introduction"`
 			Privacy       string `json:"privacy"`
 			InviteOpening string `json:"inviteOpening"`
+			DisplayFont   string `json:"displayFont"`
 			Schedule      []struct {
 				Title string `json:"title"`
 				Order int    `json:"order"`
@@ -391,6 +393,9 @@ func TestContentUpdate_Couple(t *testing.T) {
 	}
 	if body.Event.Date != "2028-05-20" || len(body.Event.Couple) != 2 || body.Event.Couple[0].Name != "Anna" || body.Event.Couple[1].Name != "Ben" {
 		t.Fatalf("names and date from the editor must replace the configured ones: %+v", body.Event)
+	}
+	if body.Content.DisplayFont != "playfair" {
+		t.Fatalf("display font not persisted: %q", body.Content.DisplayFont)
 	}
 	if body.Content.InviteOpening != "envelope" {
 		t.Fatalf("invite opening not persisted: %q", body.Content.InviteOpening)

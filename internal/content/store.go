@@ -41,6 +41,7 @@ const (
 	keyTheme                = "theme"
 	keyPrivacy              = "privacy"
 	keyInviteOpening        = "invite.opening"
+	keyDisplayFont          = "theme.displayFont"
 	keyNames                = "names"
 	keyDate                 = "date"
 	maxNames                = 4
@@ -78,6 +79,7 @@ func (s *Store) Get(ctx context.Context) (Content, error) {
 		Theme:         blocks[keyTheme],
 		Privacy:       blocks[keyPrivacy],
 		InviteOpening: blocks[keyInviteOpening],
+		DisplayFont:   blocks[keyDisplayFont],
 		Date:          blocks[keyDate],
 		UpdatedAt:     updatedAt,
 	}
@@ -140,6 +142,7 @@ func (s *Store) Replace(ctx context.Context, updated Content) (Content, error) {
 		keyTheme:               normalized.Theme,
 		keyPrivacy:             normalized.Privacy,
 		keyInviteOpening:       normalized.InviteOpening,
+		keyDisplayFont:         normalized.DisplayFont,
 		keyNames:               encodeBlock(normalized.Names),
 		keyDate:                normalized.Date,
 		keyTravel:              encodeBlock(normalized.Travel),
@@ -281,6 +284,11 @@ func normalize(input Content) (Content, error) {
 	case "", "night", "envelope":
 	default:
 		return Content{}, fmt.Errorf("%w: inviteOpening must be night or envelope", ErrValidation)
+	}
+	switch input.DisplayFont {
+	case "", "playfair", "garamond", "fraunces", "lora":
+	default:
+		return Content{}, fmt.Errorf("%w: displayFont is not a known font", ErrValidation)
 	}
 	names := make([]string, 0, len(input.Names))
 	for _, name := range input.Names {

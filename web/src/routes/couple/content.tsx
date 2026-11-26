@@ -18,6 +18,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { DISPLAY_FONTS, displayFamily, type DisplayFont } from '@/lib/fonts'
 
 const TABS = ['hero', 'location', 'travel', 'stay', 'schedule', 'faq', 'theme'] as const
 type Tab = (typeof TABS)[number]
@@ -129,6 +130,25 @@ function ContentPage() {
                   </SelectContent>
                 </Select>
                 <p className="text-sm text-muted-foreground">{t('So sieht die Seite aus, auf der Gäste ihren Code eingeben.')}</p>
+              </div>
+              <div className="grid gap-2">
+                <Label>{t('Schrift für Überschriften')}</Label>
+                <Select value={draft.displayFont || 'theme'} onValueChange={(v) => set('displayFont', v === 'theme' ? '' : (v as DisplayFont))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="theme">
+                      <span style={{ fontFamily: current?.fonts.display }}>{t('Wie im Thema')}</span>
+                    </SelectItem>
+                    {Object.entries(DISPLAY_FONTS).map(([id, name]) => (
+                      <SelectItem key={id} value={id}>
+                        <span style={{ fontFamily: `'${name}'` }}>{name}</span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-4xl" style={{ fontFamily: displayFamily(draft.displayFont, current?.fonts.display ?? '') }}>
+                  {draft.names?.filter(Boolean).join(' & ') || 'Viktoria & Julian'}
+                </p>
               </div>
             </CardContent>
           </Card>

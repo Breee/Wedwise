@@ -614,6 +614,8 @@ export const en: Record<string, string> = {
   'Euer Konto wurde gelöscht.': 'Your account was deleted.',
   'Das letzte Admin-Konto kann nicht gelöscht werden.': 'The last admin account cannot be deleted.',
   'Einladung öffnen': 'Opening the invitation',
+  'Schrift für Überschriften': 'Font for headings',
+  'Wie im Thema': 'As in the theme',
   'Nachthimmel': 'Night sky',
   'Umschlag mit Siegel': 'Envelope with wax seal',
   'So sieht die Seite aus, auf der Gäste ihren Code eingeben.': 'This is how the page looks where guests enter their code.',
