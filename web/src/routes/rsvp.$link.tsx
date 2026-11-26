@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { t } from '@/lib/i18n'
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, useRouterState } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient, useSuspenseQuery } from '@tanstack/react-query'
 import { motion } from 'motion/react'
 import { Lock } from 'lucide-react'
@@ -32,6 +32,7 @@ export const Route = createFileRoute('/rsvp/$link')({
 
 function InviteLinkPage() {
   const { link } = Route.useParams()
+  const lit = useRouterState({ select: (s) => s.location.state.lit === true })
   const { data: status } = useSuspenseQuery(inviteLinkQuery(link))
   const [done, setDone] = useState<GuestView | null>(null)
   const [saved, setSaved] = useState<GuestView | null>(null)
@@ -45,7 +46,7 @@ function InviteLinkPage() {
   const locked = status.pinRequired && !status.unlocked
   return (
     <>
-      {!locked && !done && <InviteStory target="antwort" name={status.name} />}
+      {!locked && !done && <InviteStory target="antwort" name={status.name} lit={lit} />}
       <section id="antwort" className="mx-auto max-w-2xl snap-start snap-always px-4 py-4 sm:px-6 sm:py-16">
         <RsvpHeader />
         {locked ? (

@@ -17,7 +17,8 @@ const rise = (delay: number) => ({
   transition: { duration: 1.1, delay, ease: EASE },
 })
 
-export function InviteStory({ target, name }: { target: string; name?: string }) {
+// lit: the guest arrives from the fireflies, where the names are already on screen.
+export function InviteStory({ target, name, lit }: { target: string; name?: string; lit?: boolean }) {
   const { data } = useQuery(publicContentQuery)
   const deco = data?.theme?.decoration as SceneVariant | undefined
   const variant = deco && SCENES.includes(deco) ? deco : 'night'
@@ -30,7 +31,7 @@ export function InviteStory({ target, name }: { target: string; name?: string })
       </div>
       <div className="relative -mt-[100lvh]">
         <Page id="invite-title" next="invite-schedule">
-          <Title guest={name} />
+          <Title guest={name} lit={lit} />
         </Page>
         <Page id="invite-schedule" next={target} label={t('Zur Rückmeldung')}>
           <Schedule />
@@ -61,7 +62,8 @@ function Page({ id, next, label, children }: { id: string; next: string; label?:
   )
 }
 
-function Eyebrow({ children }: { children: string }) {
+function Eyebrow({ children, lit }: { children: string; lit?: boolean }) {
+  if (lit) return <p className="text-center text-sm font-medium tracking-[0.45em] text-[#ecdcb0] uppercase">{children}</p>
   return (
     <motion.p
       className="text-center text-sm font-medium text-[#ecdcb0] uppercase"
@@ -87,29 +89,29 @@ function GoldLine({ delay }: { delay: number }) {
   )
 }
 
-function Title({ guest }: { guest?: string }) {
+function Title({ guest, lit }: { guest?: string; lit?: boolean }) {
   const { data } = useQuery(publicContentQuery)
   const location = data?.content.location
   const names = data?.event.couple?.map((c) => c.name).join(' & ') || data?.event.title
   return (
     <div className="text-center [text-shadow:0_1px_3px_rgba(0,0,0,0.9),0_2px_22px_rgba(0,0,0,0.75)]">
       {guest && (
-        <motion.p className="mb-5 font-display text-3xl text-[#ecdcb0] text-balance" {...rise(0.1)}>
+        <motion.p className="mb-5 font-display text-3xl text-[#ecdcb0] text-balance" {...(lit ? {} : rise(0.1))}>
           {t('Für {name}', { name: guest })}
         </motion.p>
       )}
-      <Eyebrow>{t('Ihr seid eingeladen')}</Eyebrow>
-      <motion.h1 className="mt-6 font-display text-5xl leading-tight text-balance md:text-7xl" {...rise(0.4)}>
+      <Eyebrow lit={lit}>{t('Ihr seid eingeladen')}</Eyebrow>
+      <motion.h1 className="mt-6 font-display text-5xl leading-tight text-balance md:text-7xl" {...(lit ? {} : rise(0.4))}>
         {names}
       </motion.h1>
-      <GoldLine delay={0.9} />
+      <GoldLine delay={lit ? 0.2 : 0.9} />
       {data?.event.date && (
-        <motion.p className="font-display text-3xl text-[#ecdcb0]" {...rise(1.2)}>
+        <motion.p className="font-display text-3xl text-[#ecdcb0]" {...rise(lit ? 0.5 : 1.2)}>
           {formatDate(data.event.date)}
         </motion.p>
       )}
       {location?.name && (
-        <motion.p className="mt-6 text-base font-medium tracking-[0.25em] uppercase" {...rise(1.5)}>
+        <motion.p className="mt-6 text-base font-medium tracking-[0.25em] uppercase" {...rise(lit ? 0.8 : 1.5)}>
           {location.name}
         </motion.p>
       )}

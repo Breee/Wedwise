@@ -6,6 +6,7 @@ import { AnimatePresence, motion, useAnimationControls, useReducedMotion } from 
 import { Heart } from 'lucide-react'
 import { ApiError, api } from '@/lib/api'
 import { inviteLinkQuery, publicContentQuery } from '@/lib/queries'
+import { formatDate } from '@/lib/format'
 import { DuskScene, type SceneVariant } from '@/components/rsvp/DuskIntro'
 
 const LENGTH = 6
@@ -79,10 +80,10 @@ function JoinPage() {
   // The light fills the screen before the invitation takes over.
   useEffect(() => {
     if (!opened || !link) return
-    const wait = envelope ? (still ? 700 : direct ? 2700 : 3300) : game === 'lantern' ? 4300 : flies ? 3400 : direct ? 2400 : 1500
+    const wait = envelope ? (still ? 700 : direct ? 2700 : 3300) : game === 'lantern' ? 4300 : flies ? 4800 : direct ? 2400 : 1500
     // The keyboard goes away so the lantern can be seen rising.
     if (game === 'lantern') input.current?.blur()
-    const timer = setTimeout(() => navigate({ to: '/rsvp/$link', params: { link }, replace: true }), wait)
+    const timer = setTimeout(() => navigate({ to: '/rsvp/$link', params: { link }, replace: true, state: { lit: flies } }), wait)
     return () => clearTimeout(timer)
   }, [opened, link, envelope, still, direct, game, navigate])
 
@@ -94,7 +95,7 @@ function JoinPage() {
     ? !tapped &&
       {
         light: t('Tippt auf das Licht'),
-        fireflies: t('Fangt die drei Glühwürmchen'),
+        fireflies: t('Sammelt das Licht'),
         lantern: t('Zündet die Laterne an'),
         stars: t('Verbindet die drei Sterne'),
         seal: t('Brecht das Siegel'),
@@ -263,245 +264,336 @@ function JoinPage() {
   )
 }
 
-// Three fireflies wander over the lake among smaller lights. A jar hangs from
-// the branch; each firefly tapped flies in through its mouth and keeps
-// buzzing inside. With all three caught the jar shakes and lets them go:
-// they circle, meet, and their light becomes the invitation.
-const FLIES = [
-  { left: '70%', top: '32svh', x: [0, -64, -24, 36, 0], y: [0, 34, -30, 22, 0], turn: [-14, 10, -6, 16, -14], time: 8, blink: 2.3, rest: [-10, 0] },
-  { left: '74%', top: '62svh', x: [0, -40, -84, -30, 0], y: [0, 28, -8, -36, 0], turn: [12, -16, 8, -4, 12], time: 10, blink: 3.1, rest: [12, 14] },
-  { left: '36%', top: '80svh', x: [0, 56, 96, 30, 0], y: [0, -30, 8, -44, 0], turn: [-8, 14, 20, -10, -8], time: 9, blink: 2.7, rest: [0, 30] },
-]
-const MOTES = Array.from({ length: 16 }, (_, i) => ({
-  left: `${(i * 37 + 11) % 100}%`,
-  top: `${20 + ((i * 53) % 68)}svh`,
-  size: 2 + (i % 3),
-  time: 5 + (i % 5),
-  delay: (i * 0.7) % 4,
-  dx: ((i * 29) % 60) - 30,
-  dy: ((i * 17) % 50) - 25,
-}))
-const SPARKS = Array.from({ length: 28 }, (_, i) => {
-  const angle = (i / 28) * Math.PI * 2
-  const far = 170 + ((i * 47) % 280)
-  return { x: Math.cos(angle) * far, y: Math.sin(angle) * far - 140, size: 3 + (i % 4), delay: (i % 7) * 0.04 }
-})
+// Fireflies drift over the lake as points of light. A finger on the screen
+// draws them in and they follow it; once most are gathered they rise,
+// multiply and settle into the couple's names, which then become the real
+// lettering of the invitation.
+const SWARM = 44
+const REVEAL = 2500
+
+type Mote = {
+  x: number
+  y: number
+  vx: number
+  vy: number
+  turn: number
+  phase: number
+  pace: number
+  size: number
+  held: boolean
+  orbit: number
+  spin: number
+  tx: number
+  ty: number
+  wait: number
+}
+
+function lightSprite() {
+  const canvas = document.createElement('canvas')
+  canvas.width = canvas.height = 64
+  const c = canvas.getContext('2d')!
+  const fill = c.createRadialGradient(32, 32, 0, 32, 32, 32)
+  fill.addColorStop(0, 'rgba(255,252,232,1)')
+  fill.addColorStop(0.07, 'rgba(255,241,176,0.9)')
+  fill.addColorStop(0.22, 'rgba(255,206,98,0.22)')
+  fill.addColorStop(1, 'rgba(255,190,70,0)')
+  c.fillStyle = fill
+  c.fillRect(0, 0, 64, 64)
+  return canvas
+}
+
+// Where the lettering of an element sits, as points relative to the box.
+function letterPoints(el: HTMLElement, box: DOMRect, most: number) {
+  const node = el.firstChild
+  if (!node || node.nodeType !== Node.TEXT_NODE) return []
+  const text = node.textContent ?? ''
+  const style = getComputedStyle(el)
+  const canvas = document.createElement('canvas')
+  canvas.width = Math.ceil(box.width)
+  canvas.height = Math.ceil(box.height)
+  const c = canvas.getContext('2d', { willReadFrequently: true })!
+  c.font = `${style.fontStyle} ${style.fontWeight} ${style.fontSize} ${style.fontFamily}`
+  c.fillStyle = '#fff'
+  const metrics = c.measureText('Hg')
+  const up = metrics.fontBoundingBoxAscent
+  const down = metrics.fontBoundingBoxDescent
+  const range = document.createRange()
+  for (let i = 0; i < text.length; i++) {
+    range.setStart(node, i)
+    range.setEnd(node, i + 1)
+    const r = range.getBoundingClientRect()
+    if (r.width) c.fillText(text[i], r.left - box.left, r.top - box.top + (r.height - up - down) / 2 + up)
+  }
+  const pixels = c.getImageData(0, 0, canvas.width, canvas.height).data
+  const points: [number, number][] = []
+  for (let y = 0; y < canvas.height; y += 2) {
+    for (let x = 0; x < canvas.width; x += 2) {
+      if (pixels[(y * canvas.width + x) * 4 + 3] > 120) points.push([x + Math.random(), y + Math.random()])
+    }
+  }
+  for (let i = points.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[points[i], points[j]] = [points[j], points[i]]
+  }
+  return points.slice(0, most)
+}
 
 function Fireflies({ opened, guest, names, onDone }: { opened: boolean; guest?: string; names?: string; onDone: () => void }) {
-  const [caught, setCaught] = useState<Record<number, { x: number; y: number }>>({})
-  const [home, setHome] = useState({ x: 0, y: 0 })
-  const [burst, setBurst] = useState(false)
-  // From the jar to where the fireflies meet.
-  const [meet, setMeet] = useState({ x: 0, y: 0 })
-  const jar = useRef<HTMLImageElement>(null)
-  const jolt = useAnimationControls()
-  const count = Object.keys(caught).length
-  const full = count === FLIES.length
+  const { data } = useQuery(publicContentQuery)
+  const date = data?.event.date
+  const venue = data?.content.location?.name
+  const canvas = useRef<HTMLCanvasElement>(null)
+  const lettering = useRef<HTMLParagraphElement>(null)
+  const motes = useRef<Mote[]>([])
+  const finger = useRef({ x: 0, y: 0, down: false, since: 0, fromX: 0, fromY: 0, all: false, used: false })
+  const form = useRef<{ at: number; x: number; y: number } | null>(null)
+  const done = useRef(onDone)
+  done.current = onDone
+  const [shown, setShown] = useState(false)
 
   useEffect(() => {
-    if (!count) return
-    const timer = setTimeout(() => {
-      jolt.start(
-        full
-          ? { rotate: [0, -5, 5, -5, 5, -3, 0], transition: { duration: 0.9, ease: 'easeInOut' } }
-          : { rotate: [0, 6, -4, 2, 0], transition: { duration: 1.3, ease: 'easeOut' } },
-      )
-    }, 850)
-    return () => clearTimeout(timer)
-  }, [count, full, jolt])
-
-  useEffect(() => {
-    if (!full) return
-    const pop = setTimeout(() => setBurst(true), 1900)
-    const done = setTimeout(onDone, 3500)
-    return () => {
-      clearTimeout(pop)
-      clearTimeout(done)
+    const el = canvas.current
+    if (!el) return
+    const c = el.getContext('2d')!
+    const sprite = lightSprite()
+    let width = 0
+    let height = 0
+    const fit = () => {
+      const ratio = Math.min(window.devicePixelRatio || 1, 2)
+      width = el.clientWidth
+      height = el.clientHeight
+      el.width = width * ratio
+      el.height = height * ratio
+      c.setTransform(ratio, 0, 0, ratio, 0, 0)
     }
-  }, [full, onDone])
+    fit()
+    const watch = new ResizeObserver(fit)
+    watch.observe(el)
+    motes.current = Array.from({ length: SWARM }, (_, i) => ({
+      x: width * (0.06 + Math.random() * 0.88),
+      y: height * (0.3 + Math.random() * 0.56),
+      vx: 0,
+      vy: 0,
+      turn: Math.random() * Math.PI * 2,
+      phase: Math.random() * Math.PI * 2,
+      pace: 0.9 + Math.random() * 1.3,
+      size: 1 + Math.random() * 1.1,
+      held: false,
+      orbit: 14 + (i % 9) * 7,
+      spin: (i % 2 ? 1 : -1) * (1.2 + Math.random() * 1.6),
+      tx: 0,
+      ty: 0,
+      wait: 0,
+    }))
 
-  const catchFly = (i: number, target: HTMLElement) => {
-    const glass = jar.current?.getBoundingClientRect()
-    const from = target.parentElement?.parentElement?.getBoundingClientRect()
-    if (!glass || !from) return
-    const x = glass.left + glass.width / 2
-    const y = glass.top + glass.height * 0.55
-    setHome({ x, y })
-    setMeet({ x: window.innerWidth / 2 - x, y: window.innerHeight * 0.4 - y })
-    setCaught((c) => (i in c ? c : { ...c, [i]: { x: x - (from.left + from.width / 2), y: y - (from.top + from.height / 2) } }))
+    let frame = 0
+    let last = performance.now()
+    let full = false
+    const draw = (now: number) => {
+      frame = requestAnimationFrame(draw)
+      const dt = Math.min((now - last) / 1000, 0.05)
+      last = now
+      const time = now / 1000
+      const hand = finger.current
+      const shape = form.current
+      const since = shape ? (now - shape.at) / 1000 : 0
+
+      // Fading the last frame instead of clearing it leaves a short trail.
+      c.globalCompositeOperation = 'destination-out'
+      c.fillStyle = `rgba(0,0,0,${1 - Math.exp(-dt * 13)})`
+      c.fillRect(0, 0, width, height)
+      c.globalCompositeOperation = 'lighter'
+
+      const reach = hand.all ? Infinity : hand.down ? Math.min(130 + ((now - hand.since) / 1000) * 70, 280) : 0
+      let held = 0
+      let sumX = 0
+      let sumY = 0
+      for (const m of motes.current) {
+        let alpha: number
+        let radius: number
+        if (shape) {
+          const age = since - m.wait
+          if (age < 0) continue
+          const pull = 10 + 30 * Math.min(1, age / 1.5)
+          const loose = 70 * Math.max(0, 1 - age / 1.2)
+          m.vx += ((m.tx - m.x) * pull - m.vx * Math.sqrt(pull) * 1.5 + Math.cos(m.phase + time * 3) * loose) * dt
+          m.vy += ((m.ty - m.y) * pull - m.vy * Math.sqrt(pull) * 1.5 + Math.sin(m.phase * 1.7 + time * 3) * loose) * dt
+          const fade = Math.max(0, 1 - Math.max(0, since - REVEAL / 1000 - 0.3) / 1.3)
+          alpha = (0.45 + 0.2 * Math.sin(time * 4 + m.phase)) * fade
+          m.size += (0.75 - m.size) * Math.min(1, dt * 2)
+          radius = 1 + m.size * 2.4
+        } else {
+          const dx = hand.x - m.x
+          const dy = hand.y - m.y
+          const far = Math.hypot(dx, dy)
+          if (!m.held && hand.used && far < reach) {
+            const pull = hand.all ? 500 : 700 * (1 - far / reach) + 120
+            m.vx += (dx / (far || 1)) * pull * dt
+            m.vy += (dy / (far || 1)) * pull * dt
+            if (far < 46) m.held = true
+          }
+          if (m.held) {
+            const angle = time * m.spin + m.phase
+            m.vx += ((hand.x + Math.cos(angle) * m.orbit - m.x) * 42 - m.vx * 8) * dt
+            m.vy += ((hand.y + Math.sin(angle) * m.orbit * 0.8 - m.y) * 42 - m.vy * 8) * dt
+            held++
+            sumX += m.x
+            sumY += m.y
+          } else {
+            m.turn += (Math.random() - 0.5) * 3 * dt
+            m.vx += Math.cos(m.turn) * 16 * dt
+            m.vy += Math.sin(m.turn) * 16 * dt
+            // Kept over the lake and the shore, away from the edges.
+            if (m.x < width * 0.05) m.vx += 40 * dt
+            if (m.x > width * 0.95) m.vx -= 40 * dt
+            if (m.y < height * 0.28) m.vy += 40 * dt
+            if (m.y > height * 0.88) m.vy -= 40 * dt
+            const drag = Math.exp(-dt * (far < reach && hand.used ? 2.5 : 0.7))
+            m.vx *= drag
+            m.vy *= drag
+          }
+          const blink = Math.max(0, Math.sin(time * m.pace + m.phase))
+          alpha = m.held ? 0.5 + 0.2 * blink : 0.1 + 0.9 * blink * blink
+          radius = m.size * (m.held ? 5 : 7)
+        }
+        m.x += m.vx * dt
+        m.y += m.vy * dt
+        if (alpha <= 0.01) continue
+        c.globalAlpha = alpha
+        c.drawImage(sprite, m.x - radius, m.y - radius, radius * 2, radius * 2)
+        if (!shape && m.y < height * 0.66) {
+          // A faint streak on the water below each light.
+          const below = height * 0.7 + (height * 0.66 - m.y) * 0.22
+          c.globalAlpha = alpha * (m.held ? 0.05 : 0.14)
+          c.drawImage(sprite, m.x - radius * 0.8, below - radius * 2.2, radius * 1.6, radius * 4.4)
+        }
+      }
+
+      // The gathered light warms the scene around it.
+      if (!shape && held) {
+        const glow = 90 + held * 4
+        c.globalAlpha = 0.06 + 0.16 * (held / SWARM)
+        c.drawImage(sprite, sumX / held - glow, sumY / held - glow, glow * 2, glow * 2)
+      }
+      c.globalAlpha = 1
+
+      if (!shape && !full && held >= SWARM * 0.7) {
+        full = true
+        hand.all = true
+        setTimeout(() => done.current(), 500)
+      }
+    }
+    frame = requestAnimationFrame(draw)
+    return () => {
+      cancelAnimationFrame(frame)
+      watch.disconnect()
+    }
+  }, [])
+
+  // The lights leave the finger and take the shape of the names.
+  useEffect(() => {
+    if (!opened) return
+    let timer = 0
+    let gone = false
+    document.fonts.ready.then(() => {
+      const el = canvas.current
+      const text = lettering.current
+      if (gone || !el || !text) return
+      const stage = el.getBoundingClientRect()
+      const box = text.getBoundingClientRect()
+      const points = letterPoints(text, box, stage.width < 640 ? 900 : 1500)
+      const held = motes.current.filter((m) => m.held)
+      const from = held.length
+        ? { x: held.reduce((sum, m) => sum + m.x, 0) / held.length, y: held.reduce((sum, m) => sum + m.y, 0) / held.length }
+        : { x: stage.width / 2, y: stage.height * 0.6 }
+      const all = motes.current
+      while (all.length < points.length) {
+        const angle = Math.random() * Math.PI * 2
+        const speed = 40 + Math.random() * 200
+        all.push({
+          x: from.x,
+          y: from.y,
+          vx: Math.cos(angle) * speed,
+          vy: Math.sin(angle) * speed - 120,
+          turn: 0,
+          phase: Math.random() * Math.PI * 2,
+          pace: 1,
+          size: 0.75,
+          held: false,
+          orbit: 0,
+          spin: 0,
+          tx: 0,
+          ty: 0,
+          wait: Math.random() * 0.9,
+        })
+      }
+      all.forEach((m, i) => {
+        const point = points[i % (points.length || 1)] ?? [box.width / 2, box.height / 2]
+        m.tx = box.left - stage.left + point[0]
+        m.ty = box.top - stage.top + point[1]
+      })
+      form.current = { at: performance.now(), x: box.left - stage.left + box.width / 2, y: box.top - stage.top + box.height / 2 }
+      timer = window.setTimeout(() => setShown(true), REVEAL)
+    })
+    return () => {
+      gone = true
+      clearTimeout(timer)
+    }
+  }, [opened])
+
+  const place = (e: PointerEvent<HTMLDivElement>) => {
+    const box = e.currentTarget.getBoundingClientRect()
+    finger.current.x = e.clientX - box.left
+    finger.current.y = e.clientY - box.top
   }
 
   return (
     <>
-      {MOTES.map((m, i) => (
-        <motion.span
-          key={i}
+      <canvas ref={canvas} aria-hidden className="pointer-events-none absolute inset-0 size-full" />
+      {!opened && (
+        <div
           aria-hidden
-          className="pointer-events-none absolute rounded-full bg-[#ffe9a8] shadow-[0_0_8px_3px_rgba(255,217,138,0.55)]"
-          style={{ left: m.left, top: m.top, width: m.size, height: m.size }}
-          animate={{ x: [0, m.dx, 0], y: [0, m.dy, 0], opacity: [0, 0.9, 0.2, 0.8, 0] }}
-          transition={{ duration: m.time, delay: m.delay, repeat: Infinity, ease: 'easeInOut' }}
+          className="absolute inset-0 touch-none"
+          onPointerDown={(e) => {
+            place(e)
+            Object.assign(finger.current, { down: true, used: true, since: performance.now(), fromX: e.clientX, fromY: e.clientY })
+          }}
+          onPointerMove={(e) => finger.current.down && place(e)}
+          onPointerUp={(e) => {
+            const hand = finger.current
+            hand.down = false
+            // A single tap is enough: every light comes to it.
+            if (performance.now() - hand.since < 300 && Math.hypot(e.clientX - hand.fromX, e.clientY - hand.fromY) < 12) hand.all = true
+          }}
+          onPointerCancel={() => (finger.current.down = false)}
         />
-      ))}
-
-      <motion.div
-        aria-hidden
-        className={`pointer-events-none absolute top-0 left-[max(16%,calc(50%-11rem))] z-10 h-[48svh] w-24 origin-top -translate-x-1/2 transition-opacity duration-1000 ${opened ? 'opacity-0' : ''}`}
-        animate={{ rotate: [-1.2, 1.2, -1.2] }}
-        transition={{ duration: 6, repeat: Infinity, ease: 'easeInOut' }}
-      >
-        <motion.div className="absolute inset-0 origin-top" animate={jolt}>
-          <span className="absolute top-0 bottom-[8.6rem] left-1/2 w-px bg-[#c9a877]/70" />
-          <motion.img
-            src="/decor/firefly-glow.webp"
-            alt=""
-            className="absolute bottom-0 left-1/2 size-72 max-w-none -translate-x-1/2 translate-y-[28%]"
-            initial={{ opacity: 0 }}
-            animate={burst || opened ? { opacity: 0, scale: 2.4 } : { opacity: full ? 1 : count * 0.3, scale: full ? 1.3 : 0.7 + count * 0.12 }}
-            transition={{ duration: burst ? 0.9 : 1, ease: EASE }}
-          />
-          <motion.img
-            ref={jar}
-            src="/decor/firefly-jar.webp"
-            alt=""
-            className="absolute bottom-0 left-1/2 h-36 w-auto max-w-none -translate-x-1/2 drop-shadow-[0_8px_18px_rgba(0,0,0,0.45)]"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: opened ? 0 : 0.95 }}
-            transition={{ duration: 1, delay: opened ? 0 : 0.3 }}
-          />
-        </motion.div>
-      </motion.div>
-
-      {FLIES.map((fly, i) => {
-        const to = caught[i]
-        const got = !!to
-        const cx = got ? to.x + meet.x : 0
-        const cy = got ? to.y + meet.y : 0
-        const turn = (k: number, r: number) => [cx + Math.cos(i * 2.1 + k) * r, cy + Math.sin(i * 2.1 + k) * r]
-        return (
-          <motion.div
-            key={i}
-            aria-hidden
-            className="absolute size-20 -translate-x-1/2 -translate-y-1/2"
-            style={{ left: fly.left, top: fly.top }}
-            initial={{ opacity: 0 }}
-            animate={
-              opened
-                ? { x: cx, y: cy, opacity: 0 }
-                : burst && got
-                  ? {
-                      x: [to.x, turn(0, 110)[0], turn(2.1, 90)[0], turn(4.2, 50)[0], cx],
-                      y: [to.y, turn(0, 110)[1], turn(2.1, 90)[1], turn(4.2, 50)[1], cy],
-                      opacity: 1,
-                    }
-                  : got
-                  ? { x: [0, to.x * 0.7, to.x + fly.rest[0]], y: [0, to.y - 150, to.y + fly.rest[1]], opacity: 1 }
-                  : { opacity: 1 }
-            }
-            transition={
-              opened
-                ? { duration: 0.5 }
-                : burst
-                  ? { duration: 1.6, ease: 'easeInOut' }
-                  : got
-                  ? { duration: 1, times: [0, 0.55, 1], ease: 'easeInOut' }
-                  : { duration: 1.2, delay: 0.5 + i * 0.3 }
-            }
-          >
-            {!got &&
-              [1, 2, 3].map((k) => (
-                <motion.span
-                  key={k}
-                  className="absolute top-1/2 left-1/2 -mt-1 -ml-1 size-2 rounded-full bg-[#ffe9a8] blur-[1.5px]"
-                  style={{ opacity: 0.6 / k }}
-                  animate={{ x: fly.x, y: fly.y }}
-                  transition={{ duration: fly.time, delay: k * 0.16, repeat: Infinity, ease: 'easeInOut' }}
-                />
-              ))}
-            <motion.div
-              className="size-full"
-              animate={got ? { x: 0, y: 0, rotate: 0 } : { x: fly.x, y: fly.y, rotate: fly.turn }}
-              transition={got ? { duration: 0.6, ease: EASE } : { duration: fly.time, repeat: Infinity, ease: 'easeInOut' }}
-            >
-              <motion.button
-                type="button"
-                tabIndex={-1}
-                data-fly={got ? 'caught' : 'free'}
-                className={`relative block size-full touch-manipulation outline-none ${got ? 'pointer-events-none' : 'cursor-pointer'}`}
-                animate={got ? { scale: 0.4, x: [0, 9, -8, 5, -9, 0], y: [0, -14, 8, 16, -6, 0] } : { scale: 1, x: 0, y: 0 }}
-                transition={got ? { scale: { duration: 0.9, ease: EASE }, default: { duration: 3 + i * 0.6, delay: 1, repeat: Infinity, ease: 'easeInOut' } } : { duration: 0.3 }}
-                onPointerDown={(e) => catchFly(i, e.currentTarget)}
-              >
-                <motion.span
-                  className={`absolute -inset-12 rounded-full ${GLOW}`}
-                  animate={{ opacity: [0.25, 0.95, 0.95, 0.25], scale: [0.85, 1.15, 1.15, 0.85] }}
-                  transition={{ duration: fly.blink, times: [0, 0.3, 0.6, 1], repeat: Infinity, ease: 'easeInOut' }}
-                />
-                <img
-                  src="/decor/firefly.webp"
-                  alt=""
-                  draggable={false}
-                  className="absolute top-1/2 left-1/2 size-40 max-w-none -translate-x-1/2 -translate-y-1/2 select-none brightness-125 saturate-125"
-                />
-                {got ? (
-                  <motion.img
-                    src="/decor/firefly-spark.webp"
-                    alt=""
-                    className="absolute -inset-10 size-40 max-w-none"
-                    initial={{ scale: 0.3, opacity: 1, rotate: 0 }}
-                    animate={{ scale: 2.2, opacity: 0, rotate: 40 }}
-                    transition={{ duration: 0.8, ease: 'easeOut' }}
-                  />
-                ) : (
-                  <motion.img
-                    src="/decor/firefly-spark.webp"
-                    alt=""
-                    className="absolute -inset-6 size-32 max-w-none brightness-150"
-                    animate={{ scale: [0.4, 1.1], opacity: [1, 0], rotate: [0, 25] }}
-                    transition={{ duration: 1.6, repeat: Infinity, repeatDelay: 0.6, delay: 1.5 + i * 0.4, ease: 'easeOut' }}
-                  />
-                )}
-              </motion.button>
-            </motion.div>
-          </motion.div>
-        )
-      })}
-
-      {burst &&
-        SPARKS.map((spark, i) => (
-          <motion.span
-            key={i}
-            aria-hidden
-            className="pointer-events-none absolute z-20 rounded-full bg-[#fff6cf] shadow-[0_0_10px_4px_rgba(255,217,138,0.7)]"
-            style={{ left: home.x, top: home.y, width: spark.size, height: spark.size }}
-            initial={{ x: 0, y: 0, opacity: 1, scale: 0.5 }}
-            animate={{ x: spark.x, y: spark.y, opacity: [1, 1, 0], scale: [0.5, 1.6, 1] }}
-            transition={{ duration: 1.5, delay: spark.delay, ease: 'easeOut' }}
-          />
-        ))}
-
-      {opened && (
-        <div className="pointer-events-none absolute inset-x-0 top-[40svh] z-30 px-6 text-center [text-shadow:0_1px_3px_rgba(0,0,0,0.9),0_2px_22px_rgba(0,0,0,0.75)]">
-          <motion.img
-            src="/decor/firefly-glow.webp"
-            alt=""
-            className="absolute top-0 left-1/2 -mt-48 -ml-48 size-96 max-w-none"
-            initial={{ scale: 0.2, opacity: 0 }}
-            animate={{ scale: [0.2, 1.6, 2.4], opacity: [0, 1, 0.35] }}
-            transition={{ duration: 2.4, times: [0, 0.3, 1], ease: 'easeOut' }}
-          />
-          <motion.div
-            className="relative -translate-y-1/2"
-            initial={{ opacity: 0, scale: 0.85, filter: 'blur(14px)' }}
-            animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
-            transition={{ duration: 1.4, delay: 0.45, ease: EASE }}
-          >
-            {guest && <p className="mb-4 font-display text-3xl text-[#ecdcb0] text-balance">{t('Für {name}', { name: guest })}</p>}
-            <p className="text-sm font-medium tracking-[0.45em] text-[#ecdcb0] uppercase">{t('Ihr seid eingeladen')}</p>
-            <p className="mt-5 font-display text-5xl leading-tight text-balance">{names}</p>
-          </motion.div>
-        </div>
       )}
+      {/* Laid out like the first page of the invitation, so the lettering stays put when that page takes over. */}
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        <div className="mx-auto flex min-h-svh max-w-xl flex-col px-6 pt-8 pb-4">
+          <div className="flex flex-1 flex-col justify-center text-center [text-shadow:0_1px_3px_rgba(0,0,0,0.9),0_2px_22px_rgba(0,0,0,0.75)]">
+            <motion.div initial={false} animate={{ opacity: shown ? 1 : 0 }} transition={{ duration: 1.2, delay: 0.5 }}>
+              {guest && <p className="mb-5 font-display text-3xl text-[#ecdcb0] text-balance">{t('Für {name}', { name: guest })}</p>}
+              <p className="text-sm font-medium tracking-[0.45em] text-[#ecdcb0] uppercase">{t('Ihr seid eingeladen')}</p>
+            </motion.div>
+            <motion.p
+              ref={lettering}
+              className="mt-6 font-display text-5xl leading-tight text-balance md:text-7xl"
+              initial={false}
+              animate={{ opacity: shown ? 1 : 0, filter: shown ? 'blur(0px)' : 'blur(6px)' }}
+              transition={{ duration: 1.3, ease: 'easeOut' }}
+            >
+              {names}
+            </motion.p>
+            <div className="invisible" aria-hidden>
+              <div className="my-6 h-px" />
+              {date && <p className="font-display text-3xl">{formatDate(date)}</p>}
+              {venue && <p className="mt-6 text-base font-medium tracking-[0.25em] uppercase">{venue}</p>}
+            </div>
+          </div>
+          <div className="mt-6 min-h-12" />
+        </div>
+      </div>
     </>
   )
 }
