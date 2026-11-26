@@ -331,6 +331,7 @@ const SWARM = 28
 // Seconds a firefly takes to reach the names, and to fly along its stretch.
 const ARRIVE = 1.1
 const GLIDE = 1.5
+const CROSS = 1.9
 const REVEAL = 3400
 
 type Mote = {
@@ -553,8 +554,10 @@ function Fireflies({ opened, names, writing, onDone }: { opened: boolean; names?
             const span = m.span ?? GLIDE
             const along = Math.min(1, Math.max(0, (since - start) / span))
             const lo = m.lo ?? m.x
-            const goalX = lo + ((m.hi ?? lo) - lo) * along
-            const goalY = (m.mid ?? m.y) + Math.sin(time * 5 + m.phase) * 7
+            // In a swarm each one circles the point that moves along the names.
+            const round = m.start === undefined ? 0 : m.orbit
+            const goalX = lo + ((m.hi ?? lo) - lo) * along + Math.cos(time * m.spin + m.phase) * round
+            const goalY = (m.mid ?? m.y) + (round ? Math.sin(time * m.spin + m.phase) * round * 0.8 : Math.sin(time * 5 + m.phase) * 7)
             const pull = 6 + 54 * Math.min(1, since / ARRIVE) ** 2
             m.vx += ((goalX - m.x) * pull - m.vx * Math.sqrt(pull) * 1.6) * dt
             m.vy += ((goalY - m.y) * pull - m.vy * Math.sqrt(pull) * 1.6) * dt
@@ -663,22 +666,34 @@ function Fireflies({ opened, names, writing, onDone }: { opened: boolean; names?
         const share = Math.ceil(points.length / flies.length) || 1
         for (let i = 0; i < points.length; i += share) parts.push(points.slice(i, i + share))
       }
-      const step = writing === 'letters' ? 1.9 / Math.max(1, parts.length) : 0
-      const span = writing === 'letters' ? Math.max(0.35, step * 2) : GLIDE
+      const swarm = writing === 'letters'
+      const from = left + (points[0]?.[0] ?? 0)
+      const to = left + (points[points.length - 1]?.[0] ?? 0)
       const crew: Mote[][] = parts.map(() => [])
-      flies.forEach((fly, i) => crew[Math.min(parts.length - 1, Math.floor((i * parts.length) / flies.length))]?.push(fly))
+      if (swarm) {
+        // One swarm crosses the names; each letter lights up as it passes.
+        for (const fly of flies) {
+          fly.lo = from
+          fly.hi = to
+          fly.mid = top + box.height / 2
+          fly.start = ARRIVE
+          fly.span = CROSS
+          fly.orbit = 6 + Math.random() * 24
+          fly.spin = (Math.random() < 0.5 ? -1 : 1) * (2.5 + Math.random() * 3)
+        }
+      } else {
+        flies.forEach((fly, i) => crew[Math.min(parts.length - 1, Math.floor((i * parts.length) / flies.length))]?.push(fly))
+      }
       parts.forEach((own, i) => {
-        // A part without a firefly of its own borrows the nearest one.
-        const team = crew[i].length ? crew[i] : flies.slice(0, 1)
+        const team = swarm ? flies : crew[i].length ? crew[i] : flies.slice(0, 1)
         const lo = left + own[0][0]
         const hi = left + own[own.length - 1][0]
-        const start = ARRIVE + i * step
+        const start = swarm && to > from ? ARRIVE + (CROSS * (lo - from)) / (to - from) : ARRIVE
+        const span = swarm && to > from ? Math.max(0.25, (CROSS * (hi - lo)) / (to - from)) : GLIDE
         for (const fly of crew[i]) {
           fly.lo = lo
           fly.hi = hi
           fly.mid = top + box.height / 2
-          fly.start = start
-          fly.span = span
         }
         own.forEach((point, n) => {
           all.push({
@@ -696,7 +711,7 @@ function Fireflies({ opened, names, writing, onDone }: { opened: boolean; names?
             tx: left + point[0],
             ty: top + point[1],
             wait: start + span * (hi > lo ? (left + point[0] - lo) / (hi - lo) : Math.random()),
-            parent: team[n % team.length],
+            parent: team[swarm ? Math.floor(Math.random() * team.length) : n % team.length],
           })
         })
       })
