@@ -95,7 +95,7 @@ function JoinPage() {
     ? !tapped &&
       {
         light: t('Tippt auf das Licht'),
-        fireflies: t('Sammelt das Licht'),
+        fireflies: t('Fangt die Glühwürmchen ein'),
         lantern: t('Zündet die Laterne an'),
         stars: t('Verbindet die drei Sterne'),
         seal: t('Brecht das Siegel'),
@@ -194,14 +194,16 @@ function JoinPage() {
         animate={{ opacity: (lantern || flies) && opened ? 0 : 1 }}
         transition={{ duration: 0.8 }}
       >
-        <motion.p
-          className="text-sm font-medium text-[#ecdcb0] uppercase"
-          initial={{ opacity: 0, letterSpacing: '0.1em' }}
-          animate={{ opacity: 1, letterSpacing: '0.45em' }}
-          transition={{ duration: 1.6, ease: EASE }}
-        >
-          {t('Ihr seid eingeladen')}
-        </motion.p>
+        {!flies && (
+          <motion.p
+            className="text-sm font-medium text-[#ecdcb0] uppercase"
+            initial={{ opacity: 0, letterSpacing: '0.1em' }}
+            animate={{ opacity: 1, letterSpacing: '0.45em' }}
+            transition={{ duration: 1.6, ease: EASE }}
+          >
+            {t('Ihr seid eingeladen')}
+          </motion.p>
+        )}
         {!direct && (
           <>
             <motion.h1
@@ -277,7 +279,6 @@ type Mote = {
   vx: number
   vy: number
   turn: number
-  dir: number
   phase: number
   pace: number
   size: number
@@ -358,10 +359,6 @@ function Fireflies({ opened, guest, names, onDone }: { opened: boolean; guest?: 
     if (!el) return
     const c = el.getContext('2d')!
     const sprite = lightSprite()
-    const body = new Image()
-    body.src = '/decor/firefly-body.webp'
-    const wing = new Image()
-    wing.src = '/decor/firefly-wing.webp'
     let width = 0
     let height = 0
     const fit = () => {
@@ -381,13 +378,12 @@ function Fireflies({ opened, guest, names, onDone }: { opened: boolean; guest?: 
       vx: 0,
       vy: 0,
       turn: Math.random() * Math.PI * 2,
-      dir: 0,
       phase: Math.random() * Math.PI * 2,
-      pace: 0.9 + Math.random() * 1.3,
+      pace: 0.5 + Math.random() * 0.7,
       size: 1 + Math.random() * 1.1,
       held: false,
       orbit: 14 + (i % 9) * 7,
-      spin: (i % 2 ? 1 : -1) * (1.2 + Math.random() * 1.6),
+      spin: (i % 2 ? 1 : -1) * (0.4 + Math.random() * 0.5),
       tx: 0,
       ty: 0,
       wait: 0,
@@ -407,7 +403,7 @@ function Fireflies({ opened, guest, names, onDone }: { opened: boolean; guest?: 
 
       // Fading the last frame instead of clearing it leaves a short trail.
       c.globalCompositeOperation = 'destination-out'
-      c.fillStyle = `rgba(0,0,0,${1 - Math.exp(-dt * (shape ? 13 : 45))})`
+      c.fillStyle = `rgba(0,0,0,${1 - Math.exp(-dt * 13)})`
       c.fillRect(0, 0, width, height)
       c.globalCompositeOperation = 'lighter'
 
@@ -443,13 +439,13 @@ function Fireflies({ opened, guest, names, onDone }: { opened: boolean; guest?: 
           }
           if (m.held) {
             const angle = time * m.spin + m.phase
-            m.vx += ((midX + Math.cos(angle) * m.orbit * swell - m.x) * 30 - m.vx * 7) * dt
-            m.vy += ((midY + Math.sin(angle) * m.orbit * 0.8 * swell - m.y) * 30 - m.vy * 7) * dt
+            m.vx += ((midX + Math.cos(angle) * m.orbit * swell - m.x) * 14 - m.vx * 6) * dt
+            m.vy += ((midY + Math.sin(angle) * m.orbit * 0.8 * swell - m.y) * 14 - m.vy * 6) * dt
             held++
           } else {
-            m.turn += (Math.random() - 0.5) * 3 * dt
-            m.vx += Math.cos(m.turn) * 16 * dt
-            m.vy += Math.sin(m.turn) * 16 * dt
+            m.turn += (Math.random() - 0.5) * 1.5 * dt
+            m.vx += Math.cos(m.turn) * 9 * dt
+            m.vy += Math.sin(m.turn) * 9 * dt
             // Kept over the lake and the shore, away from the edges.
             if (m.x < width * 0.05) m.vx += 40 * dt
             if (m.x > width * 0.95) m.vx -= 40 * dt
@@ -468,31 +464,6 @@ function Fireflies({ opened, guest, names, onDone }: { opened: boolean; guest?: 
         if (alpha <= 0.01) continue
         c.globalAlpha = alpha
         c.drawImage(sprite, m.x - radius, m.y - radius, radius * 2, radius * 2)
-        const insect = shape ? Math.max(0, 1 - since / 0.4) : 1
-        if (insect && m.pace !== 1 && body.naturalWidth && wing.naturalWidth) {
-          // The insect itself: head first along its path, wings beating.
-          const go = Math.atan2(m.vy, m.vx) + Math.PI / 2
-          if (Math.hypot(m.vx, m.vy) > 4) m.dir += Math.atan2(Math.sin(go - m.dir), Math.cos(go - m.dir)) * Math.min(1, dt * 6)
-          const span = m.size * 22
-          const reach = span * 0.42
-          const beat = Math.sin(time * 70 + m.phase * 9)
-          c.save()
-          c.globalCompositeOperation = 'source-over'
-          c.translate(m.x, m.y)
-          c.rotate(m.dir)
-          c.globalAlpha = insect * 0.55
-          for (const side of [-1, 1]) {
-            c.save()
-            c.translate(0, -span * 0.145)
-            c.scale(side, 1)
-            c.rotate(-0.55 + beat * 0.5)
-            c.drawImage(wing, 0, 0, reach, reach * 0.433)
-            c.restore()
-          }
-          c.globalAlpha = insect * (0.5 + 0.5 * alpha)
-          c.drawImage(body, -span / 2, -span * 0.57, span, span)
-          c.restore()
-        }
         if (!shape && m.y < height * 0.66) {
           // A faint streak on the water below each light.
           const below = height * 0.7 + (height * 0.66 - m.y) * 0.22
@@ -549,7 +520,6 @@ function Fireflies({ opened, guest, names, onDone }: { opened: boolean; guest?: 
           vx: Math.cos(angle) * speed,
           vy: Math.sin(angle) * speed - 120,
           turn: 0,
-          dir: 0,
           phase: Math.random() * Math.PI * 2,
           pace: 1,
           size: 0.75,
