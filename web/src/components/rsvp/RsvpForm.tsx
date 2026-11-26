@@ -7,7 +7,7 @@ import { CheckCircle2, Clock, KeyRound, Minus, Plus, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { api, errorMessage } from '@/lib/api'
 import { meQuery, publicContentQuery, rsvpQuery } from '@/lib/queries'
-import { DIET_OPTIONS } from '@/lib/format'
+import { DIET_OPTIONS, guestNames } from '@/lib/format'
 import type { Attendee, ContributionRequest, GuestView, RsvpStatus, RsvpSubmit } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -95,7 +95,7 @@ export function RsvpForm({ initial, link, guests, onDone }: FormProps) {
   const draftBase = initial?.updatedAt ?? ''
   const [draft] = useState(() => readDraft(draftKey, draftBase))
 
-  const [contactName, setContactName] = useState(draft?.contactName ?? initial?.contactName ?? guests?.[0] ?? '')
+  const [contactName, setContactName] = useState(draft?.contactName ?? initial?.contactName ?? (guests?.length ? guestNames(guests) : ''))
   const [status, setStatus] = useState<RsvpStatus>(draft?.status ?? initial?.status ?? 'yes')
   const [attendees, setAttendees] = useState<Attendee[]>(draft?.attendees ?? (initial?.attendees?.length ? initial.attendees : guests?.length ? guests.map(newAttendee) : [newAttendee()]))
   const [message, setMessage] = useState(draft?.message ?? initial?.message ?? '')
@@ -107,9 +107,12 @@ export function RsvpForm({ initial, link, guests, onDone }: FormProps) {
   const [needs, setNeeds] = useState(() => draft?.needs ?? parseNeeds(initial?.contribution?.needs ?? ''))
 
   const attending = status === 'yes'
-  const pages = attending
+  // A link made for named guests already says who answers.
+  const known = Boolean(guests?.length && contactName.trim())
+  const pages = (attending
     ? (['who', 'status', 'count', 'people', 'contribution', 'music', 'song', 'message'] as const)
     : (['who', 'status', 'message'] as const)
+  ).filter((p) => p !== 'who' || !known)
   const [index, setIndex] = useState(draft?.index ?? 0)
   const sent = useRef(false)
   useEffect(() => {
