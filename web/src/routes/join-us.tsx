@@ -3,7 +3,7 @@ import { t } from '@/lib/i18n'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { AnimatePresence, motion, useAnimationControls, useReducedMotion } from 'motion/react'
-import { Heart } from 'lucide-react'
+import { Heart, Pointer } from 'lucide-react'
 import { ApiError, api } from '@/lib/api'
 import { inviteLinkQuery, publicContentQuery } from '@/lib/queries'
 import { formatDate } from '@/lib/format'
@@ -600,14 +600,17 @@ function Fireflies({ opened, guest, names, onDone }: { opened: boolean; guest?: 
           onPointerCancel={() => (finger.current.down = false)}
         />
       )}
-      <motion.p
-        className="pointer-events-none absolute inset-x-0 top-[calc(50svh+4.5rem)] text-center text-sm tracking-wide text-[#ecdcb0] [text-shadow:0_1px_3px_rgba(0,0,0,0.9)]"
+      <motion.div
+        aria-hidden
+        className="pointer-events-none absolute top-[calc(50svh+0.5rem)] left-[calc(50%-1rem)] text-[#f6ecd0] drop-shadow-[0_2px_6px_rgba(0,0,0,0.9)]"
         initial={{ opacity: 0 }}
-        animate={{ opacity: nudge && !opened ? 0.9 : 0 }}
+        animate={{ opacity: nudge && !opened ? 1 : 0 }}
         transition={{ duration: 1.2 }}
       >
-        {t('Tippt auf das Licht')}
-      </motion.p>
+        <motion.div animate={{ y: [18, 0, 0, 18], scale: [1, 0.9, 0.9, 1] }} transition={{ duration: 1.8, times: [0, 0.35, 0.55, 1], repeat: Infinity, ease: 'easeInOut' }}>
+          <Pointer className="size-11" strokeWidth={1.5} />
+        </motion.div>
+      </motion.div>
       {/* Laid out like the first page of the invitation, so the lettering stays put when that page takes over. */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         <div className="mx-auto flex min-h-svh max-w-xl flex-col px-6 pt-8 pb-4">
