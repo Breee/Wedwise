@@ -25,9 +25,6 @@ declare module '@tanstack/react-router' {
   interface Register {
     router: typeof router
   }
-  interface HistoryState {
-    lit?: boolean
-  }
 }
 
 createRoot(document.getElementById('root')!).render(

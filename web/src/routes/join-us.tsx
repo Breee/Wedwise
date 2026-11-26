@@ -7,6 +7,7 @@ import { Heart, Pointer } from 'lucide-react'
 import { ApiError, api } from '@/lib/api'
 import { inviteLinkQuery, publicContentQuery } from '@/lib/queries'
 import { formatDate, greeting } from '@/lib/format'
+import { Invitation } from '@/components/rsvp/Invitation'
 import { DuskScene, type SceneVariant } from '@/components/rsvp/DuskIntro'
 
 const LENGTH = 6
@@ -29,6 +30,17 @@ export const Route = createFileRoute('/join-us')({
 
 const clean = (value: string) => value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, LENGTH)
 
+// A tab that already opened a code shows the invitation straight away after a
+// reload, without playing the opening again.
+const openedKey = (code: string) => `wedwise.opened.${code}`
+function openedBefore(code: string) {
+  try {
+    return sessionStorage.getItem(openedKey(code)) !== null
+  } catch {
+    return false
+  }
+}
+
 function JoinPage() {
   const navigate = useNavigate()
   const { code: given, look, play } = Route.useSearch()
@@ -39,6 +51,8 @@ function JoinPage() {
   // A link that carries the code needs no typing: one tap opens the invitation.
   const [direct, setDirect] = useState(() => clean(given ?? '').length === LENGTH)
   const [tapped, setTapped] = useState(false)
+  const [resume, setResume] = useState(() => direct && openedBefore(code))
+  const [shown, setShown] = useState(false)
   const row = useAnimationControls()
   const input = useRef<HTMLInputElement>(null)
   // ?look= overrides the setting, to try out the other look.
@@ -59,6 +73,7 @@ function JoinPage() {
   const open = useMutation({
     mutationFn: (value: string) => api.post<{ link: string }>('/rsvp/code', { code: value }),
     onError: () => {
+      setResume(false)
       setDirect(false)
       setCode('')
       row.start({ x: [0, -12, 12, -8, 8, 0], transition: { duration: 0.45 } })
@@ -74,19 +89,35 @@ function JoinPage() {
   const busy = open.isPending || open.isSuccess
   const link = open.data?.link
   const flies = game === 'fireflies' && direct
-  const invited = useQuery({ ...inviteLinkQuery(link ?? ''), enabled: flies && !!link }).data
+  const invited = useQuery({ ...inviteLinkQuery(link ?? ''), enabled: !!link }).data
   const dear = invited ? greeting(invited.guests, invited.salutation) : ''
   const names = data?.event.couple?.map((c) => c.name).join(' & ') || data?.event.title
 
-  // The light fills the screen before the invitation takes over.
+  // The light fills the screen before the invitation takes over, on this
+  // same page.
   useEffect(() => {
+    if (resume) {
+      if (link) setShown(true)
+      return
+    }
     if (!opened || !link) return
     const wait = envelope ? (still ? 700 : direct ? 2700 : 3300) : game === 'lantern' ? 4300 : flies ? 6400 : direct ? 2400 : 1500
     // The keyboard goes away so the lantern can be seen rising.
     if (game === 'lantern') input.current?.blur()
-    const timer = setTimeout(() => navigate({ to: '/rsvp/$link', params: { link }, replace: true, state: { lit: flies } }), wait)
+    const timer = setTimeout(() => setShown(true), wait)
     return () => clearTimeout(timer)
-  }, [opened, link, envelope, still, direct, game, navigate])
+  }, [resume, opened, link, envelope, still, direct, game, flies])
+
+  // The code goes into the address, so a reload comes back to the invitation.
+  useEffect(() => {
+    if (!shown) return
+    try {
+      sessionStorage.setItem(openedKey(code), '1')
+    } catch {
+      // Without storage a reload plays the opening again.
+    }
+    if (given !== code) navigate({ to: '/join-us', search: (prev) => ({ ...prev, code }), replace: true })
+  }, [shown, code, given, navigate])
 
   const hint = open.isError
     ? open.error instanceof ApiError && open.error.status === 429
@@ -147,6 +178,9 @@ function JoinPage() {
       className="absolute inset-0 z-50 size-full cursor-pointer opacity-0"
     />
   )
+
+  if (shown && link && invited) return <Invitation link={link} lit={flies && !resume} />
+  if (resume) return <div className={`fixed inset-0 ${envelope ? 'bg-background' : 'bg-[#121c17]'}`} />
 
   if (envelope) {
     return (
@@ -514,19 +548,19 @@ function Fireflies({ opened, names, onDone }: { opened: boolean; names?: string;
         c.globalAlpha = 0.08 + 0.14 * (held / SWARM)
         c.drawImage(sprite, midX - glow, midY - glow, glow * 2, glow * 2)
         count.current = held
-      } else if (shape && since < 2) {
-        // It drifts up to where the names form, and thins out.
-        const ease = 1 - (1 - since / 2) ** 2
-        const glow = (40 + count.current * 3.5) * (1 + ease)
-        c.globalAlpha = (0.08 + 0.14 * (count.current / SWARM)) * (1 - ease)
-        c.drawImage(sprite, midX + (shape.x - midX) * ease - glow, midY + (shape.y - midY) * ease - glow, glow * 2, glow * 2)
+      } else if (shape && since < 1.2) {
+        // It goes out with the light as the fireflies leave for the names.
+        const glow = 40 + count.current * 3.5
+        c.globalAlpha = (0.08 + 0.14 * (count.current / SWARM)) * (1 - since / 1.2)
+        c.drawImage(sprite, midX - glow, midY - glow, glow * 2, glow * 2)
       }
       c.globalAlpha = 1
 
-      if (!shape && !full && held >= SWARM * 0.7) {
+      // A tap, or most of them caught: they fly straight to the names.
+      if (!shape && !full && (hand.all || held >= SWARM * 0.7)) {
         full = true
         hand.all = true
-        setTimeout(() => done.current(), 500)
+        done.current()
       }
     }
     frame = requestAnimationFrame(draw)
@@ -548,19 +582,18 @@ function Fireflies({ opened, names, onDone }: { opened: boolean; names?: string;
       const stage = el.getBoundingClientRect()
       const box = text.getBoundingClientRect()
       const points = letterPoints(text, box, stage.width < 640 ? 900 : 1500)
-      const held = motes.current.filter((m) => m.held)
-      const from = held.length
-        ? { x: held.reduce((sum, m) => sum + m.x, 0) / held.length, y: held.reduce((sum, m) => sum + m.y, 0) / held.length }
-        : { x: stage.width / 2, y: stage.height * 0.6 }
       const all = motes.current
+      // Each firefly sheds sparks where it is, and they follow it to the names.
+      const flies = all.length
       while (all.length < points.length) {
+        const from = all[Math.floor(Math.random() * flies)]
         const angle = Math.random() * Math.PI * 2
-        const speed = 15 + Math.random() * 80
+        const speed = Math.random() * 30
         all.push({
           x: from.x,
           y: from.y,
-          vx: Math.cos(angle) * speed,
-          vy: Math.sin(angle) * speed - 40,
+          vx: from.vx * 0.3 + Math.cos(angle) * speed,
+          vy: from.vy * 0.3 + Math.sin(angle) * speed,
           turn: 0,
           phase: Math.random() * Math.PI * 2,
           pace: 1,
