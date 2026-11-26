@@ -59,7 +59,7 @@ function JoinPage() {
   const envelope = (look ?? data?.content.inviteOpening) === 'envelope'
   const still = useReducedMotion() ?? false
   // ?play= picks the way to open; reduced motion always gets the single tap.
-  const game: Play = envelope ? (play === 'ribbon' && !still ? 'ribbon' : 'seal') : still || play === 'light' ? 'light' : play && NIGHT_PLAYS.includes(play) ? play : 'lantern'
+  const game: Play = envelope ? (play === 'ribbon' && !still ? 'ribbon' : 'seal') : still || play === 'light' ? 'light' : play && NIGHT_PLAYS.includes(play) ? play : 'fireflies'
   const playing = direct && !tapped && (game === 'fireflies' || game === 'stars' || game === 'ribbon')
   const finish = useCallback(() => setTapped(true), [])
   // Nobody gets stuck on a game: the plain way in shows up after a while.
