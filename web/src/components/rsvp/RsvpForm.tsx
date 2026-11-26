@@ -107,12 +107,12 @@ export function RsvpForm({ initial, link, guests, onDone }: FormProps) {
   const [needs, setNeeds] = useState(() => draft?.needs ?? parseNeeds(initial?.contribution?.needs ?? ''))
 
   const attending = status === 'yes'
-  // A link made for named guests already says who answers.
+  // A link made for named guests already says who answers and how many they are.
   const known = Boolean(guests?.length && contactName.trim())
   const pages = (attending
     ? (['who', 'status', 'count', 'people', 'contribution', 'music', 'song', 'message'] as const)
     : (['who', 'status', 'message'] as const)
-  ).filter((p) => p !== 'who' || !known)
+  ).filter((p) => !known || (p !== 'who' && p !== 'count'))
   const [index, setIndex] = useState(draft?.index ?? 0)
   const sent = useRef(false)
   useEffect(() => {
