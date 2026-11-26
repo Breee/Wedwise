@@ -31,7 +31,7 @@ export function Invitation({ link, lit }: { link: string; lit?: boolean }) {
   return (
     <>
       {!locked && !done && <InviteStory target="antwort" name={greeting(status.guests, status.salutation)} lit={lit} />}
-      <section id="antwort" className="mx-auto max-w-2xl snap-start snap-always px-4 py-4 sm:px-6 sm:py-16">
+      <section id="antwort" className="mx-auto min-h-svh max-w-2xl snap-start snap-always px-4 py-4 sm:px-6 sm:py-16">
         <RsvpHeader />
         {locked ? (
           <PinGate link={link} />
