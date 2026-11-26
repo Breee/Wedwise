@@ -265,9 +265,12 @@ function Music() {
           <CardContent>
             {songs.length ? (
               <ul className="space-y-1 text-sm">
-                {songs.map((x, i) => (
-                  <li key={i}>
-                    ♪ {x.song} <span className="text-muted-foreground">– {x.who}</span>
+                {songs.map((x) => (
+                  <li key={x.song} className="grid grid-cols-[1fr_2rem] gap-3">
+                    <span>
+                      ♪ {x.song} <span className="text-muted-foreground">– {x.who.join(', ')}</span>
+                    </span>
+                    <span className="text-right text-muted-foreground">{x.who.length}</span>
                   </li>
                 ))}
               </ul>

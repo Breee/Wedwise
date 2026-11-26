@@ -143,6 +143,17 @@ function ContentPage() {
                 <p className="text-sm text-muted-foreground">{t('So schreiben die Glühwürmchen eure Namen, wenn Gäste einen Link mit Code öffnen.')}</p>
               </div>
               <div className="grid gap-2">
+                <Label>{t('Personen in der Antwort')}</Label>
+                <Select value={draft.replyPeople || 'list'} onValueChange={(v) => set('replyPeople', v as 'list' | 'dialog')}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="list">{t('Alle auf einer Seite')}</SelectItem>
+                    <SelectItem value="dialog">{t('Jede Person in einem eigenen Fenster')}</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-sm text-muted-foreground">{t('So tragen Gäste ein, wer kommt.')}</p>
+              </div>
+              <div className="grid gap-2">
                 <Label>{t('Schrift für Überschriften')}</Label>
                 <Select value={draft.displayFont || 'theme'} onValueChange={(v) => set('displayFont', v === 'theme' ? '' : (v as DisplayFont))}>
                   <SelectTrigger><SelectValue /></SelectTrigger>

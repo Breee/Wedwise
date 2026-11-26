@@ -3,7 +3,7 @@ import { t } from '@/lib/i18n'
 import { Link, useNavigate } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { motion } from 'motion/react'
-import { CheckCircle2, Clock, KeyRound, Minus, Plus, X } from 'lucide-react'
+import { CheckCircle2, ChevronRight, Clock, KeyRound, Minus, Plus, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { api, errorMessage } from '@/lib/api'
 import { meQuery, publicContentQuery, rsvpQuery } from '@/lib/queries'
@@ -15,6 +15,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Checkbox } from '@/components/ui/checkbox'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { GENRES, NEEDS_OPTIONS, genreIcon, SongSearch, type Track, formatNeeds, joinList, parseNeeds, splitList } from '@/components/rsvp/music'
@@ -109,6 +110,15 @@ export function RsvpForm({ initial, link, guests, onDone }: FormProps) {
   const attending = status === 'yes'
   // A link made for named guests already says who answers and how many they are.
   const known = Boolean(guests?.length && contactName.trim())
+  const dialogs = site?.content.replyPeople === 'dialog'
+  const [editing, setEditing] = useState<number | null>(null)
+  // A person added without a name was not meant.
+  const closePerson = () => {
+    if (editing !== null && attendees.length > 1 && !attendees[editing]?.name.trim()) {
+      setAttendees((l) => l.filter((_, k) => k !== editing))
+    }
+    setEditing(null)
+  }
   const pages = (attending
     ? (['who', 'status', 'count', 'people', 'contribution', 'plan', 'music', 'song', 'message'] as const)
     : (['who', 'status', 'message'] as const)
@@ -216,6 +226,10 @@ export function RsvpForm({ initial, link, guests, onDone }: FormProps) {
             toast.error(t('Bitte mindestens einen Messenger auswählen.'))
             return
           }
+          if (page === 'people' && attendees.some((a) => !a.name.trim())) {
+            toast.error(t('Bitte für jede Person einen Namen eintragen.'))
+            return
+          }
           if (last) submit.mutate()
           else go(at + 1)
         }}
@@ -287,7 +301,22 @@ export function RsvpForm({ initial, link, guests, onDone }: FormProps) {
               <CardDescription>{t('Bitte alle Personen eintragen, auch Kinder.')}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              {attendees.map((a, i) => (
+              {dialogs && (
+                <ul className="divide-y rounded-lg border bg-background/60">
+                  {attendees.map((a, i) => (
+                    <li key={i}>
+                      <button type="button" className="flex min-h-14 w-full items-center gap-3 px-3 py-2 text-left" onClick={() => setEditing(i)}>
+                        <span className="min-w-0 flex-1">
+                          <span className={`block truncate font-medium ${a.name.trim() ? '' : 'text-destructive'}`}>{a.name.trim() || t('Name fehlt')}</span>
+                          <span className="block truncate text-sm text-muted-foreground">{personSummary(a)}</span>
+                        </span>
+                        <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {!dialogs && attendees.map((a, i) => (
                 <div key={i} className="space-y-2 rounded-lg border bg-background/60 p-3">
                   <div className="flex items-center gap-1">
                     <Input id={`name-${i}`} aria-label={t('{n}. Person', { n: i + 1 })} placeholder={`${t('{n}. Person', { n: i + 1 })} *`} value={a.name} onChange={(e) => updateAttendee(i, { name: e.target.value })} required autoCapitalize="words" enterKeyHint="done" />
@@ -308,11 +337,54 @@ export function RsvpForm({ initial, link, guests, onDone }: FormProps) {
                   onClick={() => {
                     const next = attendees.length
                     setAttendees((l) => [...l, newAttendee()])
-                    requestAnimationFrame(() => document.getElementById(`name-${next}`)?.focus())
+                    if (dialogs) setEditing(next)
+                    else requestAnimationFrame(() => document.getElementById(`name-${next}`)?.focus())
                   }}
                 >
                   <Plus className="size-4" /> {t('Person hinzufügen')}
                 </Button>
+              )}
+              {dialogs && editing !== null && attendees[editing] && (
+                <Dialog open onOpenChange={(open) => !open && closePerson()}>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>{t('{n}. Person', { n: editing + 1 })}</DialogTitle>
+                      <DialogDescription className="sr-only">{t('Bitte alle Personen eintragen, auch Kinder.')}</DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-2">
+                      <Input
+                        id={`name-${editing}`}
+                        aria-label={t('Name')}
+                        placeholder={`${t('Name')} *`}
+                        value={attendees[editing].name}
+                        onChange={(e) => updateAttendee(editing, { name: e.target.value })}
+                        onKeyDown={(e) => {
+                          if (e.key !== 'Enter') return
+                          e.preventDefault()
+                          e.currentTarget.blur()
+                        }}
+                        autoCapitalize="words"
+                        enterKeyHint="done"
+                      />
+                      <PersonDetails attendee={attendees[editing]} index={editing} update={(patch) => updateAttendee(editing, patch)} />
+                    </div>
+                    <DialogFooter>
+                      {attendees.length > 1 && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          onClick={() => {
+                            setAttendees((l) => l.filter((_, k) => k !== editing))
+                            setEditing(null)
+                          }}
+                        >
+                          {t('Entfernen')}
+                        </Button>
+                      )}
+                      <Button type="button" onClick={closePerson}>{t('Fertig')}</Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
               )}
             </CardContent>
           </Card>
@@ -508,6 +580,17 @@ export function RsvpForm({ initial, link, guests, onDone }: FormProps) {
       </motion.form>
     </>
   )
+}
+
+// "Kind, 5 Jahre · Vegetarisch · Nüsse"
+function personSummary(a: Attendee) {
+  return [
+    a.isChild && (a.age ? t('Kind, {age} Jahre', { age: a.age }) : t('Kind')),
+    (a.diet || 'none') !== 'none' && DIET_OPTIONS.find((o) => o.value === a.diet)?.label,
+    a.allergies.trim(),
+  ]
+    .filter(Boolean)
+    .join(' · ')
 }
 
 const check = 'flex min-h-10 items-center gap-2 font-normal sm:min-h-8'

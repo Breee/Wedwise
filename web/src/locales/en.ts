@@ -658,4 +658,12 @@ export const en: Record<string, string> = {
   'Zieht an der Schleife': 'Pull the bow',
   'Einfach öffnen': 'Just open it',
   'Euer Beitrag': 'Your contribution',
+  'Personen in der Antwort': 'Persons in the reply',
+  'Alle auf einer Seite': 'All on one page',
+  'Jede Person in einem eigenen Fenster': 'Each person in a window of their own',
+  'So tragen Gäste ein, wer kommt.': 'This is how guests enter who is coming.',
+  'Name fehlt': 'Name missing',
+  'Kind, {age} Jahre': 'Child, {age} years',
+  'Fertig': 'Done',
+  'Bitte für jede Person einen Namen eintragen.': 'Please enter a name for every person.',
 }

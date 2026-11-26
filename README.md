@@ -47,7 +47,8 @@ third-party SaaS required.
   with their names filled in. The code page is a night sky or an envelope with a wax
   seal that breaks open; choose under "Inhalte" → "Design", where the heading
   font and the way the fireflies write the names can be
-  picked too, with a preview. Guests answer per household and get a private link to
+  picked too, with a preview. The reply form can list all persons on one page or open
+  each person in its own window. Guests answer per household and get a private link to
   edit their answer later.
 - 🎁 **Contributions** — guests can offer a programme item. Only witnesses and
   admins see these (Kanban board, schedule planning); the couple only sees

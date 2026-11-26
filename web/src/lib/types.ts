@@ -122,6 +122,7 @@ export interface Content {
   privacy?: string
   inviteOpening?: '' | 'night' | 'envelope'
   inviteWriting?: '' | 'letters' | 'sweep'
+  replyPeople?: '' | 'list' | 'dialog'
   displayFont?: '' | 'playfair' | 'garamond' | 'fraunces' | 'lora'
   updatedAt?: string
 }

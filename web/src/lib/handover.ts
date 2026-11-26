@@ -12,8 +12,18 @@ export function genreRanking(responses: ResponseWithAttendees[]): [string, numbe
   return [...counts.entries()].sort((a, b) => b[1] - a[1])
 }
 
-export const songWishes = (responses: ResponseWithAttendees[]) =>
-  responses.filter((r) => r.musicSong).map((r) => ({ who: r.contactName, song: r.musicSong }))
+// The same song wished by several guests counts once, with everyone who asked for it.
+export function songWishes(responses: ResponseWithAttendees[]) {
+  const wishes = new Map<string, { song: string; who: string[] }>()
+  for (const r of responses) {
+    const song = (r.musicSong ?? '').trim().replace(/\s+/g, ' ')
+    if (!song) continue
+    const wish = wishes.get(song.toLowerCase()) ?? { song, who: [] }
+    wish.who.push(r.contactName)
+    wishes.set(song.toLowerCase(), wish)
+  }
+  return [...wishes.values()].sort((a, b) => b.who.length - a.who.length)
+}
 
 export function venueText(title: string, responses: ResponseWithAttendees[]): string {
   const all = guests(responses)
@@ -48,7 +58,7 @@ export function djText(title: string, responses: ResponseWithAttendees[]): strin
     ...(genres.length ? genres.map(([g, n]) => `- ${g}: ${n}`) : none),
     '',
     `${t('Must-play-Songs')}:`,
-    ...(songs.length ? songs.map((s) => `- ${s.song}`) : none),
+    ...(songs.length ? songs.map((s) => `- ${s.song}${s.who.length > 1 ? ` (${s.who.length}×)` : ''}`) : none),
   ].join('\n')
 }
 
