@@ -260,12 +260,12 @@ function JoinPage() {
   )
 }
 
-// Three fireflies drift about. A ring around each shows where to tap; each
-// one caught flies into the jar, which glows a little more.
+// Three painted fireflies drift about. A faint ring of sparks shows where to
+// tap; each one caught flies into the jar, which glows a little more.
 const FLIES = [
-  { left: '22%', top: '30svh', x: [0, 26, -18, 10, 0], y: [0, -20, 12, 24, 0], time: 9, rest: [-13, 10] },
-  { left: '78%', top: '58svh', x: [0, -24, 14, -8, 0], y: [0, 18, -22, 8, 0], time: 11, rest: [12, 2] },
-  { left: '30%', top: '72svh', x: [0, 20, 30, -12, 0], y: [0, -16, 10, -24, 0], time: 10, rest: [-1, 26] },
+  { left: '22%', top: '26svh', x: [0, 26, -18, 10, 0], y: [0, -20, 12, 24, 0], turn: [-14, 10, -6, 16, -14], time: 9, rest: [-14, 8] },
+  { left: '78%', top: '60svh', x: [0, -24, 14, -8, 0], y: [0, 18, -22, 8, 0], turn: [12, -16, 8, -4, 12], time: 11, rest: [15, 22] },
+  { left: '26%', top: '76svh', x: [0, 20, 30, -12, 0], y: [0, -16, 10, -24, 0], turn: [-8, 14, 20, -10, -8], time: 10, rest: [-3, 40] },
 ]
 
 function Fireflies({ onDone }: { onDone: () => void }) {
@@ -273,34 +273,34 @@ function Fireflies({ onDone }: { onDone: () => void }) {
   const full = caught.length === FLIES.length
   useEffect(() => {
     if (!full) return
-    const timer = setTimeout(onDone, 1100)
+    const timer = setTimeout(onDone, 1300)
     return () => clearTimeout(timer)
   }, [full, onDone])
   return (
     <>
-      <div aria-hidden className="pointer-events-none absolute top-[44svh] left-1/2 h-32 w-24 -translate-x-1/2 -translate-y-1/2">
-        <motion.div
-          className={`absolute -inset-10 rounded-full ${GLOW}`}
-          animate={{ opacity: full ? 1 : caught.length * 0.22, scale: full ? 1.5 : 1 }}
-          transition={{ duration: 0.9, ease: EASE }}
-        />
-        <motion.svg
-          viewBox="0 0 96 128"
-          className="absolute inset-0 size-full fill-none stroke-[#ecdcb0] [stroke-linecap:round] [stroke-linejoin:round] [stroke-width:2]"
+      <div aria-hidden className="pointer-events-none absolute top-[46svh] left-1/2 h-44 w-28 -translate-x-1/2 -translate-y-1/2">
+        <motion.img
+          src="/decor/firefly-glow.webp"
+          alt=""
+          className="absolute top-1/2 left-1/2 size-80 max-w-none -translate-x-1/2 -translate-y-[44%]"
           initial={{ opacity: 0 }}
-          animate={{ opacity: full ? 0 : 0.75 }}
-          transition={{ duration: 1, delay: full ? 0.5 : 0.4 }}
-        >
-          <rect x="26" y="4" width="44" height="12" rx="3" />
-          <path d="M30 16v8C18 30 12 38 12 50v56c0 10 7 18 18 18h36c11 0 18-8 18-18V50c0-12-6-20-18-26v-8" />
-          <path d="M22 54v40" opacity="0.5" />
-        </motion.svg>
-        <div className="absolute inset-x-0 -bottom-8 flex justify-center gap-2">
+          animate={{ opacity: full ? 1 : caught.length * 0.3, scale: full ? 1.7 : 0.8 + caught.length * 0.1 }}
+          transition={{ duration: 1, ease: EASE }}
+        />
+        <motion.img
+          src="/decor/firefly-jar.webp"
+          alt=""
+          className="absolute inset-0 size-full drop-shadow-[0_8px_18px_rgba(0,0,0,0.45)]"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: full ? 0 : 0.95 }}
+          transition={{ duration: 1, delay: full ? 0.5 : 0.3 }}
+        />
+        <div className="absolute inset-x-0 -bottom-7 flex justify-center gap-2">
           {FLIES.map((_, i) => (
             <motion.span
               key={i}
-              className="size-2 rounded-full border border-[#ecdcb0]"
-              animate={{ backgroundColor: i < caught.length ? '#f7e9a8' : 'rgba(247,233,168,0)', scale: i < caught.length ? [1, 1.6, 1] : 1, opacity: full ? 0 : 1 }}
+              className="size-1.5 rounded-full"
+              animate={{ backgroundColor: i < caught.length ? '#ffd98a' : 'rgba(255,255,255,0.3)', scale: i < caught.length ? [1, 1.8, 1] : 1, opacity: full ? 0 : 1 }}
               transition={{ duration: 0.5 }}
             />
           ))}
@@ -314,35 +314,42 @@ function Fireflies({ onDone }: { onDone: () => void }) {
             aria-hidden
             className="absolute size-20 -translate-x-1/2 -translate-y-1/2"
             initial={{ left: fly.left, top: fly.top, opacity: 0 }}
-            animate={{ left: got ? '50%' : fly.left, top: got ? '44svh' : fly.top, opacity: 1 }}
-            transition={{ left: { duration: 0.9, ease: EASE }, top: { duration: 0.9, ease: EASE }, opacity: { duration: 1.2, delay: 0.5 + i * 0.3 } }}
+            animate={{ left: got ? '50%' : fly.left, top: got ? '46svh' : fly.top, opacity: 1 }}
+            transition={{ left: { duration: 1, ease: EASE }, top: { duration: 1, ease: EASE }, opacity: { duration: 1.2, delay: 0.5 + i * 0.3 } }}
           >
             <motion.button
               type="button"
               tabIndex={-1}
               data-fly={got ? 'caught' : 'free'}
               className={`relative block size-full touch-manipulation outline-none ${got ? 'pointer-events-none' : 'cursor-pointer'}`}
-              animate={got ? { x: fly.rest[0], y: fly.rest[1] } : { x: fly.x, y: fly.y }}
-              transition={got ? { duration: 0.9, ease: EASE } : { duration: fly.time, repeat: Infinity, ease: 'easeInOut' }}
+              animate={got ? { x: fly.rest[0], y: fly.rest[1], rotate: 0 } : { x: fly.x, y: fly.y, rotate: fly.turn }}
+              transition={got ? { duration: 1, ease: EASE } : { duration: fly.time, repeat: Infinity, ease: 'easeInOut' }}
               onPointerDown={() => setCaught((c) => (c.includes(i) ? c : [...c, i]))}
             >
-              <motion.span
-                className={`absolute inset-0 rounded-full ${GLOW}`}
-                animate={got ? { scale: 0.45, opacity: [1, 0.7, 1] } : { scale: 1, opacity: [0.6, 1, 0.75, 1, 0.6] }}
-                transition={got ? { scale: { duration: 0.9, ease: EASE }, opacity: { duration: 2.4, repeat: Infinity } } : { duration: 2.6, repeat: Infinity, ease: 'easeInOut' }}
+              <motion.img
+                src="/decor/firefly.webp"
+                alt=""
+                draggable={false}
+                className="absolute -inset-8 size-36 max-w-none select-none"
+                animate={got ? { scale: 0.42, opacity: full ? 0 : [1, 0.75, 1] } : { scale: 1, opacity: [0.7, 1, 0.8, 1, 0.7] }}
+                transition={got ? { scale: { duration: 1, ease: EASE }, opacity: { duration: full ? 0.6 : 2.4, repeat: full ? 0 : Infinity } } : { duration: 2.6, repeat: Infinity, ease: 'easeInOut' }}
               />
               {got ? (
-                <motion.span
-                  className="absolute inset-2 rounded-full border-2 border-[#f7e9a8]"
-                  initial={{ scale: 0.5, opacity: 0.9 }}
-                  animate={{ scale: 2.4, opacity: 0 }}
-                  transition={{ duration: 0.7, ease: 'easeOut' }}
+                <motion.img
+                  src="/decor/firefly-spark.webp"
+                  alt=""
+                  className="absolute -inset-6 size-32 max-w-none"
+                  initial={{ scale: 0.3, opacity: 1, rotate: 0 }}
+                  animate={{ scale: 1.5, opacity: 0, rotate: 40 }}
+                  transition={{ duration: 0.9, ease: 'easeOut' }}
                 />
               ) : (
-                <motion.span
-                  className="absolute inset-2 rounded-full border border-[#f7e9a8]"
-                  animate={{ scale: [0.45, 1.15], opacity: [0.8, 0] }}
-                  transition={{ duration: 1.8, repeat: Infinity, repeatDelay: 0.9, delay: 1.5 + i * 0.6, ease: 'easeOut' }}
+                <motion.img
+                  src="/decor/firefly-spark.webp"
+                  alt=""
+                  className="absolute -inset-2 size-24 max-w-none"
+                  animate={{ scale: [0.5, 1.05], opacity: [0.7, 0], rotate: [0, 25] }}
+                  transition={{ duration: 2, repeat: Infinity, repeatDelay: 0.9, delay: 1.5 + i * 0.6, ease: 'easeOut' }}
                 />
               )}
             </motion.button>
