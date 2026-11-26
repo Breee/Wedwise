@@ -384,23 +384,33 @@ function Fireflies({ opened, names, onDone }: { opened: boolean; names?: string;
     fit()
     const watch = new ResizeObserver(fit)
     watch.observe(el)
-    motes.current = Array.from({ length: SWARM }, (_, i) => ({
-      // A few already circle the light in the middle.
-      x: i < 4 ? width / 2 : width * (0.06 + Math.random() * 0.88),
-      y: i < 4 ? height / 2 : height * (0.3 + Math.random() * 0.56),
-      vx: 0,
-      vy: 0,
-      turn: Math.random() * Math.PI * 2,
-      phase: Math.random() * Math.PI * 2,
-      pace: 0.5 + Math.random() * 0.7,
-      size: 1 + Math.random() * 1.1,
-      held: i < 8,
-      orbit: 30 + (i % 9) * 6,
-      spin: 0.9 + Math.random() * 0.6,
-      tx: 0,
-      ty: 0,
-      wait: 0,
-    }))
+    const born = performance.now()
+    motes.current = Array.from({ length: SWARM }, (_, i) => {
+      const phase = Math.random() * Math.PI * 2
+      const orbit = 30 + (i % 9) * 6
+      const spin = 0.9 + Math.random() * 0.6
+      // A few already circle the light in the middle: they start on their
+      // ring, at the speed they keep.
+      const circling = i < 8
+      const angle = (born / 1000) * spin + phase
+      const ring = orbit * 0.9
+      return {
+        x: circling ? width / 2 + Math.cos(angle) * ring : width * (0.06 + Math.random() * 0.88),
+        y: circling ? height / 2 + Math.sin(angle) * ring * 0.7 : height * (0.3 + Math.random() * 0.56),
+        vx: circling ? -Math.sin(angle) * ring * spin : 0,
+        vy: circling ? Math.cos(angle) * ring * 0.7 * spin : 0,
+        turn: Math.random() * Math.PI * 2,
+        phase,
+        pace: 0.5 + Math.random() * 0.7,
+        size: 1 + Math.random() * 1.1,
+        held: circling,
+        orbit,
+        spin,
+        tx: 0,
+        ty: 0,
+        wait: 0,
+      }
+    })
 
     let frame = 0
     let last = performance.now()
@@ -413,6 +423,8 @@ function Fireflies({ opened, names, onDone }: { opened: boolean; names?: string;
       const hand = finger.current
       const shape = form.current
       const since = shape ? (now - shape.at) / 1000 : 0
+      // Everything fades in instead of popping up.
+      const rise = Math.min(1, (now - born) / 1500)
 
       // Fading the last frame instead of clearing it leaves a short trail.
       c.globalCompositeOperation = 'destination-out'
@@ -425,7 +437,7 @@ function Fireflies({ opened, names, onDone }: { opened: boolean; names?: string;
       const midX = width / 2
       const midY = height * 0.5
       // The light to tap: it breathes, and goes out as the names form.
-      const lamp = shape ? Math.max(0, 1 - since / 1.2) : 1
+      const lamp = shape ? Math.max(0, 1 - since / 1.2) : rise
       if (lamp) {
         const breath = Math.sin(time * 1.3)
         c.globalAlpha = (0.5 + 0.12 * breath) * lamp
@@ -480,7 +492,7 @@ function Fireflies({ opened, names, onDone }: { opened: boolean; names?: string;
             m.vy *= drag
           }
           const blink = Math.max(0, Math.sin(time * m.pace + m.phase))
-          alpha = m.held ? 0.5 + 0.2 * blink : 0.1 + 0.9 * blink * blink
+          alpha = (m.held ? 0.5 + 0.2 * blink : 0.1 + 0.9 * blink * blink) * rise
           radius = m.size * (m.held ? 5 : 7)
         }
         m.x += m.vx * dt
