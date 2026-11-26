@@ -80,7 +80,7 @@ function JoinPage() {
   // The light fills the screen before the invitation takes over.
   useEffect(() => {
     if (!opened || !link) return
-    const wait = envelope ? (still ? 700 : direct ? 2700 : 3300) : game === 'lantern' ? 4300 : flies ? 4800 : direct ? 2400 : 1500
+    const wait = envelope ? (still ? 700 : direct ? 2700 : 3300) : game === 'lantern' ? 4300 : flies ? 6400 : direct ? 2400 : 1500
     // The keyboard goes away so the lantern can be seen rising.
     if (game === 'lantern') input.current?.blur()
     const timer = setTimeout(() => navigate({ to: '/rsvp/$link', params: { link }, replace: true, state: { lit: flies } }), wait)
@@ -95,7 +95,7 @@ function JoinPage() {
     ? !tapped &&
       {
         light: t('Tippt auf das Licht'),
-        fireflies: t('Fangt die Glühwürmchen ein'),
+        fireflies: t('Es ist endlich so weit'),
         lantern: t('Zündet die Laterne an'),
         stars: t('Verbindet die drei Sterne'),
         seal: t('Brecht das Siegel'),
@@ -115,8 +115,8 @@ function JoinPage() {
     <button
       type="button"
       onClick={finish}
-      className={`relative z-50 mx-auto block px-4 py-3 text-sm underline underline-offset-4 transition-opacity duration-700 ${
-        late ? 'opacity-80' : 'pointer-events-none opacity-0 focus-visible:opacity-100'
+      className={`relative z-50 mx-auto block rounded-full border border-current/30 px-5 py-2.5 text-xs font-medium tracking-[0.25em] uppercase outline-none transition-opacity duration-700 focus-visible:ring-2 focus-visible:ring-current ${
+        late && !flies ? 'opacity-70' : 'pointer-events-none opacity-0 focus-visible:opacity-100'
       }`}
     >
       {t('Einfach öffnen')}
@@ -228,7 +228,11 @@ function JoinPage() {
           </>
         )}
 
-        <p id="join-hint" className={direct && game === 'light' ? 'absolute inset-x-0 top-[calc(38svh+8.5rem)] text-base' : 'mt-6 h-12 text-base'} role="status">
+        <p
+          id="join-hint"
+          className={direct && game === 'light' ? 'absolute inset-x-0 top-[calc(38svh+8.5rem)] text-base' : flies ? 'font-display text-3xl text-balance' : 'mt-6 h-12 text-base'}
+          role="status"
+        >
           {hint}
         </p>
       </motion.div>
@@ -271,7 +275,7 @@ function JoinPage() {
 // multiply and settle into the couple's names, which then become the real
 // lettering of the invitation.
 const SWARM = 28
-const REVEAL = 2500
+const REVEAL = 3400
 
 type Mote = {
   x: number
@@ -353,6 +357,12 @@ function Fireflies({ opened, guest, names, onDone }: { opened: boolean; guest?: 
   const count = useRef(0)
   done.current = onDone
   const [shown, setShown] = useState(false)
+  // Whoever waits is told where to tap.
+  const [nudge, setNudge] = useState(false)
+  useEffect(() => {
+    const timer = setTimeout(() => setNudge(!finger.current.used), 4000)
+    return () => clearTimeout(timer)
+  }, [])
 
   useEffect(() => {
     const el = canvas.current
@@ -373,15 +383,16 @@ function Fireflies({ opened, guest, names, onDone }: { opened: boolean; guest?: 
     const watch = new ResizeObserver(fit)
     watch.observe(el)
     motes.current = Array.from({ length: SWARM }, (_, i) => ({
-      x: width * (0.06 + Math.random() * 0.88),
-      y: height * (0.3 + Math.random() * 0.56),
+      // A few already circle the light in the middle.
+      x: i < 4 ? width / 2 : width * (0.06 + Math.random() * 0.88),
+      y: i < 4 ? height / 2 : height * (0.3 + Math.random() * 0.56),
       vx: 0,
       vy: 0,
       turn: Math.random() * Math.PI * 2,
       phase: Math.random() * Math.PI * 2,
       pace: 0.5 + Math.random() * 0.7,
       size: 1 + Math.random() * 1.1,
-      held: false,
+      held: i < 4,
       orbit: 14 + (i % 9) * 7,
       spin: (i % 2 ? 1 : -1) * (0.4 + Math.random() * 0.5),
       tx: 0,
@@ -411,6 +422,15 @@ function Fireflies({ opened, guest, names, onDone }: { opened: boolean; guest?: 
       // Caught lights gather in the middle of the picture.
       const midX = width / 2
       const midY = height * 0.5
+      // The light to tap: it breathes, and goes out as the names form.
+      const lamp = shape ? Math.max(0, 1 - since / 1.2) : 1
+      if (lamp) {
+        const breath = Math.sin(time * 1.3)
+        c.globalAlpha = (0.5 + 0.12 * breath) * lamp
+        c.drawImage(sprite, midX - 40 - 5 * breath, midY - 40 - 5 * breath, 80 + 10 * breath, 80 + 10 * breath)
+        c.globalAlpha = 0.12 * lamp
+        c.drawImage(sprite, midX - 110, midY - 110, 220, 220)
+      }
       let held = 0
       const swell = 0.35 + 0.65 * (count.current / SWARM)
       for (const m of motes.current) {
@@ -419,12 +439,13 @@ function Fireflies({ opened, guest, names, onDone }: { opened: boolean; guest?: 
         if (shape) {
           const age = since - m.wait
           if (age < 0) continue
-          const pull = 10 + 30 * Math.min(1, age / 1.5)
-          const loose = 70 * Math.max(0, 1 - age / 1.2)
+          const pull = 5 + 27 * Math.min(1, age / 2.4) ** 2
+          const loose = 36 * Math.max(0, 1 - age / 2)
           m.vx += ((m.tx - m.x) * pull - m.vx * Math.sqrt(pull) * 1.5 + Math.cos(m.phase + time * 3) * loose) * dt
           m.vy += ((m.ty - m.y) * pull - m.vy * Math.sqrt(pull) * 1.5 + Math.sin(m.phase * 1.7 + time * 3) * loose) * dt
-          const fade = Math.max(0, 1 - Math.max(0, since - REVEAL / 1000 - 0.3) / 1.3)
-          alpha = (0.45 + 0.2 * Math.sin(time * 4 + m.phase)) * fade
+          // The lights dim while the lettering comes up underneath them.
+          const fade = Math.max(0, 1 - Math.max(0, since - REVEAL / 1000 + 0.2) / 2.2)
+          alpha = (0.45 + 0.2 * Math.sin(time * 4 + m.phase)) * fade * Math.min(1, age / 0.7)
           m.size += (0.75 - m.size) * Math.min(1, dt * 2)
           radius = 1 + m.size * 2.4
         } else {
@@ -474,12 +495,18 @@ function Fireflies({ opened, guest, names, onDone }: { opened: boolean; guest?: 
 
       // The gathered light warms the scene around it.
       if (!shape && held) {
-        const glow = 50 + held * 7
-        c.globalAlpha = 0.1 + 0.3 * (held / SWARM)
+        const glow = 40 + held * 3.5
+        c.globalAlpha = 0.08 + 0.14 * (held / SWARM)
         c.drawImage(sprite, midX - glow, midY - glow, glow * 2, glow * 2)
+        count.current = held
+      } else if (shape && since < 2) {
+        // It drifts up to where the names form, and thins out.
+        const ease = 1 - (1 - since / 2) ** 2
+        const glow = (40 + count.current * 3.5) * (1 + ease)
+        c.globalAlpha = (0.08 + 0.14 * (count.current / SWARM)) * (1 - ease)
+        c.drawImage(sprite, midX + (shape.x - midX) * ease - glow, midY + (shape.y - midY) * ease - glow, glow * 2, glow * 2)
       }
       c.globalAlpha = 1
-      count.current = held
 
       if (!shape && !full && held >= SWARM * 0.7) {
         full = true
@@ -513,12 +540,12 @@ function Fireflies({ opened, guest, names, onDone }: { opened: boolean; guest?: 
       const all = motes.current
       while (all.length < points.length) {
         const angle = Math.random() * Math.PI * 2
-        const speed = 40 + Math.random() * 200
+        const speed = 15 + Math.random() * 80
         all.push({
           x: from.x,
           y: from.y,
           vx: Math.cos(angle) * speed,
-          vy: Math.sin(angle) * speed - 120,
+          vy: Math.sin(angle) * speed - 40,
           turn: 0,
           phase: Math.random() * Math.PI * 2,
           pace: 1,
@@ -528,7 +555,7 @@ function Fireflies({ opened, guest, names, onDone }: { opened: boolean; guest?: 
           spin: 0,
           tx: 0,
           ty: 0,
-          wait: Math.random() * 0.9,
+          wait: Math.random() * 1.6,
         })
       }
       all.forEach((m, i) => {
@@ -560,6 +587,7 @@ function Fireflies({ opened, guest, names, onDone }: { opened: boolean; guest?: 
           className="absolute inset-0 touch-none"
           onPointerDown={(e) => {
             place(e)
+            setNudge(false)
             Object.assign(finger.current, { down: true, used: true, since: performance.now(), fromX: e.clientX, fromY: e.clientY })
           }}
           onPointerMove={(e) => finger.current.down && place(e)}
@@ -572,11 +600,19 @@ function Fireflies({ opened, guest, names, onDone }: { opened: boolean; guest?: 
           onPointerCancel={() => (finger.current.down = false)}
         />
       )}
+      <motion.p
+        className="pointer-events-none absolute inset-x-0 top-[calc(50svh+4.5rem)] text-center text-sm tracking-wide text-[#ecdcb0] [text-shadow:0_1px_3px_rgba(0,0,0,0.9)]"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: nudge && !opened ? 0.9 : 0 }}
+        transition={{ duration: 1.2 }}
+      >
+        {t('Tippt auf das Licht')}
+      </motion.p>
       {/* Laid out like the first page of the invitation, so the lettering stays put when that page takes over. */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         <div className="mx-auto flex min-h-svh max-w-xl flex-col px-6 pt-8 pb-4">
           <div className="flex flex-1 flex-col justify-center text-center [text-shadow:0_1px_3px_rgba(0,0,0,0.9),0_2px_22px_rgba(0,0,0,0.75)]">
-            <motion.div initial={false} animate={{ opacity: shown ? 1 : 0 }} transition={{ duration: 1.2, delay: 0.5 }}>
+            <motion.div initial={false} animate={{ opacity: shown ? 1 : 0 }} transition={{ duration: 1.6, delay: 0.8 }}>
               {guest && <p className="mb-5 font-display text-3xl text-[#ecdcb0] text-balance">{t('Für {name}', { name: guest })}</p>}
               <p className="text-sm font-medium tracking-[0.45em] text-[#ecdcb0] uppercase">{t('Ihr seid eingeladen')}</p>
             </motion.div>
@@ -585,7 +621,7 @@ function Fireflies({ opened, guest, names, onDone }: { opened: boolean; guest?: 
               className="mt-6 font-display text-5xl leading-tight text-balance md:text-7xl"
               initial={false}
               animate={{ opacity: shown ? 1 : 0, filter: shown ? 'blur(0px)' : 'blur(6px)' }}
-              transition={{ duration: 1.3, ease: 'easeOut' }}
+              transition={{ duration: 2, ease: 'easeInOut' }}
             >
               {names}
             </motion.p>
