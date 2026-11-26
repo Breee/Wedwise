@@ -7,6 +7,7 @@ import { Lock } from 'lucide-react'
 import { toast } from 'sonner'
 import { api, errorMessage } from '@/lib/api'
 import { inviteLinkQuery, meQuery, myResponseQuery } from '@/lib/queries'
+import { greeting } from '@/lib/format'
 import type { GuestView } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -46,7 +47,7 @@ function InviteLinkPage() {
   const locked = status.pinRequired && !status.unlocked
   return (
     <>
-      {!locked && !done && <InviteStory target="antwort" name={status.name} lit={lit} />}
+      {!locked && !done && <InviteStory target="antwort" name={greeting(status.guests, status.salutation)} lit={lit} />}
       <section id="antwort" className="mx-auto max-w-2xl snap-start snap-always px-4 py-4 sm:px-6 sm:py-16">
         <RsvpHeader />
         {locked ? (
@@ -54,7 +55,7 @@ function InviteLinkPage() {
         ) : done ? (
           <Done view={done} onEdit={() => setDone(null)} />
         ) : (
-          <RsvpForm key={own.data?.id ?? 0} link={link} initial={saved ?? own.data ?? undefined} onDone={finish} />
+          <RsvpForm key={own.data?.id ?? 0} link={link} guests={status.guests} initial={saved ?? own.data ?? undefined} onDone={finish} />
         )}
       </section>
     </>

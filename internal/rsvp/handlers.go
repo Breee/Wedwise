@@ -336,7 +336,8 @@ func (h *Handler) linkStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{
-		"name":        link.Name,
+		"guests":      link.Guests,
+		"salutation":  link.Salutation,
 		"pinRequired": link.HasPIN,
 		"unlocked":    h.gate.Unlocked(r, link),
 	})

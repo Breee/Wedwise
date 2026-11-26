@@ -219,7 +219,8 @@ export interface ResponseWithAttendees extends Response {
 }
 
 export interface InviteLinkStatus {
-  name: string
+  guests: string[]
+  salutation: '' | 'liebe' | 'lieber'
   pinRequired: boolean
   unlocked: boolean
 }
@@ -228,7 +229,8 @@ export interface InviteLink {
   id: number
   token: string
   code: string
-  name: string
+  guests: string[]
+  salutation: '' | 'liebe' | 'lieber'
   hasPin: boolean
   active: boolean
   responses: number

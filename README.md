@@ -42,8 +42,9 @@ third-party SaaS required.
 - 🎨 **Themes** — pick one in the editor; add your own as a YAML file.
 - 💌 **Invite links** — create one or more links (optionally PIN-protected)
   and share them. Each link also has a six-character code that guests can
-  type in at `/join-us`, and can carry a name ("Anna & Ben") that the
-  invitation greets. The code page is a night sky or an envelope with a wax
+  type in at `/join-us`, and can carry the names of the people it is for:
+  the invitation greets them ("Liebe Anna und Ben,") and the reply form starts
+  with their names filled in. The code page is a night sky or an envelope with a wax
   seal that breaks open; choose under "Inhalte" → "Design". Guests answer per household and get a private link to
   edit their answer later.
 - 🎁 **Contributions** — guests can offer a programme item. Only witnesses and
@@ -115,7 +116,8 @@ phone has to trust `local/certs/ca.crt` once:
 3. **Invite links** — open **Einladungslinks**, create a link, optionally set
    a PIN, copy the URL and send it to your guests. For a printed card, use
    the code (`/join-us`) or copy the link with the code attached
-   (`/join-us?code=…`). Set a name to greet the guests personally. Deactivate
+   (`/join-us?code=…`). Enter who the link is for to greet the guests personally and prefill
+   their reply. Deactivate
    or regenerate a link at any time; regenerating also replaces the code,
    and existing responses are kept.
 4. **Responses** — everyone lands on one dashboard, "Mein Bereich" (`/me`),

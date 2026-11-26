@@ -46,3 +46,16 @@ export const DIET_OPTIONS = Object.keys(DIETS).map((value) => ({
 }))
 
 export const DIET_LABEL = labels(DIETS)
+
+// "Anna, Ben und Cleo"
+export function guestNames(guests: string[]) {
+  if (guests.length < 2) return guests.join('')
+  return t('{names} und {last}', { names: guests.slice(0, -1).join(', '), last: guests[guests.length - 1] })
+}
+
+// "Liebe Anna und Ben," – empty when the link names nobody.
+export function greeting(guests: string[], salutation: string) {
+  if (guests.length === 0) return ''
+  const names = guestNames(guests)
+  return guests.length === 1 && salutation === 'lieber' ? t('Lieber {names},', { names }) : t('Liebe {names},', { names })
+}

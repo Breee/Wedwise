@@ -33,6 +33,9 @@ const (
 	CodeLen    = 6
 	maxNameLen = 80
 
+	// MaxGuests is how many persons one link can name.
+	MaxGuests = 10
+
 	// MaxResponseLimit is the highest cap that can be set on a link.
 	MaxResponseLimit = 10000
 )
@@ -44,10 +47,12 @@ type Link struct {
 	// Code is the short code guests can type in instead of opening the link.
 	Code string `json:"code"`
 	// Name says whom the link is for; the invitation greets them with it.
-	Name      string `json:"name"`
-	HasPIN    bool   `json:"hasPin"`
-	Active    bool   `json:"active"`
-	Responses int    `json:"responses"`
+	Guests []string `json:"guests"`
+	// Salutation picks "Liebe" or "Lieber" for a single guest: "", "liebe" or "lieber".
+	Salutation string `json:"salutation"`
+	HasPIN     bool   `json:"hasPin"`
+	Active     bool   `json:"active"`
+	Responses  int    `json:"responses"`
 	// MaxResponses caps the responses the link accepts; 0 means unlimited.
 	MaxResponses int       `json:"maxResponses"`
 	CreatedAt    time.Time `json:"createdAt"`
@@ -71,7 +76,7 @@ func (s *Store) ProtectTokens(ctx context.Context) error {
 	return tokens.Protect(ctx, s.db, s.vault, "invite_links", "token_hash", "token_enc")
 }
 
-const columns = `l.id, l.token_enc, l.code_enc, l.name_enc, l.pin_hash, l.active, l.max_responses, l.created_at, l.updated_at,
+const columns = `l.id, l.token_enc, l.code_enc, l.name_enc, l.salutation, l.pin_hash, l.active, l.max_responses, l.created_at, l.updated_at,
 	(SELECT COUNT(*) FROM responses r WHERE r.invite_link_id = l.id)`
 
 // Create inserts a new active link without PIN.
@@ -193,20 +198,34 @@ func (s *Store) GetByCode(ctx context.Context, code string) (Link, error) {
 	return s.queryOne(ctx, "SELECT "+columns+" FROM invite_links l WHERE l.code_hash = ?", tokens.Hash(code))
 }
 
-// SetName sets or, with an empty name, removes whom the link is for.
-func (s *Store) SetName(ctx context.Context, id int64, name string) (Link, error) {
-	name = strings.TrimSpace(name)
-	if len([]rune(name)) > maxNameLen {
-		return Link{}, fmt.Errorf("%w: name must be at most %d characters", ErrValidation, maxNameLen)
+// SetGuests sets or, with no names, removes whom the link is for. The names
+// are stored one per line.
+func (s *Store) SetGuests(ctx context.Context, id int64, guests []string, salutation string) (Link, error) {
+	if salutation != "" && salutation != "liebe" && salutation != "lieber" {
+		return Link{}, fmt.Errorf("%w: unknown salutation", ErrValidation)
+	}
+	var names []string
+	for _, guest := range guests {
+		guest = strings.Join(strings.Fields(guest), " ")
+		if guest == "" {
+			continue
+		}
+		if len([]rune(guest)) > maxNameLen {
+			return Link{}, fmt.Errorf("%w: name must be at most %d characters", ErrValidation, maxNameLen)
+		}
+		names = append(names, guest)
+	}
+	if len(names) > MaxGuests {
+		return Link{}, fmt.Errorf("%w: at most %d persons", ErrValidation, MaxGuests)
 	}
 	sealed := ""
-	if name != "" {
+	if len(names) > 0 {
 		var err error
-		if sealed, err = s.vault.Seal(name); err != nil {
+		if sealed, err = s.vault.Seal(strings.Join(names, "\n")); err != nil {
 			return Link{}, fmt.Errorf("seal invite name: %w", err)
 		}
 	}
-	return s.update(ctx, id, "name_enc = ?", sealed)
+	return s.update(ctx, id, "name_enc = ?, salutation = ?", sealed, salutation)
 }
 
 // SetPIN sets or, with an empty pin, removes the PIN of a link.
@@ -312,12 +331,15 @@ type scanner interface {
 func (s *Store) scan(row scanner) (Link, error) {
 	var l Link
 	var sealed, code, name string
-	err := row.Scan(&l.ID, &sealed, &code, &name, &l.pinHash, &l.Active, &l.MaxResponses, &l.CreatedAt, &l.UpdatedAt, &l.Responses)
+	err := row.Scan(&l.ID, &sealed, &code, &name, &l.Salutation, &l.pinHash, &l.Active, &l.MaxResponses, &l.CreatedAt, &l.UpdatedAt, &l.Responses)
 	// Empty when the session secret changed: the link still works, but staff
 	// have to regenerate it to see the URL again.
 	l.Token = s.vault.OpenOrEmpty(sealed)
 	l.Code = s.vault.OpenOrEmpty(code)
-	l.Name = s.vault.OpenOrEmpty(name)
+	l.Guests = []string{}
+	if names := s.vault.OpenOrEmpty(name); names != "" {
+		l.Guests = strings.Split(names, "\n")
+	}
 	l.HasPIN = l.pinHash != ""
 	return l, err
 }

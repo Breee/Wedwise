@@ -66,26 +66,27 @@ func TestInviteCodeOpensLink(t *testing.T) {
 	}
 
 	namePath := fmt.Sprintf("/api/invite-links/%d/name", link.ID)
-	resp = app.do("PUT", namePath, map[string]any{"name": "Anna & Ben"}, witness)
+	resp = app.do("PUT", namePath, map[string]any{"guests": []string{"Anna", "Ben"}}, witness)
 	resp.Body.Close()
 	if resp.StatusCode != http.StatusForbidden {
 		t.Fatalf("witness sets name: got %d, want 403", resp.StatusCode)
 	}
-	resp = app.do("PUT", namePath, map[string]any{"name": strings.Repeat("x", 81)}, couple)
+	resp = app.do("PUT", namePath, map[string]any{"guests": []string{strings.Repeat("x", 81)}}, couple)
 	resp.Body.Close()
 	if resp.StatusCode != http.StatusBadRequest {
 		t.Fatalf("long name: got %d, want 400", resp.StatusCode)
 	}
-	resp = app.do("PUT", namePath, map[string]any{"name": " Anna & Ben "}, couple)
+	resp = app.do("PUT", namePath, map[string]any{"guests": []string{" Anna ", "", "Ben"}, "salutation": "liebe"}, couple)
 	resp.Body.Close()
 	resp = app.do("GET", "/api/rsvp/links/"+link.Token, nil, nil)
 	var status struct {
-		Name string `json:"name"`
+		Guests     []string `json:"guests"`
+		Salutation string   `json:"salutation"`
 	}
 	_ = json.NewDecoder(resp.Body).Decode(&status)
 	resp.Body.Close()
-	if status.Name != "Anna & Ben" {
-		t.Fatalf("greeting: %q", status.Name)
+	if strings.Join(status.Guests, "|") != "Anna|Ben" || status.Salutation != "liebe" {
+		t.Fatalf("guests: %+v", status)
 	}
 
 	// A new link retires the old code; a switched-off link does not open.

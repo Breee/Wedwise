@@ -95,9 +95,9 @@ function Title({ guest, lit }: { guest?: string; lit?: boolean }) {
   const names = data?.event.couple?.map((c) => c.name).join(' & ') || data?.event.title
   return (
     <div className="text-center [text-shadow:0_1px_3px_rgba(0,0,0,0.9),0_2px_22px_rgba(0,0,0,0.75)]">
-      {guest && (
-        <motion.p className="mb-5 font-display text-3xl text-[#ecdcb0] text-balance" {...(lit ? {} : rise(0.1))}>
-          {t('Für {name}', { name: guest })}
+      {guest && !lit && (
+        <motion.p className="mb-5 font-display text-3xl text-[#ecdcb0] text-balance" {...rise(0.1)}>
+          {guest}
         </motion.p>
       )}
       <Eyebrow lit={lit}>{t('Ihr seid eingeladen')}</Eyebrow>

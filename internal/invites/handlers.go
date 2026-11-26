@@ -26,7 +26,8 @@ type pinRequest struct {
 }
 
 type nameRequest struct {
-	Name string `json:"name"`
+	Guests     []string `json:"guests"`
+	Salutation string   `json:"salutation"`
 }
 
 type activeRequest struct {
@@ -92,7 +93,7 @@ func (h *Handler) setName(w http.ResponseWriter, r *http.Request) {
 	if !httpx.DecodeJSON(w, r, &req) {
 		return
 	}
-	link, err := h.store.SetName(r.Context(), id, req.Name)
+	link, err := h.store.SetGuests(r.Context(), id, req.Guests, req.Salutation)
 	h.respond(w, link, err)
 }
 

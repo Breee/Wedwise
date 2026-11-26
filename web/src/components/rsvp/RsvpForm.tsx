@@ -42,6 +42,8 @@ export type FormProps = {
   initial?: GuestView
   /** Invite link token used for new responses. */
   link?: string
+  /** Persons the invite link names; they prefill a new response. */
+  guests?: string[]
   onDone: (view: GuestView) => void
 }
 
@@ -82,7 +84,7 @@ function readDraft(key: string, base: string): Draft | null {
   return null
 }
 
-export function RsvpForm({ initial, link, onDone }: FormProps) {
+export function RsvpForm({ initial, link, guests, onDone }: FormProps) {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { data: site } = useQuery(publicContentQuery)
@@ -93,9 +95,9 @@ export function RsvpForm({ initial, link, onDone }: FormProps) {
   const draftBase = initial?.updatedAt ?? ''
   const [draft] = useState(() => readDraft(draftKey, draftBase))
 
-  const [contactName, setContactName] = useState(draft?.contactName ?? initial?.contactName ?? '')
+  const [contactName, setContactName] = useState(draft?.contactName ?? initial?.contactName ?? guests?.[0] ?? '')
   const [status, setStatus] = useState<RsvpStatus>(draft?.status ?? initial?.status ?? 'yes')
-  const [attendees, setAttendees] = useState<Attendee[]>(draft?.attendees ?? (initial?.attendees?.length ? initial.attendees : [newAttendee()]))
+  const [attendees, setAttendees] = useState<Attendee[]>(draft?.attendees ?? (initial?.attendees?.length ? initial.attendees : guests?.length ? guests.map(newAttendee) : [newAttendee()]))
   const [message, setMessage] = useState(draft?.message ?? initial?.message ?? '')
   const [genres, setGenres] = useState<string[]>(draft?.genres ?? splitList(initial?.musicGenres ?? ''))
   const [song, setSong] = useState(draft?.song ?? initial?.musicSong ?? '')

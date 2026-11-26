@@ -6,7 +6,7 @@ import { AnimatePresence, motion, useAnimationControls, useReducedMotion } from 
 import { Heart, Pointer } from 'lucide-react'
 import { ApiError, api } from '@/lib/api'
 import { inviteLinkQuery, publicContentQuery } from '@/lib/queries'
-import { formatDate } from '@/lib/format'
+import { formatDate, greeting } from '@/lib/format'
 import { DuskScene, type SceneVariant } from '@/components/rsvp/DuskIntro'
 
 const LENGTH = 6
@@ -74,7 +74,8 @@ function JoinPage() {
   const busy = open.isPending || open.isSuccess
   const link = open.data?.link
   const flies = game === 'fireflies' && direct
-  const guest = useQuery({ ...inviteLinkQuery(link ?? ''), enabled: flies && !!link }).data?.name
+  const invited = useQuery({ ...inviteLinkQuery(link ?? ''), enabled: flies && !!link }).data
+  const dear = invited ? greeting(invited.guests, invited.salutation) : ''
   const names = data?.event.couple?.map((c) => c.name).join(' & ') || data?.event.title
 
   // The light fills the screen before the invitation takes over.
@@ -95,7 +96,7 @@ function JoinPage() {
     ? !tapped &&
       {
         light: t('Tippt auf das Licht'),
-        fireflies: t('Es ist endlich so weit'),
+        fireflies: !invited ? '' : !dear ? t('Es ist endlich so weit') : invited.guests.length === 1 ? t('wir haben etwas für dich') : t('wir haben etwas für euch'),
         lantern: t('Zündet die Laterne an'),
         stars: t('Verbindet die drei Sterne'),
         seal: t('Brecht das Siegel'),
@@ -233,13 +234,14 @@ function JoinPage() {
           className={direct && game === 'light' ? 'absolute inset-x-0 top-[calc(38svh+8.5rem)] text-base' : flies ? 'font-display text-3xl text-balance' : 'mt-6 h-12 text-base'}
           role="status"
         >
+          {flies && dear && !open.isError && <span className="mb-3 block text-xl text-[#ecdcb0]">{dear}</span>}
           {hint}
         </p>
       </motion.div>
 
       {lantern && <SkyLantern lit={opened} onTap={direct && !tapped ? finish : undefined} />}
       {lantern && !direct && <Candles count={code.length} gone={opened} />}
-      {flies && <Fireflies opened={opened} guest={guest} names={names} onDone={finish} />}
+      {flies && <Fireflies opened={opened} names={names} onDone={finish} />}
       {direct && game === 'stars' && <Stars onDone={finish} />}
       <div className="absolute inset-x-0 bottom-[6svh]">{skip}</div>
 
@@ -344,7 +346,7 @@ function letterPoints(el: HTMLElement, box: DOMRect, most: number) {
   return points.slice(0, most)
 }
 
-function Fireflies({ opened, guest, names, onDone }: { opened: boolean; guest?: string; names?: string; onDone: () => void }) {
+function Fireflies({ opened, names, onDone }: { opened: boolean; names?: string; onDone: () => void }) {
   const { data } = useQuery(publicContentQuery)
   const date = data?.event.date
   const venue = data?.content.location?.name
@@ -624,7 +626,6 @@ function Fireflies({ opened, guest, names, onDone }: { opened: boolean; guest?: 
         <div className="mx-auto flex min-h-svh max-w-xl flex-col px-6 pt-8 pb-4">
           <div className="flex flex-1 flex-col justify-center text-center [text-shadow:0_1px_3px_rgba(0,0,0,0.9),0_2px_22px_rgba(0,0,0,0.75)]">
             <motion.div initial={false} animate={{ opacity: shown ? 1 : 0 }} transition={{ duration: 1.6, delay: 0.8 }}>
-              {guest && <p className="mb-5 font-display text-3xl text-[#ecdcb0] text-balance">{t('Für {name}', { name: guest })}</p>}
               <p className="text-sm font-medium tracking-[0.45em] text-[#ecdcb0] uppercase">{t('Ihr seid eingeladen')}</p>
             </motion.div>
             <motion.p

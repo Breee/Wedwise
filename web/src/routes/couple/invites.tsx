@@ -7,7 +7,7 @@ import { Copy, Eye, EyeOff, Gauge, KeyRound, Plus, RefreshCw, Share2, Trash2, Us
 import { toast } from 'sonner'
 import { api, errorMessage } from '@/lib/api'
 import { inviteLinksQuery } from '@/lib/queries'
-import { formatDateTime } from '@/lib/format'
+import { formatDateTime, greeting, guestNames } from '@/lib/format'
 import type { InviteLink } from '@/lib/types'
 import { PageHeader } from '@/components/admin/PageHeader'
 import { Button } from '@/components/ui/button'
@@ -110,7 +110,7 @@ function InvitesPage() {
           {links.map((l) => (
             <TableRow key={l.id} className={`mb-3 flex flex-wrap items-center gap-x-4 gap-y-1 rounded-lg border bg-card p-3 sm:mb-0 sm:table-row sm:rounded-none sm:bg-transparent sm:p-0 ${l.active ? '' : 'opacity-60'}`}>
               <TableCell className="w-full min-w-0 p-0 sm:w-auto sm:p-2">
-                {l.name && <p className="font-medium">{l.name}</p>}
+                {l.guests.length > 0 && <p className="font-medium">{guestNames(l.guests)}</p>}
                 {l.token ? (
                   <div className="flex items-center gap-1 font-mono text-xs">
                     <span className="truncate">{revealed === l.id ? linkUrl(l.token) : `${window.location.origin}/rsvp/••••••••••••`}</span>
@@ -193,9 +193,11 @@ function InvitesPage() {
 }
 
 function NameDialog({ link, onClose, onSaved }: { link: InviteLink; onClose: () => void; onSaved: () => void }) {
-  const [name, setName] = useState(link.name)
+  const [guests, setGuests] = useState(link.guests.length ? link.guests : [''])
+  const [salutation, setSalutation] = useState(link.salutation || 'liebe')
+  const named = guests.filter((g) => g.trim())
   const save = useMutation({
-    mutationFn: () => api.put(`/invite-links/${link.id}/name`, { name }),
+    mutationFn: () => api.put(`/invite-links/${link.id}/name`, { guests: named, salutation: named.length === 1 ? salutation : '' }),
     onSuccess: () => {
       onSaved()
       onClose()
@@ -215,12 +217,44 @@ function NameDialog({ link, onClose, onSaved }: { link: InviteLink; onClose: () 
         >
           <DialogHeader>
             <DialogTitle>{t('Für wen ist der Link?')}</DialogTitle>
-            <DialogDescription>{t('Die Einladung begrüßt die Gäste mit diesem Namen, zum Beispiel „Anna & Ben“. Leer lassen für keine Begrüßung.')}</DialogDescription>
+            <DialogDescription>{t('Die Einladung begrüßt die Gäste mit Namen, und das Antwortformular ist schon mit ihnen ausgefüllt. Leer lassen für keine Begrüßung.')}</DialogDescription>
           </DialogHeader>
           <div className="space-y-2">
-            <Label htmlFor="link-name">{t('Name')}</Label>
-            <Input id="link-name" value={name} onChange={(e) => setName(e.target.value)} maxLength={80} autoFocus autoComplete="off" />
+            {guests.map((guest, i) => (
+              <div key={i} className="flex items-center gap-2">
+                <Input
+                  value={guest}
+                  onChange={(e) => setGuests((l) => l.map((g, j) => (j === i ? e.target.value : g)))}
+                  maxLength={80}
+                  autoFocus={i === guests.length - 1}
+                  autoComplete="off"
+                  aria-label={t('Person {n}', { n: i + 1 })}
+                  placeholder={t('Vorname')}
+                />
+                {guests.length > 1 && (
+                  <Button type="button" variant="ghost" size="icon" className="size-11 shrink-0 md:size-9" aria-label={t('Person entfernen')} onClick={() => setGuests((l) => l.filter((_, j) => j !== i))}>
+                    <Trash2 className="size-4" />
+                  </Button>
+                )}
+              </div>
+            ))}
+            {guests.length < 10 && (
+              <Button type="button" variant="outline" size="sm" onClick={() => setGuests((l) => [...l, ''])}>
+                <Plus className="size-4" />
+                {t('Weitere Person')}
+              </Button>
+            )}
           </div>
+          {named.length === 1 && (
+            <div className="flex gap-2" role="group" aria-label={t('Anrede')}>
+              {(['liebe', 'lieber'] as const).map((s) => (
+                <Button key={s} type="button" variant={salutation === s ? 'default' : 'outline'} size="sm" aria-pressed={salutation === s} onClick={() => setSalutation(s)}>
+                  {s === 'liebe' ? t('Liebe {names},', { names: named[0].trim() }) : t('Lieber {names},', { names: named[0].trim() })}
+                </Button>
+              ))}
+            </div>
+          )}
+          {named.length > 0 && <p className="text-sm text-muted-foreground">{greeting(named.map((g) => g.trim()), salutation)}</p>}
           <DialogFooter>
             <Button type="submit" disabled={save.isPending}>
               {t('Speichern')}
