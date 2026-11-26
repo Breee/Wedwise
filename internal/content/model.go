@@ -99,6 +99,5 @@ type Content struct {
 	DisplayFont   string          `json:"displayFont"`   // heading font: empty for the theme's own
 	ReplyPeople   string          `json:"replyPeople"`   // persons in the reply form: list (default) or dialog
 	InviteWriting string          `json:"inviteWriting"` // how the fireflies write the names: letters (default) or sweep
-	InviteOpening string          `json:"inviteOpening"` // how /join-us looks: night (default) or envelope
 	UpdatedAt     time.Time       `json:"updatedAt"`
 }

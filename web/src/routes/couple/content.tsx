@@ -2,13 +2,14 @@ import { useState } from 'react'
 import { t } from '@/lib/i18n'
 import { createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient, useSuspenseQuery } from '@tanstack/react-query'
-import { ArrowDown, ArrowUp, Download, Eye, Plus, Trash2, Upload } from 'lucide-react'
+import { ArrowDown, ArrowUp, Download, Plus, Trash2, Upload } from 'lucide-react'
 import { toast } from 'sonner'
 import { api, errorMessage } from '@/lib/api'
 import { download } from '@/lib/handover'
 import { contentQuery, publicContentQuery, themesQuery } from '@/lib/queries'
 import type { Content, FAQEntry, ScheduleEntry } from '@/lib/types'
 import { PageHeader } from '@/components/admin/PageHeader'
+import { OpeningPreview } from '@/components/admin/OpeningPreview'
 import { StayEditor } from '@/components/admin/StayEditor'
 import { TravelEditor } from '@/components/admin/TravelEditor'
 import { Button } from '@/components/ui/button'
@@ -103,7 +104,8 @@ function ContentPage() {
             <CardHeader>
               <CardTitle>{t('Design')}</CardTitle>
             </CardHeader>
-            <CardContent className="grid gap-4 sm:grid-cols-2">
+            <CardContent className="grid gap-8 lg:grid-cols-[1fr_auto]">
+              <div className="grid content-start gap-4">
               <div className="grid gap-2">
                 <Label>{t('Thema')}</Label>
                 <Select value={draft.theme || themes[0]?.name} onValueChange={(v) => set('theme', v)}>
@@ -120,17 +122,6 @@ function ContentPage() {
                   <li key={k} title={k} className="size-7 rounded-full border" style={{ background: c }} />
                 ))}
               </ul>
-              <div className="grid gap-2">
-                <Label>{t('Einladung öffnen')}</Label>
-                <Select value={draft.inviteOpening || 'night'} onValueChange={(v) => set('inviteOpening', v as 'night' | 'envelope')}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="night">{t('Nachthimmel')}</SelectItem>
-                    <SelectItem value="envelope">{t('Umschlag mit Siegel')}</SelectItem>
-                  </SelectContent>
-                </Select>
-                <p className="text-sm text-muted-foreground">{t('So sieht die Seite aus, auf der Gäste ihren Code eingeben.')}</p>
-              </div>
               <div className="grid gap-2">
                 <Label>{t('Namen erscheinen')}</Label>
                 <Select value={draft.inviteWriting || 'letters'} onValueChange={(v) => set('inviteWriting', v as 'letters' | 'sweep')}>
@@ -168,22 +159,16 @@ function ContentPage() {
                     ))}
                   </SelectContent>
                 </Select>
-                <p className="text-4xl" style={{ fontFamily: displayFamily(draft.displayFont, current?.fonts.display ?? '') }}>
-                  {draft.names?.filter(Boolean).join(' & ') || 'Viktoria & Julian'}
-                </p>
               </div>
-              <div className="sm:col-span-2">
-                <Button asChild variant="outline">
-                  <a
-                    href={`/join-us?preview=1&look=${draft.inviteOpening || 'night'}&write=${draft.inviteWriting || 'letters'}&font=${draft.displayFont ?? ''}`}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    <Eye /> {t('Vorschau')}
-                  </a>
-                </Button>
-                <p className="mt-2 text-sm text-muted-foreground">{t('Zeigt die Einladung mit dieser Auswahl in einem neuen Tab, auch ungespeichert. Ein anderes Thema erst speichern.')}</p>
               </div>
+              <OpeningPreview
+                scene={current?.decoration}
+                font={displayFamily(draft.displayFont, current?.fonts.display ?? '')}
+                names={draft.names?.filter(Boolean).join(' & ') || event?.couple.map((c) => c.name).join(' & ') || event?.title || ''}
+                date={event?.date}
+                venue={draft.location?.name}
+                writing={draft.inviteWriting || 'letters'}
+              />
             </CardContent>
           </Card>
         </TabsContent>

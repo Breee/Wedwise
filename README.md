@@ -44,10 +44,10 @@ third-party SaaS required.
   and share them. Each link also has a six-character code that guests can
   type in at `/join-us`, and can carry the names of the people it is for:
   the invitation greets them ("Liebe Anna und Ben,") and the reply form starts
-  with their names filled in. The code page is a night sky or an envelope with a wax
-  seal that breaks open; choose under "Inhalte" → "Design", where the heading
-  font and the way the fireflies write the names can be
-  picked too, with a preview. The reply form can list all persons on one page or open
+  with their names filled in. Opening the invitation is a night scene where
+  fireflies write the couple's names. Under "Inhalte" → "Design" the heading
+  font and the way the names are written can be picked, with a live preview.
+  The reply form can list all persons on one page or open
   each person in its own window. Guests answer per household and get a private link to
   edit their answer later.
 - 🎁 **Contributions** — guests can offer a programme item. Only witnesses and

@@ -120,7 +120,6 @@ export interface Content {
   schedule: ScheduleEntry[]
   faq: FAQEntry[]
   privacy?: string
-  inviteOpening?: '' | 'night' | 'envelope'
   inviteWriting?: '' | 'letters' | 'sweep'
   replyPeople?: '' | 'list' | 'dialog'
   displayFont?: '' | 'playfair' | 'garamond' | 'fraunces' | 'lora'

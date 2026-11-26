@@ -40,7 +40,6 @@ const (
 	keyLocationImage        = "location.image"
 	keyTheme                = "theme"
 	keyPrivacy              = "privacy"
-	keyInviteOpening        = "invite.opening"
 	keyDisplayFont          = "theme.displayFont"
 	keyInviteWriting        = "invite.writing"
 	keyReplyPeople          = "reply.people"
@@ -80,7 +79,6 @@ func (s *Store) Get(ctx context.Context) (Content, error) {
 		},
 		Theme:         blocks[keyTheme],
 		Privacy:       blocks[keyPrivacy],
-		InviteOpening: blocks[keyInviteOpening],
 		DisplayFont:   blocks[keyDisplayFont],
 		InviteWriting: blocks[keyInviteWriting],
 		ReplyPeople:   blocks[keyReplyPeople],
@@ -145,7 +143,6 @@ func (s *Store) Replace(ctx context.Context, updated Content) (Content, error) {
 		keyLocationImage:       normalized.Location.Image,
 		keyTheme:               normalized.Theme,
 		keyPrivacy:             normalized.Privacy,
-		keyInviteOpening:       normalized.InviteOpening,
 		keyDisplayFont:         normalized.DisplayFont,
 		keyInviteWriting:       normalized.InviteWriting,
 		keyReplyPeople:         normalized.ReplyPeople,
@@ -285,11 +282,6 @@ func normalize(input Content) (Content, error) {
 		if _, err := time.Parse("2006-01-02", input.Date); err != nil {
 			return Content{}, fmt.Errorf("%w: date must be YYYY-MM-DD", ErrValidation)
 		}
-	}
-	switch input.InviteOpening {
-	case "", "night", "envelope":
-	default:
-		return Content{}, fmt.Errorf("%w: inviteOpening must be night or envelope", ErrValidation)
 	}
 	switch input.InviteWriting {
 	case "", "letters", "sweep":

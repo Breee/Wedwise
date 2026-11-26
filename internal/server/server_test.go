@@ -183,7 +183,6 @@ func validContent() map[string]any {
 		"introduction":  map[string]any{"text": "Herzlich willkommen"},
 		"location":      map[string]any{"name": "Waldsee", "navigationUrl": "https://maps.example.com"},
 		"privacy":       "Nur wir sehen eure Angaben.",
-		"inviteOpening": "envelope",
 		"displayFont":   "playfair",
 		"inviteWriting": "sweep",
 		"replyPeople":   "dialog",
@@ -368,7 +367,6 @@ func TestContentUpdate_Couple(t *testing.T) {
 				Text string `json:"text"`
 			} `json:"introduction"`
 			Privacy       string `json:"privacy"`
-			InviteOpening string `json:"inviteOpening"`
 			DisplayFont   string `json:"displayFont"`
 			InviteWriting string `json:"inviteWriting"`
 			ReplyPeople   string `json:"replyPeople"`
@@ -406,9 +404,6 @@ func TestContentUpdate_Couple(t *testing.T) {
 	}
 	if body.Content.DisplayFont != "playfair" {
 		t.Fatalf("display font not persisted: %q", body.Content.DisplayFont)
-	}
-	if body.Content.InviteOpening != "envelope" {
-		t.Fatalf("invite opening not persisted: %q", body.Content.InviteOpening)
 	}
 	if body.Content.Privacy != "Nur wir sehen eure Angaben." {
 		t.Fatalf("privacy not persisted: %q", body.Content.Privacy)
