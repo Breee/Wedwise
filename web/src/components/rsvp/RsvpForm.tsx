@@ -54,7 +54,7 @@ const emptyContribution: ContributionRequest = { title: '', description: '', nee
 
 // A half-filled form survives a reload: the draft stays in this tab until the
 // reply is sent or the tab is closed.
-const DRAFT_VERSION = 1
+const DRAFT_VERSION = 2
 
 type Draft = {
   version: number
@@ -110,9 +110,9 @@ export function RsvpForm({ initial, link, guests, onDone }: FormProps) {
   // A link made for named guests already says who answers and how many they are.
   const known = Boolean(guests?.length && contactName.trim())
   const pages = (attending
-    ? (['who', 'status', 'count', 'people', 'contribution', 'music', 'song', 'message'] as const)
+    ? (['who', 'status', 'count', 'people', 'contribution', 'plan', 'music', 'song', 'message'] as const)
     : (['who', 'status', 'message'] as const)
-  ).filter((p) => !known || (p !== 'who' && p !== 'count'))
+  ).filter((p) => (!known || (p !== 'who' && p !== 'count')) && (p !== 'plan' || wantsContribution))
   const [index, setIndex] = useState(draft?.index ?? 0)
   const sent = useRef(false)
   useEffect(() => {
@@ -209,10 +209,10 @@ export function RsvpForm({ initial, link, guests, onDone }: FormProps) {
         initial={{ opacity: 0.4 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.2 }}
-        className="flex min-h-[calc(100svh-2rem)] flex-col gap-6 sm:min-h-0"
+        className="flex min-h-[calc(100svh-1rem)] flex-col gap-6 sm:min-h-0"
         onSubmit={(e) => {
           e.preventDefault()
-          if (page === 'contribution' && wantsContribution && contribution.messengers.length === 0) {
+          if (page === 'plan' && contribution.messengers.length === 0) {
             toast.error(t('Bitte mindestens einen Messenger auswählen.'))
             return
           }
@@ -326,105 +326,112 @@ export function RsvpForm({ initial, link, guests, onDone }: FormProps) {
               <CardTitle>{t('Möchtet ihr einen Beitrag zum Programm leisten?')}</CardTitle>
               <CardDescription>{t('Rede, Spiel, Musik, Überraschung – unsere Trauzeugen koordinieren alles und melden sich bei euch.')}</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-6">
+            <CardContent>
               <div className="grid gap-3 sm:grid-cols-2">
-                <Button type="button" variant={wantsContribution ? 'default' : 'outline'} onClick={() => setWantsContribution(true)}>
+                <Button type="button" variant={wantsContribution ? 'default' : 'outline'} className="h-12" onClick={() => setWantsContribution(true)}>
                   {t('Ja, gern')}
                 </Button>
-                <Button type="button" variant={!wantsContribution ? 'default' : 'outline'} onClick={() => setWantsContribution(false)}>
+                <Button type="button" variant={!wantsContribution ? 'default' : 'outline'} className="h-12" onClick={() => setWantsContribution(false)}>
                   {t('Nein')}
                 </Button>
               </div>
-              {wantsContribution && (
-                <div className="space-y-4">
-                  <p className="flex items-start gap-2 rounded-md bg-accent/50 px-3 py-2 text-sm">
-                    <Clock className="mt-0.5 size-4 shrink-0 text-primary" />
-                    {t('Bitte plant maximal ca. {minutes} Minuten ein, damit alle Beiträge Platz finden.', { minutes })}
-                  </p>
-                  <div className="space-y-2">
-                    <Label htmlFor="c-title">{t('Was habt ihr vor?')} {req}</Label>
-                    <Input id="c-title" value={contribution.title} onChange={(e) => setContribution({ ...contribution, title: e.target.value })} placeholder={t('z. B. Rede, Spiel, Lied')} required />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="c-desc">{t('Kurze Beschreibung')} <span className="font-normal text-muted-foreground">{t('(optional)')}</span></Label>
-                    <Textarea id="c-desc" rows={3} value={contribution.description} onChange={(e) => setContribution({ ...contribution, description: e.target.value })} />
-                  </div>
-                  <div className="space-y-3">
-                    <Label>{t('Was braucht ihr dafür?')}</Label>
-                    <div className="flex flex-wrap gap-2">
-                      {NEEDS_OPTIONS.map((o) => {
-                        const on = needs.selected.includes(o)
-                        return (
-                          <Button
-                            key={o}
-                            type="button"
-                            size="sm"
-                            variant={on ? 'default' : 'outline'}
-                            className="rounded-full border border-primary/60"
-                            aria-pressed={on}
-                            onClick={() => setNeeds((n) => ({ ...n, selected: on ? n.selected.filter((x) => x !== o) : [...n.selected, o] }))}
-                          >
-                            {t(o)}
-                          </Button>
-                        )
-                      })}
-                    </div>
-                    <Input placeholder={t('Sonstiges …')} value={needs.other} onChange={(e) => setNeeds((n) => ({ ...n, other: e.target.value }))} />
-                  </div>
-                  <div className="space-y-3">
-                    <Label>{t('Wie erreichen euch die Trauzeugen?')} {req}</Label>
-                    <div className="flex flex-wrap gap-2">
-                      {MESSENGERS.map((m) => {
-                        const on = contribution.messengers.some((x) => x.kind === m.id)
-                        return (
-                          <Button
-                            key={m.id}
-                            type="button"
-                            size="sm"
-                            variant={on ? 'default' : 'outline'}
-                            className="rounded-full border border-primary/60"
-                            aria-pressed={on}
-                            onClick={() =>
-                              setContribution({
-                                ...contribution,
-                                messengers: on
-                                  ? contribution.messengers.filter((x) => x.kind !== m.id)
-                                  : [...contribution.messengers, { kind: m.id, handle: '' }],
-                              })
-                            }
-                          >
-                            <MessengerIcon kind={m.id} className={on ? 'size-4 [&>path]:fill-current' : 'size-4'} />
-                            {m.label}
-                          </Button>
-                        )
-                      })}
-                    </div>
-                    {contribution.messengers.map((m) => {
-                      const meta = MESSENGERS.find((x) => x.id === m.kind)!
-                      return (
-                        <div key={m.kind} className="flex items-center gap-2">
-                          <MessengerIcon kind={m.kind} className="size-5 shrink-0" />
-                          <Input
-                            aria-label={`${meta.label}: ${t(meta.handleHint)}`}
-                            placeholder={t(meta.handleHint)}
-                            value={m.handle}
-                            required
-                            onChange={(e) =>
-                              setContribution({
-                                ...contribution,
-                                messengers: contribution.messengers.map((x) => (x.kind === m.kind ? { ...x, handle: e.target.value } : x)),
-                              })
-                            }
-                          />
-                        </div>
-                      )
-                    })}
-                    {contribution.messengers.length === 0 && (
-                      <p className="text-sm text-muted-foreground">{t('Bitte mindestens einen Messenger auswählen.')}</p>
-                    )}
-                  </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {page === 'plan' && (
+          <Card>
+            <CardHeader>
+              {Step({ n: 5 })}
+              <CardTitle>{t('Euer Beitrag')}</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="flex items-start gap-2 rounded-md bg-accent/50 px-3 py-2 text-sm">
+                <Clock className="mt-0.5 size-4 shrink-0 text-primary" />
+                {t('Bitte plant maximal ca. {minutes} Minuten ein, damit alle Beiträge Platz finden.', { minutes })}
+              </p>
+              <div className="space-y-2">
+                <Label htmlFor="c-title">{t('Was habt ihr vor?')} {req}</Label>
+                <Input id="c-title" value={contribution.title} onChange={(e) => setContribution({ ...contribution, title: e.target.value })} placeholder={t('z. B. Rede, Spiel, Lied')} required />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="c-desc">{t('Kurze Beschreibung')} <span className="font-normal text-muted-foreground">{t('(optional)')}</span></Label>
+                <Textarea id="c-desc" rows={3} value={contribution.description} onChange={(e) => setContribution({ ...contribution, description: e.target.value })} />
+              </div>
+              <div className="space-y-3">
+                <Label>{t('Was braucht ihr dafür?')}</Label>
+                <div className="flex flex-wrap gap-2">
+                  {NEEDS_OPTIONS.map((o) => {
+                    const on = needs.selected.includes(o)
+                    return (
+                      <Button
+                        key={o}
+                        type="button"
+                        size="sm"
+                        variant={on ? 'default' : 'outline'}
+                        className="rounded-full border border-primary/60"
+                        aria-pressed={on}
+                        onClick={() => setNeeds((n) => ({ ...n, selected: on ? n.selected.filter((x) => x !== o) : [...n.selected, o] }))}
+                      >
+                        {t(o)}
+                      </Button>
+                    )
+                  })}
                 </div>
-              )}
+                <Input placeholder={t('Sonstiges …')} value={needs.other} onChange={(e) => setNeeds((n) => ({ ...n, other: e.target.value }))} />
+              </div>
+              <div className="space-y-3">
+                <Label>{t('Wie erreichen euch die Trauzeugen?')} {req}</Label>
+                <div className="flex flex-wrap gap-2">
+                  {MESSENGERS.map((m) => {
+                    const on = contribution.messengers.some((x) => x.kind === m.id)
+                    return (
+                      <Button
+                        key={m.id}
+                        type="button"
+                        size="sm"
+                        variant={on ? 'default' : 'outline'}
+                        className="rounded-full border border-primary/60"
+                        aria-pressed={on}
+                        onClick={() =>
+                          setContribution({
+                            ...contribution,
+                            messengers: on
+                              ? contribution.messengers.filter((x) => x.kind !== m.id)
+                              : [...contribution.messengers, { kind: m.id, handle: '' }],
+                          })
+                        }
+                      >
+                        <MessengerIcon kind={m.id} className={on ? 'size-4 [&>path]:fill-current' : 'size-4'} />
+                        {m.label}
+                      </Button>
+                    )
+                  })}
+                </div>
+                {contribution.messengers.map((m) => {
+                  const meta = MESSENGERS.find((x) => x.id === m.kind)!
+                  return (
+                    <div key={m.kind} className="flex items-center gap-2">
+                      <MessengerIcon kind={m.kind} className="size-5 shrink-0" />
+                      <Input
+                        aria-label={`${meta.label}: ${t(meta.handleHint)}`}
+                        placeholder={t(meta.handleHint)}
+                        value={m.handle}
+                        required
+                        onChange={(e) =>
+                          setContribution({
+                            ...contribution,
+                            messengers: contribution.messengers.map((x) => (x.kind === m.kind ? { ...x, handle: e.target.value } : x)),
+                          })
+                        }
+                      />
+                    </div>
+                  )
+                })}
+                {contribution.messengers.length === 0 && (
+                  <p className="text-sm text-muted-foreground">{t('Bitte mindestens einen Messenger auswählen.')}</p>
+                )}
+              </div>
             </CardContent>
           </Card>
         )}

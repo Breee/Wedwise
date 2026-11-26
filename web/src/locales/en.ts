@@ -649,4 +649,5 @@ export const en: Record<string, string> = {
   'Verbindet die drei Sterne': 'Join the three stars',
   'Zieht an der Schleife': 'Pull the bow',
   'Einfach öffnen': 'Just open it',
+  'Euer Beitrag': 'Your contribution',
 }
