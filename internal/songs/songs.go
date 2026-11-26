@@ -149,12 +149,12 @@ func (h *Handler) Cover(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, http.StatusBadRequest, httpx.CodeBadRequest, "Invalid cover.")
 		return
 	}
-	req, err := http.NewRequestWithContext(r.Context(), http.MethodGet, u.String(), nil)
+	req, err := http.NewRequestWithContext(r.Context(), http.MethodGet, u.String(), nil) // #nosec G704 -- coverURL allows only https on Apple's cover domain
 	if err != nil {
 		httpx.WriteError(w, http.StatusBadRequest, httpx.CodeBadRequest, "Invalid cover.")
 		return
 	}
-	res, err := h.covers.Do(req)
+	res, err := h.covers.Do(req) // #nosec G704 -- see above; this client follows no redirects
 	if err != nil {
 		httpx.WriteError(w, http.StatusBadGateway, httpx.CodeInternal, "Cover is unavailable.")
 		return
