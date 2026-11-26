@@ -108,15 +108,27 @@ function JoinPage() {
     return () => clearTimeout(timer)
   }, [resume, opened, link, envelope, still, direct, game, flies])
 
-  // The code goes into the address, so a reload comes back to the invitation.
+  // The code goes into the address. A reload plays the opening again, unless
+  // the guest has reached the reply form: then it comes straight back there.
   useEffect(() => {
     if (!shown) return
-    try {
-      sessionStorage.setItem(openedKey(code), '1')
-    } catch {
-      // Without storage a reload plays the opening again.
-    }
     if (given !== code) navigate({ to: '/join-us', search: (prev) => ({ ...prev, code }), replace: true })
+    const reply = document.getElementById('antwort')
+    if (!reply) return
+    const seen = new IntersectionObserver(
+      (entries) => {
+        if (!entries.some((e) => e.isIntersecting)) return
+        try {
+          sessionStorage.setItem(openedKey(code), '1')
+        } catch {
+          // Without storage a reload plays the opening again.
+        }
+        seen.disconnect()
+      },
+      { threshold: 0.5 },
+    )
+    seen.observe(reply)
+    return () => seen.disconnect()
   }, [shown, code, given, navigate])
 
   const hint = open.isError
@@ -508,8 +520,8 @@ function Fireflies({ opened, names, onDone }: { opened: boolean; names?: string;
             m.vy += ((m.ty - m.y) * pull - m.vy * Math.sqrt(pull) * 1.6) * dt
             // The lights dim while the lettering comes up underneath them.
             const fade = Math.max(0, 1 - Math.max(0, since - REVEAL / 1000 + 0.2) / 2.2)
-            alpha = (0.45 + 0.2 * Math.sin(time * 4 + m.phase)) * fade * Math.min(1, age / 0.3)
-            radius = 1 + m.size * 2.4
+            alpha = (0.75 + 0.25 * Math.sin(time * 4 + m.phase)) * fade * Math.min(1, age / 0.3)
+            radius = 1.6 + m.size * 3.2
           } else {
             // A firefly: it flies to its stretch of the names, then along it.
             const along = Math.min(1, Math.max(0, (since - ARRIVE) / GLIDE))
