@@ -547,7 +547,7 @@ function Fireflies({ opened, names, writing, onDone }: { opened: boolean; names?
             // The lights dim while the lettering comes up underneath them.
             const fade = Math.max(0, 1 - Math.max(0, since - REVEAL / 1000 + 0.2) / 2.2)
             alpha = (0.75 + 0.25 * Math.sin(time * 4 + m.phase)) * fade * Math.min(1, age / 0.3)
-            radius = 1.6 + m.size * 3.2
+            radius = 1.1 + m.size * 1.7
           } else {
             // A firefly: it flies to its stretch of the names, then along it.
             const start = m.start ?? ARRIVE
@@ -649,7 +649,7 @@ function Fireflies({ opened, names, writing, onDone }: { opened: boolean; names?
       if (gone || !el || !text) return
       const stage = el.getBoundingClientRect()
       const box = text.getBoundingClientRect()
-      const points = letterPoints(text, box, stage.width < 640 ? 900 : 1500)
+      const points = letterPoints(text, box, stage.width < 640 ? 1800 : 3000)
       const all = motes.current
       const left = box.left - stage.left
       const top = box.top - stage.top
