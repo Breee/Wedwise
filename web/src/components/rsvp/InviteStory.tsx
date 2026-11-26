@@ -104,14 +104,14 @@ function Title({ guest, lit }: { guest?: string; lit?: boolean }) {
       <motion.h1 className="mt-6 font-display text-5xl leading-tight text-balance md:text-7xl" {...(lit ? {} : rise(0.4))}>
         {names}
       </motion.h1>
-      <GoldLine delay={lit ? 0.2 : 0.9} />
+      {lit ? <div className="mx-auto my-6 h-px w-32 bg-gradient-to-r from-transparent via-[#d9c9a3] to-transparent" /> : <GoldLine delay={0.9} />}
       {data?.event.date && (
-        <motion.p className="font-display text-3xl text-[#ecdcb0]" {...rise(lit ? 0.5 : 1.2)}>
+        <motion.p className="font-display text-3xl text-[#ecdcb0]" {...(lit ? {} : rise(1.2))}>
           {formatDate(data.event.date)}
         </motion.p>
       )}
       {location?.name && (
-        <motion.p className="mt-6 text-base font-medium tracking-[0.25em] uppercase" {...rise(lit ? 0.8 : 1.5)}>
+        <motion.p className="mt-6 text-base font-medium tracking-[0.25em] uppercase" {...(lit ? {} : rise(1.5))}>
           {location.name}
         </motion.p>
       )}

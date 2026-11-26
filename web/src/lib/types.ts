@@ -121,6 +121,8 @@ export interface Content {
   faq: FAQEntry[]
   privacy?: string
   inviteOpening?: '' | 'night' | 'envelope'
+  inviteWriting?: '' | 'letters' | 'sweep'
+  inviteDetails?: '' | 'drawn'
   displayFont?: '' | 'playfair' | 'garamond' | 'fraunces' | 'lora'
   updatedAt?: string
 }

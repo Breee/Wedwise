@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type PointerEvent, type ReactNode } from 'react'
 import { t } from '@/lib/i18n'
+import { displayFamily, type DisplayFont } from '@/lib/fonts'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { AnimatePresence, motion, useAnimationControls, useReducedMotion } from 'motion/react'
@@ -24,11 +25,14 @@ const NIGHT_PLAYS: Play[] = ['fireflies', 'lantern', 'stars']
 const GLOW = 'bg-[radial-gradient(circle,#fff6cf_0%,#f7e9a8_18%,rgba(247,233,168,0.35)_34%,rgba(247,233,168,0)_62%)]'
 
 export const Route = createFileRoute('/join-us')({
-  validateSearch: (s: Record<string, unknown>): { code?: string; look?: 'night' | 'envelope'; play?: Play; write?: Writing } => ({
+  validateSearch: (s: Record<string, unknown>): { code?: string; look?: 'night' | 'envelope'; play?: Play; write?: Writing; preview?: boolean; font?: string; details?: boolean } => ({
     ...(typeof s.code === 'string' ? { code: s.code } : {}),
     ...(s.look === 'night' || s.look === 'envelope' ? { look: s.look } : {}),
     ...(PLAYS.includes(s.play as Play) ? { play: s.play as Play } : {}),
     ...(WRITINGS.includes(s.write as Writing) ? { write: s.write as Writing } : {}),
+    ...(s.preview ? { preview: true } : {}),
+    ...(s.details !== undefined ? { details: s.details === 1 || s.details === '1' || s.details === true } : {}),
+    ...(typeof s.font === 'string' ? { font: s.font } : {}),
   }),
   component: JoinPage,
 })
@@ -48,15 +52,28 @@ function openedBefore(code: string) {
 
 function JoinPage() {
   const navigate = useNavigate()
-  const { code: given, look, play, write } = Route.useSearch()
+  // ?preview shows the opening without a code and plays it again and again.
+  const { code: given, look, play, write, preview = false, font, details } = Route.useSearch()
+
   const { data } = useQuery(publicContentQuery)
   const deco = data?.theme?.decoration as SceneVariant | undefined
+  // The preview shows a heading font that may not be saved yet.
+  useEffect(() => {
+    if (!preview || font === undefined || !data) return
+    const root = document.documentElement
+    const saved = root.style.getPropertyValue('--font-display-family')
+    root.style.setProperty('--font-display-family', displayFamily(font as DisplayFont, data.theme.fonts.display))
+    return () => {
+      root.style.setProperty('--font-display-family', saved)
+    }
+  }, [preview, font, data])
   const [code, setCode] = useState(() => clean(given ?? ''))
   const [focused, setFocused] = useState(false)
   // A link that carries the code needs no typing: one tap opens the invitation.
-  const [direct, setDirect] = useState(() => clean(given ?? '').length === LENGTH)
+  const [direct, setDirect] = useState(() => preview || clean(given ?? '').length === LENGTH)
   const [tapped, setTapped] = useState(false)
-  const [resume, setResume] = useState(() => direct && openedBefore(code))
+  const [resume, setResume] = useState(() => !preview && direct && openedBefore(code))
+  const [round, setRound] = useState(0)
   const [shown, setShown] = useState(false)
   const row = useAnimationControls()
   const input = useRef<HTMLInputElement>(null)
@@ -90,10 +107,12 @@ function JoinPage() {
     if (code.length === LENGTH) submit(code)
   }, [code, submit])
 
-  const opened = open.isSuccess && (!direct || tapped)
+  const opened = preview ? tapped : open.isSuccess && (!direct || tapped)
   const busy = open.isPending || open.isSuccess
   const link = open.data?.link
   const flies = game === 'fireflies' && direct
+  // The fireflies may write the date and the place too.
+  const drawn = details ?? data?.content.inviteDetails === 'drawn'
   const invited = useQuery({ ...inviteLinkQuery(link ?? ''), enabled: !!link }).data
   const dear = invited ? greeting(invited.guests, invited.salutation) : ''
   const names = data?.event.couple?.map((c) => c.name).join(' & ') || data?.event.title
@@ -105,13 +124,17 @@ function JoinPage() {
       if (link) setShown(true)
       return
     }
-    if (!opened || !link) return
-    const wait = envelope ? (still ? 700 : direct ? 2700 : 3300) : game === 'lantern' ? 4300 : flies ? 6400 : direct ? 2400 : 1500
+    if (!opened || (!link && !preview)) return
+    const wait = envelope ? (still ? 700 : direct ? 2700 : 3300) : game === 'lantern' ? 4300 : flies ? (drawn ? 8200 : 5800) : direct ? 2400 : 1500
     // The keyboard goes away so the lantern can be seen rising.
     if (game === 'lantern') input.current?.blur()
-    const timer = setTimeout(() => setShown(true), wait)
+    const timer = setTimeout(() => {
+      if (!preview) return setShown(true)
+      setTapped(false)
+      setRound((n) => n + 1)
+    }, wait + (preview ? 2500 : 0))
     return () => clearTimeout(timer)
-  }, [resume, opened, link, envelope, still, direct, game, flies])
+  }, [resume, opened, link, envelope, still, direct, game, flies, preview, drawn])
 
   // The code goes into the address. A reload plays the opening again, unless
   // the guest has reached the reply form: then it comes straight back there.
@@ -144,7 +167,7 @@ function JoinPage() {
     ? !tapped &&
       {
         light: t('Tippt auf das Licht'),
-        fireflies: !invited ? '' : !dear ? t('Es ist endlich so weit') : invited.guests.length === 1 ? t('wir haben etwas für dich') : t('wir haben etwas für euch'),
+        fireflies: preview ? t('Es ist endlich so weit') : !invited ? '' : !dear ? t('Es ist endlich so weit') : invited.guests.length === 1 ? t('wir haben etwas für dich') : t('wir haben etwas für euch'),
         lantern: t('Zündet die Laterne an'),
         stars: t('Verbindet die drei Sterne'),
         seal: t('Brecht das Siegel'),
@@ -209,7 +232,7 @@ function JoinPage() {
           <p id="join-hint" className={`mt-2 h-10 text-sm ${open.isError ? 'text-destructive' : 'text-muted-foreground'}`} role="status">
             {hint}
           </p>
-          <Envelope code={code} plain={direct} bare={direct && game === 'ribbon'} active={focused && !busy} opened={opened} still={still} shake={row}>
+          <Envelope key={round} code={code} plain={direct} bare={direct && game === 'ribbon'} active={focused && !busy} opened={opened} still={still} shake={row}>
             {!direct ? field : game === 'ribbon' ? <Ribbon gone={tapped} onDone={finish} /> : !tapped && tap}
           </Envelope>
           <div className="mt-4">{skip}</div>
@@ -292,7 +315,7 @@ function JoinPage() {
 
       {lantern && <SkyLantern lit={opened} onTap={direct && !tapped ? finish : undefined} />}
       {lantern && !direct && <Candles count={code.length} gone={opened} />}
-      {flies && <Fireflies opened={opened} names={names} writing={write ?? 'letters'} onDone={finish} />}
+      {flies && <Fireflies details={drawn} opened={opened} names={names} key={round} writing={write ?? (data?.content.inviteWriting || 'letters')} onDone={finish} />}
       {direct && game === 'stars' && <Stars onDone={finish} />}
       <div className="absolute inset-x-0 bottom-[6svh]">{skip}</div>
 
@@ -332,6 +355,9 @@ const SWARM = 28
 const ARRIVE = 1.1
 const GLIDE = 1.5
 const CROSS = 1.9
+// Between two lines, and along the date or the place.
+const HOP = 0.35
+const LINE = 0.8
 const REVEAL = 3400
 
 type Mote = {
@@ -355,6 +381,11 @@ type Mote = {
   lo?: number
   hi?: number
   mid?: number
+  // Further lines to fly along after the names, and when its light goes out.
+  legs?: { lo: number; hi: number; mid: number; start: number; span: number }[]
+  end?: number
+  // When the real lettering comes up under a spark, in seconds.
+  fade?: number
 }
 
 function lightSprite() {
@@ -425,7 +456,10 @@ function letterPoints(el: HTMLElement, box: DOMRect, most: number) {
   return points.slice(0, most)
 }
 
-function Fireflies({ opened, names, writing, onDone }: { opened: boolean; names?: string; writing: Writing; onDone: () => void }) {
+function Fireflies({ opened, names, writing, details, onDone }: { opened: boolean; names?: string; writing: Writing; details: boolean; onDone: () => void }) {
+  const dateLine = useRef<HTMLParagraphElement>(null)
+  const venueLine = useRef<HTMLParagraphElement>(null)
+  const [rest, setRest] = useState(false)
   const { data } = useQuery(publicContentQuery)
   const date = data?.event.date
   const venue = data?.content.location?.name
@@ -545,23 +579,31 @@ function Fireflies({ opened, names, writing, onDone }: { opened: boolean; names?
             m.vx += ((m.tx - m.x) * pull - m.vx * Math.sqrt(pull) * 1.6) * dt
             m.vy += ((m.ty - m.y) * pull - m.vy * Math.sqrt(pull) * 1.6) * dt
             // The lights dim while the lettering comes up underneath them.
-            const fade = Math.max(0, 1 - Math.max(0, since - REVEAL / 1000 + 0.2) / 2.2)
+            const fade = Math.max(0, 1 - Math.max(0, since - (m.fade ?? REVEAL / 1000) + 0.2) / (m.fade ? 1.4 : 2.2))
             alpha = (0.75 + 0.25 * Math.sin(time * 4 + m.phase)) * fade * Math.min(1, age / 0.3)
-            radius = 1.1 + m.size * 1.7
+            radius = 0.6 + m.size * 2.35
           } else {
             // A firefly: it flies to its stretch of the names, then along it.
-            const start = m.start ?? ARRIVE
-            const span = m.span ?? GLIDE
-            const along = Math.min(1, Math.max(0, (since - start) / span))
-            const lo = m.lo ?? m.x
+            let start = m.start ?? ARRIVE
+            let span = m.span ?? GLIDE
+            let lo = m.lo ?? m.x
+            let hi = m.hi ?? lo
+            let mid = m.mid ?? m.y
             // In a swarm each one circles the point that moves along the names.
-            const round = m.start === undefined ? 0 : m.orbit
-            const goalX = lo + ((m.hi ?? lo) - lo) * along + Math.cos(time * m.spin + m.phase) * round
-            const goalY = (m.mid ?? m.y) + (round ? Math.sin(time * m.spin + m.phase) * round * 0.8 : Math.sin(time * 5 + m.phase) * 7)
+            let round = m.start === undefined ? 0 : m.orbit
+            for (const leg of m.legs ?? []) {
+              if (since < leg.start - HOP) break
+              ;({ start, span, lo, hi, mid } = leg)
+              round = 4 + (m.phase / (Math.PI * 2)) * 10
+            }
+            const along = Math.min(1, Math.max(0, (since - start) / span))
+            const turn = m.spin || 3
+            const goalX = lo + (hi - lo) * along + Math.cos(time * turn + m.phase) * round
+            const goalY = mid + (round ? Math.sin(time * turn + m.phase) * round * 0.8 : Math.sin(time * 5 + m.phase) * 7)
             const pull = 6 + 54 * Math.min(1, since / ARRIVE) ** 2
             m.vx += ((goalX - m.x) * pull - m.vx * Math.sqrt(pull) * 1.6) * dt
             m.vy += ((goalY - m.y) * pull - m.vy * Math.sqrt(pull) * 1.6) * dt
-            alpha = 0.6 * Math.max(0, 1 - Math.max(0, since - start - span) / 0.6)
+            alpha = 0.6 * Math.max(0, 1 - Math.max(0, since - (m.end ?? start + span)) / 0.6)
             radius = m.size * (6 - 2.8 * Math.min(1, since / ARRIVE))
           }
         } else {
@@ -642,6 +684,7 @@ function Fireflies({ opened, names, writing, onDone }: { opened: boolean; names?
   useEffect(() => {
     if (!opened) return
     let timer = 0
+    let later = 0
     let gone = false
     document.fonts.ready.then(() => {
       const el = canvas.current
@@ -715,14 +758,56 @@ function Fireflies({ opened, names, writing, onDone }: { opened: boolean; names?
           })
         })
       })
+      // The same swarm goes on to write the date and the place.
+      let end = ARRIVE + (swarm ? CROSS : GLIDE)
+      const more = details ? [dateLine.current, venueLine.current].filter((line): line is HTMLParagraphElement => !!line) : []
+      const lines = more.map((line) => {
+        const area = line.getBoundingClientRect()
+        const dots = letterPoints(line, area, 700).sort((a, b) => a[0] - b[0])
+        return { area, dots, small: parseFloat(getComputedStyle(line).fontSize) < 22 }
+      })
+      const lastEnd = end + lines.filter((l) => l.dots.length).length * (HOP + LINE)
+      for (const { area, dots, small } of lines) {
+        if (!dots.length) continue
+        const x = area.left - stage.left
+        const y = area.top - stage.top
+        const leg = { lo: x + dots[0][0], hi: x + dots[dots.length - 1][0], mid: y + area.height / 2, start: end + HOP, span: LINE }
+        for (const fly of flies) {
+          ;(fly.legs ??= []).push(leg)
+          fly.end = lastEnd
+        }
+        for (const dot of dots) {
+          all.push({
+            x: 0,
+            y: 0,
+            vx: 0,
+            vy: 0,
+            turn: 0,
+            phase: Math.random() * Math.PI * 2,
+            pace: 1,
+            size: small ? 0.25 : 0.5,
+            held: true,
+            orbit: 0,
+            spin: 0,
+            tx: x + dot[0],
+            ty: y + dot[1],
+            wait: leg.start + LINE * (leg.hi > leg.lo ? (x + dot[0] - leg.lo) / (leg.hi - leg.lo) : 0),
+            parent: flies[Math.floor(Math.random() * flies.length)],
+            fade: lastEnd + 0.5,
+          })
+        }
+        end = leg.start + LINE
+      }
       form.current = { at: performance.now(), x: box.left - stage.left + box.width / 2, y: box.top - stage.top + box.height / 2 }
       timer = window.setTimeout(() => setShown(true), REVEAL)
+      later = window.setTimeout(() => setRest(true), lines.length ? (lastEnd + 0.5) * 1000 : REVEAL + 300)
     })
     return () => {
       gone = true
       clearTimeout(timer)
+      clearTimeout(later)
     }
-  }, [opened, writing])
+  }, [opened, writing, details])
 
   const place = (e: PointerEvent<HTMLDivElement>) => {
     const box = e.currentTarget.getBoundingClientRect()
@@ -739,7 +824,7 @@ function Fireflies({ opened, names, writing, onDone }: { opened: boolean; names?
         className="pointer-events-none absolute inset-0 size-full"
         initial={false}
         animate={{ opacity: opened ? 0 : 1 }}
-        transition={{ duration: 1, delay: opened ? 5.2 : 0 }}
+        transition={{ duration: 1, delay: opened ? (details ? 7.2 : 4.8) : 0 }}
       />
       {!opened && (
         <div
@@ -787,11 +872,19 @@ function Fireflies({ opened, names, writing, onDone }: { opened: boolean; names?
             >
               {names}
             </motion.p>
-            <div className="invisible" aria-hidden>
-              <div className="my-6 h-px" />
-              {date && <p className="font-display text-3xl">{formatDate(date)}</p>}
-              {venue && <p className="mt-6 text-base font-medium tracking-[0.25em] uppercase">{venue}</p>}
-            </div>
+            <motion.div initial={false} animate={{ opacity: rest ? 1 : 0 }} transition={{ duration: 1.2, ease: 'easeInOut' }}>
+              <div className="mx-auto my-6 h-px w-32 bg-gradient-to-r from-transparent via-[#d9c9a3] to-transparent" />
+              {date && (
+                <p ref={dateLine} className="font-display text-3xl text-[#ecdcb0]">
+                  {formatDate(date)}
+                </p>
+              )}
+              {venue && (
+                <p ref={venueLine} className="mt-6 text-base font-medium tracking-[0.25em] uppercase">
+                  {venue}
+                </p>
+              )}
+            </motion.div>
           </div>
           <div className="mt-6 min-h-12" />
         </div>

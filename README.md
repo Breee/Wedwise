@@ -46,7 +46,8 @@ third-party SaaS required.
   the invitation greets them ("Liebe Anna und Ben,") and the reply form starts
   with their names filled in. The code page is a night sky or an envelope with a wax
   seal that breaks open; choose under "Inhalte" → "Design", where the heading
-  font can be picked too. Guests answer per household and get a private link to
+  font and the way the fireflies write the names (and, if wanted, date and
+  place) can be picked too, with a preview. Guests answer per household and get a private link to
   edit their answer later.
 - 🎁 **Contributions** — guests can offer a programme item. Only witnesses and
   admins see these (Kanban board, schedule planning); the couple only sees

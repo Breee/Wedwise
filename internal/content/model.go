@@ -97,6 +97,8 @@ type Content struct {
 	Theme         string          `json:"theme"`         // name of the active theme preset
 	Privacy       string          `json:"privacy"`       // optional privacy note shown in the footer
 	DisplayFont   string          `json:"displayFont"`   // heading font: empty for the theme's own
+	InviteDetails string          `json:"inviteDetails"` // drawn: the fireflies also write date and place
+	InviteWriting string          `json:"inviteWriting"` // how the fireflies write the names: letters (default) or sweep
 	InviteOpening string          `json:"inviteOpening"` // how /join-us looks: night (default) or envelope
 	UpdatedAt     time.Time       `json:"updatedAt"`
 }

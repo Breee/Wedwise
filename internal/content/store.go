@@ -42,6 +42,8 @@ const (
 	keyPrivacy              = "privacy"
 	keyInviteOpening        = "invite.opening"
 	keyDisplayFont          = "theme.displayFont"
+	keyInviteWriting        = "invite.writing"
+	keyInviteDetails        = "invite.details"
 	keyNames                = "names"
 	keyDate                 = "date"
 	maxNames                = 4
@@ -80,6 +82,8 @@ func (s *Store) Get(ctx context.Context) (Content, error) {
 		Privacy:       blocks[keyPrivacy],
 		InviteOpening: blocks[keyInviteOpening],
 		DisplayFont:   blocks[keyDisplayFont],
+		InviteWriting: blocks[keyInviteWriting],
+		InviteDetails: blocks[keyInviteDetails],
 		Date:          blocks[keyDate],
 		UpdatedAt:     updatedAt,
 	}
@@ -143,6 +147,8 @@ func (s *Store) Replace(ctx context.Context, updated Content) (Content, error) {
 		keyPrivacy:             normalized.Privacy,
 		keyInviteOpening:       normalized.InviteOpening,
 		keyDisplayFont:         normalized.DisplayFont,
+		keyInviteWriting:       normalized.InviteWriting,
+		keyInviteDetails:       normalized.InviteDetails,
 		keyNames:               encodeBlock(normalized.Names),
 		keyDate:                normalized.Date,
 		keyTravel:              encodeBlock(normalized.Travel),
@@ -284,6 +290,16 @@ func normalize(input Content) (Content, error) {
 	case "", "night", "envelope":
 	default:
 		return Content{}, fmt.Errorf("%w: inviteOpening must be night or envelope", ErrValidation)
+	}
+	switch input.InviteDetails {
+	case "", "drawn":
+	default:
+		return Content{}, fmt.Errorf("%w: inviteDetails must be drawn or empty", ErrValidation)
+	}
+	switch input.InviteWriting {
+	case "", "letters", "sweep":
+	default:
+		return Content{}, fmt.Errorf("%w: inviteWriting must be letters or sweep", ErrValidation)
 	}
 	switch input.DisplayFont {
 	case "", "playfair", "garamond", "fraunces", "lora":

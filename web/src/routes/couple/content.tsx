@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { t } from '@/lib/i18n'
 import { createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient, useSuspenseQuery } from '@tanstack/react-query'
-import { ArrowDown, ArrowUp, Download, Plus, Trash2, Upload } from 'lucide-react'
+import { ArrowDown, ArrowUp, Download, Eye, Plus, Trash2, Upload } from 'lucide-react'
 import { toast } from 'sonner'
 import { api, errorMessage } from '@/lib/api'
 import { download } from '@/lib/handover'
@@ -132,6 +132,26 @@ function ContentPage() {
                 <p className="text-sm text-muted-foreground">{t('So sieht die Seite aus, auf der Gäste ihren Code eingeben.')}</p>
               </div>
               <div className="grid gap-2">
+                <Label>{t('Namen erscheinen')}</Label>
+                <Select value={draft.inviteWriting || 'letters'} onValueChange={(v) => set('inviteWriting', v as 'letters' | 'sweep')}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="letters">{t('Buchstabe für Buchstabe')}</SelectItem>
+                    <SelectItem value="sweep">{t('Alle auf einmal')}</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-sm text-muted-foreground">{t('So schreiben die Glühwürmchen eure Namen, wenn Gäste einen Link mit Code öffnen.')}</p>
+                <label className="flex min-h-11 items-center gap-3 text-sm">
+                  <input
+                    type="checkbox"
+                    className="size-5 accent-primary"
+                    checked={draft.inviteDetails === 'drawn'}
+                    onChange={(e) => set('inviteDetails', e.target.checked ? 'drawn' : '')}
+                  />
+                  {t('Auch Datum und Ort schreiben')}
+                </label>
+              </div>
+              <div className="grid gap-2">
                 <Label>{t('Schrift für Überschriften')}</Label>
                 <Select value={draft.displayFont || 'theme'} onValueChange={(v) => set('displayFont', v === 'theme' ? '' : (v as DisplayFont))}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
@@ -149,6 +169,18 @@ function ContentPage() {
                 <p className="text-4xl" style={{ fontFamily: displayFamily(draft.displayFont, current?.fonts.display ?? '') }}>
                   {draft.names?.filter(Boolean).join(' & ') || 'Viktoria & Julian'}
                 </p>
+              </div>
+              <div className="sm:col-span-2">
+                <Button asChild variant="outline">
+                  <a
+                    href={`/join-us?preview=1&look=${draft.inviteOpening || 'night'}&write=${draft.inviteWriting || 'letters'}&details=${draft.inviteDetails === 'drawn' ? 1 : 0}&font=${draft.displayFont ?? ''}`}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    <Eye /> {t('Vorschau')}
+                  </a>
+                </Button>
+                <p className="mt-2 text-sm text-muted-foreground">{t('Zeigt die Einladung mit dieser Auswahl in einem neuen Tab, auch ungespeichert. Ein anderes Thema erst speichern.')}</p>
               </div>
             </CardContent>
           </Card>
