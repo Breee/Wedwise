@@ -394,9 +394,9 @@ function Fireflies({ opened, names, onDone }: { opened: boolean; names?: string;
       phase: Math.random() * Math.PI * 2,
       pace: 0.5 + Math.random() * 0.7,
       size: 1 + Math.random() * 1.1,
-      held: i < 4,
-      orbit: 14 + (i % 9) * 7,
-      spin: (i % 2 ? 1 : -1) * (0.4 + Math.random() * 0.5),
+      held: i < 8,
+      orbit: 30 + (i % 9) * 6,
+      spin: 0.9 + Math.random() * 0.6,
       tx: 0,
       ty: 0,
       wait: 0,
@@ -434,7 +434,7 @@ function Fireflies({ opened, names, onDone }: { opened: boolean; names?: string;
         c.drawImage(sprite, midX - 110, midY - 110, 220, 220)
       }
       let held = 0
-      const swell = 0.35 + 0.65 * (count.current / SWARM)
+      const swell = 0.9 + 0.35 * (count.current / SWARM)
       for (const m of motes.current) {
         let alpha: number
         let radius: number
@@ -462,8 +462,9 @@ function Fireflies({ opened, names, onDone }: { opened: boolean; names?: string;
           }
           if (m.held) {
             const angle = time * m.spin + m.phase
-            m.vx += ((midX + Math.cos(angle) * m.orbit * swell - m.x) * 14 - m.vx * 6) * dt
-            m.vy += ((midY + Math.sin(angle) * m.orbit * 0.8 * swell - m.y) * 14 - m.vy * 6) * dt
+            const ring = m.orbit * swell * (1 + 0.18 * Math.sin(time * 0.7 + m.phase * 3))
+            m.vx += ((midX + Math.cos(angle) * ring - m.x) * 40 - m.vx * 9) * dt
+            m.vy += ((midY + Math.sin(angle) * ring * 0.7 - m.y) * 40 - m.vy * 9) * dt
             held++
           } else {
             m.turn += (Math.random() - 0.5) * 1.5 * dt
