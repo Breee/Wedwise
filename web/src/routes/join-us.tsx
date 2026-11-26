@@ -180,7 +180,7 @@ function JoinPage() {
     <div className="fixed inset-0 overflow-hidden bg-[#121c17] text-[#f4efe2]">
       {/* Growing from the top edge, the picture moves up into the sky with the lantern. */}
       <motion.div
-        className="absolute inset-0 origin-top"
+        className="absolute inset-x-0 top-0 h-lvh origin-top"
         initial={false}
         animate={{ scale: lantern && opened ? 1.7 : 1 }}
         transition={{ duration: 2.8, delay: 0.9, ease: 'easeInOut' }}
@@ -580,7 +580,15 @@ function Fireflies({ opened, guest, names, onDone }: { opened: boolean; guest?: 
 
   return (
     <>
-      <canvas ref={canvas} aria-hidden className="pointer-events-none absolute inset-0 size-full" />
+      {/* The last lights fade before the invitation page takes over. */}
+      <motion.canvas
+        ref={canvas}
+        aria-hidden
+        className="pointer-events-none absolute inset-0 size-full"
+        initial={false}
+        animate={{ opacity: opened ? 0 : 1 }}
+        transition={{ duration: 1, delay: opened ? 5.2 : 0 }}
+      />
       {!opened && (
         <div
           aria-hidden

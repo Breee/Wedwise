@@ -26,7 +26,7 @@ export function InviteStory({ target, name, lit }: { target: string; name?: stri
   return (
     <div className="relative bg-[#121c17] text-[#f4efe2]">
       <div className="sticky top-0 h-lvh overflow-hidden">
-        <DuskScene variant={variant} />
+        <DuskScene variant={variant} settled={lit} />
         <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/55 to-black/80" />
       </div>
       <div className="relative -mt-[100lvh]">

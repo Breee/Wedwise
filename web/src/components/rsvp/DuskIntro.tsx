@@ -45,13 +45,14 @@ const IMAGES: Record<SceneVariant, { wide: string; tall: string }> = {
   },
 };
 
-export function DuskScene({ variant = "dusk" }: { variant?: SceneVariant }) {
+// settled: the picture is already on screen, so it appears without its entrance.
+export function DuskScene({ variant = "dusk", settled = false }: { variant?: SceneVariant; settled?: boolean }) {
   const flies = useMemo(
     () => makeFireflies(variant === "night" ? 34 : 26),
     [variant],
   );
   const reduced = useReducedMotion();
-  const animated = variant === "forest" && !reduced;
+  const animated = variant === "forest" && !reduced && !settled;
   const d = animated ? REVEAL_S : 0;
   const img = IMAGES[variant];
   const layer = (base: object, extra?: object) => ({ ...base, ...extra });
@@ -62,7 +63,9 @@ export function DuskScene({ variant = "dusk" }: { variant?: SceneVariant }) {
         initial={
           animated
             ? { scale: 1.25, filter: "brightness(0.55) blur(3px)" }
-            : { opacity: 0 }
+            : settled
+              ? false
+              : { opacity: 0 }
         }
         animate={
           animated
