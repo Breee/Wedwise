@@ -141,15 +141,6 @@ function ContentPage() {
                   </SelectContent>
                 </Select>
                 <p className="text-sm text-muted-foreground">{t('So schreiben die Glühwürmchen eure Namen, wenn Gäste einen Link mit Code öffnen.')}</p>
-                <label className="flex min-h-11 items-center gap-3 text-sm">
-                  <input
-                    type="checkbox"
-                    className="size-5 accent-primary"
-                    checked={draft.inviteDetails === 'drawn'}
-                    onChange={(e) => set('inviteDetails', e.target.checked ? 'drawn' : '')}
-                  />
-                  {t('Auch Datum und Ort schreiben')}
-                </label>
               </div>
               <div className="grid gap-2">
                 <Label>{t('Schrift für Überschriften')}</Label>
@@ -173,7 +164,7 @@ function ContentPage() {
               <div className="sm:col-span-2">
                 <Button asChild variant="outline">
                   <a
-                    href={`/join-us?preview=1&look=${draft.inviteOpening || 'night'}&write=${draft.inviteWriting || 'letters'}&details=${draft.inviteDetails === 'drawn' ? 1 : 0}&font=${draft.displayFont ?? ''}`}
+                    href={`/join-us?preview=1&look=${draft.inviteOpening || 'night'}&write=${draft.inviteWriting || 'letters'}&font=${draft.displayFont ?? ''}`}
                     target="_blank"
                     rel="noreferrer"
                   >

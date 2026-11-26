@@ -288,16 +288,15 @@ export function RsvpForm({ initial, link, guests, onDone }: FormProps) {
             </CardHeader>
             <CardContent className="space-y-4">
               {attendees.map((a, i) => (
-                <div key={i} className="space-y-3 rounded-lg border bg-background/60 p-4">
-                  <div className="flex min-h-6 items-center justify-between gap-2">
-                    <Label htmlFor={`name-${i}`}>{t('{n}. Person', { n: i + 1 })} {req}</Label>
+                <div key={i} className="space-y-2 rounded-lg border bg-background/60 p-3">
+                  <div className="flex items-center gap-1">
+                    <Input id={`name-${i}`} aria-label={t('{n}. Person', { n: i + 1 })} placeholder={`${t('{n}. Person', { n: i + 1 })} *`} value={a.name} onChange={(e) => updateAttendee(i, { name: e.target.value })} required autoCapitalize="words" enterKeyHint="done" />
                     {attendees.length > 1 && (
-                      <Button type="button" variant="ghost" size="icon" className="-my-3 -mr-2 size-11 text-muted-foreground sm:size-9" title={t('Entfernen')} aria-label={t('Entfernen')} onClick={() => setAttendees((l) => l.filter((_, k) => k !== i))}>
+                      <Button type="button" variant="ghost" size="icon" className="-mr-2 size-11 shrink-0 text-muted-foreground sm:size-9" title={t('Entfernen')} aria-label={t('Entfernen')} onClick={() => setAttendees((l) => l.filter((_, k) => k !== i))}>
                         <X className="size-4" />
                       </Button>
                     )}
                   </div>
-                  <Input id={`name-${i}`} placeholder={t('Name')} value={a.name} onChange={(e) => updateAttendee(i, { name: e.target.value })} required autoCapitalize="words" enterKeyHint="done" />
                   <PersonDetails attendee={a} index={i} update={(patch) => updateAttendee(i, patch)} />
                 </div>
               ))}
@@ -511,7 +510,7 @@ export function RsvpForm({ initial, link, guests, onDone }: FormProps) {
   )
 }
 
-const check = 'flex min-h-10 items-center gap-3 font-normal sm:min-h-8'
+const check = 'flex min-h-10 items-center gap-2 font-normal sm:min-h-8'
 
 function PersonDetails({ attendee: a, index: i, update }: { attendee: Attendee; index: number; update: (patch: Partial<Attendee>) => void }) {
   const hasFood = (a.diet || 'none') !== 'none' || a.allergies.trim() !== ''
@@ -519,7 +518,7 @@ function PersonDetails({ attendee: a, index: i, update }: { attendee: Attendee; 
   const food = open || hasFood
   return (
     <>
-      <div>
+      <div className="flex flex-wrap gap-x-6">
         <Label className={check}>
           <Checkbox checked={a.isChild} onCheckedChange={(c) => update({ isChild: c === true, photoOk: c !== true })} />
           {t('Kind')}
@@ -532,7 +531,7 @@ function PersonDetails({ attendee: a, index: i, update }: { attendee: Attendee; 
               setOpen(c === true)
             }}
           />
-          {t('Besondere Ernährung oder Allergien')}
+          {t('Ernährung / Allergien')}
         </Label>
       </div>
       {a.isChild && (
@@ -563,26 +562,20 @@ function PersonDetails({ attendee: a, index: i, update }: { attendee: Attendee; 
         </div>
       )}
       {food && (
-        <div className="space-y-3">
-          <div className="space-y-2">
-            <Label>{t('Ernährung')}</Label>
-            <Select value={a.diet || 'none'} onValueChange={(v) => update({ diet: v as Attendee['diet'] })}>
-              <SelectTrigger className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {DIET_OPTIONS.map((o) => (
-                  <SelectItem key={o.value} value={o.value}>
-                    {o.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor={`allergies-${i}`}>{t('Allergien')}</Label>
-            <Input id={`allergies-${i}`} value={a.allergies} onChange={(e) => update({ allergies: e.target.value })} />
-          </div>
+        <div className="grid gap-2 sm:grid-cols-2">
+          <Select value={a.diet || 'none'} onValueChange={(v) => update({ diet: v as Attendee['diet'] })}>
+            <SelectTrigger className="w-full" aria-label={t('Ernährung')}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {DIET_OPTIONS.map((o) => (
+                <SelectItem key={o.value} value={o.value}>
+                  {o.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Input id={`allergies-${i}`} aria-label={t('Allergien')} placeholder={t('Allergien')} value={a.allergies} onChange={(e) => update({ allergies: e.target.value })} />
         </div>
       )}
     </>

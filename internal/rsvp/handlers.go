@@ -476,7 +476,7 @@ func (h *Handler) create(w http.ResponseWriter, r *http.Request) {
 	response, token, err := h.store.Create(r.Context(), link.ID, userID, req.toParams())
 	if err != nil {
 		if guest {
-			_ = h.store.DropGuests(r.Context())
+			_ = h.store.DropGuest(r.Context(), userID)
 		}
 		h.writeError(w, err)
 		return

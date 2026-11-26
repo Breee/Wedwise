@@ -240,6 +240,17 @@ func (s *Store) Delete(ctx context.Context, id int64) error {
 	return s.DropGuests(ctx)
 }
 
+// DropGuest removes one guest account that never got a response. Other
+// guests without one may be in the middle of sending theirs.
+func (s *Store) DropGuest(ctx context.Context, userID int64) error {
+	_, err := s.db.ExecContext(ctx, `DELETE FROM users WHERE id = ? AND role = 'guest'
+		AND id NOT IN (SELECT user_id FROM responses WHERE user_id IS NOT NULL)`, userID)
+	if err != nil {
+		return fmt.Errorf("drop guest account: %w", err)
+	}
+	return nil
+}
+
 // DropGuests removes guest accounts whose response is gone.
 func (s *Store) DropGuests(ctx context.Context) error {
 	_, err := s.db.ExecContext(ctx, `DELETE FROM users WHERE role = 'guest'

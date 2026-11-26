@@ -74,8 +74,10 @@
   h1, h2, h3, h4 {
     @apply font-display;
   }
-  /* Invitation: every screen (title, schedule, reply form) snaps into place. */
-  html:has(#invite-title) {
+  /* Invitation: every screen (title, schedule, reply form) snaps into place.
+     Not while someone is filling in the form: the keyboard and a growing form
+     would make the page snap away from the field being typed in. */
+  html:has(#invite-title):not(:has(#antwort:focus-within)) {
     scroll-snap-type: y mandatory;
   }
   html:has(#invite-title) footer {
