@@ -268,7 +268,7 @@ function JoinPage() {
 // draws them in and they follow it; once most are gathered they rise,
 // multiply and settle into the couple's names, which then become the real
 // lettering of the invitation.
-const SWARM = 44
+const SWARM = 28
 const REVEAL = 2500
 
 type Mote = {
@@ -277,6 +277,7 @@ type Mote = {
   vx: number
   vy: number
   turn: number
+  dir: number
   phase: number
   pace: number
   size: number
@@ -348,6 +349,7 @@ function Fireflies({ opened, guest, names, onDone }: { opened: boolean; guest?: 
   const finger = useRef({ x: 0, y: 0, down: false, since: 0, fromX: 0, fromY: 0, all: false, used: false })
   const form = useRef<{ at: number; x: number; y: number } | null>(null)
   const done = useRef(onDone)
+  const count = useRef(0)
   done.current = onDone
   const [shown, setShown] = useState(false)
 
@@ -356,6 +358,10 @@ function Fireflies({ opened, guest, names, onDone }: { opened: boolean; guest?: 
     if (!el) return
     const c = el.getContext('2d')!
     const sprite = lightSprite()
+    const body = new Image()
+    body.src = '/decor/firefly-body.webp'
+    const wing = new Image()
+    wing.src = '/decor/firefly-wing.webp'
     let width = 0
     let height = 0
     const fit = () => {
@@ -375,6 +381,7 @@ function Fireflies({ opened, guest, names, onDone }: { opened: boolean; guest?: 
       vx: 0,
       vy: 0,
       turn: Math.random() * Math.PI * 2,
+      dir: 0,
       phase: Math.random() * Math.PI * 2,
       pace: 0.9 + Math.random() * 1.3,
       size: 1 + Math.random() * 1.1,
@@ -400,14 +407,16 @@ function Fireflies({ opened, guest, names, onDone }: { opened: boolean; guest?: 
 
       // Fading the last frame instead of clearing it leaves a short trail.
       c.globalCompositeOperation = 'destination-out'
-      c.fillStyle = `rgba(0,0,0,${1 - Math.exp(-dt * 13)})`
+      c.fillStyle = `rgba(0,0,0,${1 - Math.exp(-dt * (shape ? 13 : 45))})`
       c.fillRect(0, 0, width, height)
       c.globalCompositeOperation = 'lighter'
 
       const reach = hand.all ? Infinity : hand.down ? Math.min(130 + ((now - hand.since) / 1000) * 70, 280) : 0
+      // Caught lights gather in the middle of the picture.
+      const midX = width / 2
+      const midY = height * 0.5
       let held = 0
-      let sumX = 0
-      let sumY = 0
+      const swell = 0.35 + 0.65 * (count.current / SWARM)
       for (const m of motes.current) {
         let alpha: number
         let radius: number
@@ -423,8 +432,8 @@ function Fireflies({ opened, guest, names, onDone }: { opened: boolean; guest?: 
           m.size += (0.75 - m.size) * Math.min(1, dt * 2)
           radius = 1 + m.size * 2.4
         } else {
-          const dx = hand.x - m.x
-          const dy = hand.y - m.y
+          const dx = (hand.all ? midX : hand.x) - m.x
+          const dy = (hand.all ? midY : hand.y) - m.y
           const far = Math.hypot(dx, dy)
           if (!m.held && hand.used && far < reach) {
             const pull = hand.all ? 500 : 700 * (1 - far / reach) + 120
@@ -434,11 +443,9 @@ function Fireflies({ opened, guest, names, onDone }: { opened: boolean; guest?: 
           }
           if (m.held) {
             const angle = time * m.spin + m.phase
-            m.vx += ((hand.x + Math.cos(angle) * m.orbit - m.x) * 42 - m.vx * 8) * dt
-            m.vy += ((hand.y + Math.sin(angle) * m.orbit * 0.8 - m.y) * 42 - m.vy * 8) * dt
+            m.vx += ((midX + Math.cos(angle) * m.orbit * swell - m.x) * 30 - m.vx * 7) * dt
+            m.vy += ((midY + Math.sin(angle) * m.orbit * 0.8 * swell - m.y) * 30 - m.vy * 7) * dt
             held++
-            sumX += m.x
-            sumY += m.y
           } else {
             m.turn += (Math.random() - 0.5) * 3 * dt
             m.vx += Math.cos(m.turn) * 16 * dt
@@ -461,6 +468,31 @@ function Fireflies({ opened, guest, names, onDone }: { opened: boolean; guest?: 
         if (alpha <= 0.01) continue
         c.globalAlpha = alpha
         c.drawImage(sprite, m.x - radius, m.y - radius, radius * 2, radius * 2)
+        const insect = shape ? Math.max(0, 1 - since / 0.4) : 1
+        if (insect && m.pace !== 1 && body.naturalWidth && wing.naturalWidth) {
+          // The insect itself: head first along its path, wings beating.
+          const go = Math.atan2(m.vy, m.vx) + Math.PI / 2
+          if (Math.hypot(m.vx, m.vy) > 4) m.dir += Math.atan2(Math.sin(go - m.dir), Math.cos(go - m.dir)) * Math.min(1, dt * 6)
+          const span = m.size * 22
+          const reach = span * 0.42
+          const beat = Math.sin(time * 70 + m.phase * 9)
+          c.save()
+          c.globalCompositeOperation = 'source-over'
+          c.translate(m.x, m.y)
+          c.rotate(m.dir)
+          c.globalAlpha = insect * 0.55
+          for (const side of [-1, 1]) {
+            c.save()
+            c.translate(0, -span * 0.145)
+            c.scale(side, 1)
+            c.rotate(-0.55 + beat * 0.5)
+            c.drawImage(wing, 0, 0, reach, reach * 0.433)
+            c.restore()
+          }
+          c.globalAlpha = insect * (0.5 + 0.5 * alpha)
+          c.drawImage(body, -span / 2, -span * 0.57, span, span)
+          c.restore()
+        }
         if (!shape && m.y < height * 0.66) {
           // A faint streak on the water below each light.
           const below = height * 0.7 + (height * 0.66 - m.y) * 0.22
@@ -471,11 +503,12 @@ function Fireflies({ opened, guest, names, onDone }: { opened: boolean; guest?: 
 
       // The gathered light warms the scene around it.
       if (!shape && held) {
-        const glow = 90 + held * 4
-        c.globalAlpha = 0.06 + 0.16 * (held / SWARM)
-        c.drawImage(sprite, sumX / held - glow, sumY / held - glow, glow * 2, glow * 2)
+        const glow = 50 + held * 7
+        c.globalAlpha = 0.1 + 0.3 * (held / SWARM)
+        c.drawImage(sprite, midX - glow, midY - glow, glow * 2, glow * 2)
       }
       c.globalAlpha = 1
+      count.current = held
 
       if (!shape && !full && held >= SWARM * 0.7) {
         full = true
@@ -516,6 +549,7 @@ function Fireflies({ opened, guest, names, onDone }: { opened: boolean; guest?: 
           vx: Math.cos(angle) * speed,
           vy: Math.sin(angle) * speed - 120,
           turn: 0,
+          dir: 0,
           phase: Math.random() * Math.PI * 2,
           pace: 1,
           size: 0.75,
