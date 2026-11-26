@@ -16,14 +16,19 @@ const EASE = [0.22, 1, 0.36, 1] as const
 // What a guest does to open a link that carries its code.
 const PLAYS = ['light', 'fireflies', 'lantern', 'stars', 'seal', 'ribbon'] as const
 type Play = (typeof PLAYS)[number]
+// How the fireflies write the names: one letter after the other, or all of
+// them at once along the whole line.
+const WRITINGS = ['letters', 'sweep'] as const
+type Writing = (typeof WRITINGS)[number]
 const NIGHT_PLAYS: Play[] = ['fireflies', 'lantern', 'stars']
 const GLOW = 'bg-[radial-gradient(circle,#fff6cf_0%,#f7e9a8_18%,rgba(247,233,168,0.35)_34%,rgba(247,233,168,0)_62%)]'
 
 export const Route = createFileRoute('/join-us')({
-  validateSearch: (s: Record<string, unknown>): { code?: string; look?: 'night' | 'envelope'; play?: Play } => ({
+  validateSearch: (s: Record<string, unknown>): { code?: string; look?: 'night' | 'envelope'; play?: Play; write?: Writing } => ({
     ...(typeof s.code === 'string' ? { code: s.code } : {}),
     ...(s.look === 'night' || s.look === 'envelope' ? { look: s.look } : {}),
     ...(PLAYS.includes(s.play as Play) ? { play: s.play as Play } : {}),
+    ...(WRITINGS.includes(s.write as Writing) ? { write: s.write as Writing } : {}),
   }),
   component: JoinPage,
 })
@@ -43,7 +48,7 @@ function openedBefore(code: string) {
 
 function JoinPage() {
   const navigate = useNavigate()
-  const { code: given, look, play } = Route.useSearch()
+  const { code: given, look, play, write } = Route.useSearch()
   const { data } = useQuery(publicContentQuery)
   const deco = data?.theme?.decoration as SceneVariant | undefined
   const [code, setCode] = useState(() => clean(given ?? ''))
@@ -287,7 +292,7 @@ function JoinPage() {
 
       {lantern && <SkyLantern lit={opened} onTap={direct && !tapped ? finish : undefined} />}
       {lantern && !direct && <Candles count={code.length} gone={opened} />}
-      {flies && <Fireflies opened={opened} names={names} onDone={finish} />}
+      {flies && <Fireflies opened={opened} names={names} writing={write ?? 'letters'} onDone={finish} />}
       {direct && game === 'stars' && <Stars onDone={finish} />}
       <div className="absolute inset-x-0 bottom-[6svh]">{skip}</div>
 
@@ -344,6 +349,8 @@ type Mote = {
   ty: number
   wait: number
   parent?: Mote
+  start?: number
+  span?: number
   lo?: number
   hi?: number
   mid?: number
@@ -379,17 +386,35 @@ function letterPoints(el: HTMLElement, box: DOMRect, most: number) {
   const up = metrics.fontBoundingBoxAscent
   const down = metrics.fontBoundingBoxDescent
   const range = document.createRange()
+  const letters: DOMRect[] = []
   for (let i = 0; i < text.length; i++) {
     range.setStart(node, i)
     range.setEnd(node, i + 1)
     const r = range.getBoundingClientRect()
-    if (r.width) c.fillText(text[i], r.left - box.left, r.top - box.top + (r.height - up - down) / 2 + up)
+    if (!r.width || !text[i].trim()) continue
+    c.fillText(text[i], r.left - box.left, r.top - box.top + (r.height - up - down) / 2 + up)
+    letters.push(r)
+  }
+  // Each point remembers which letter it belongs to: the one it lies in, or
+  // the nearest where two overlap.
+  const letterAt = (x: number, y: number) => {
+    let best = 0
+    let near = Infinity
+    letters.forEach((r, i) => {
+      const inside = y >= r.top - box.top && y <= r.bottom - box.top
+      const far = Math.abs(x - (r.left - box.left + r.width / 2)) + (inside ? 0 : 10000)
+      if (far < near) {
+        near = far
+        best = i
+      }
+    })
+    return best
   }
   const pixels = c.getImageData(0, 0, canvas.width, canvas.height).data
-  const points: [number, number][] = []
+  const points: [number, number, number][] = []
   for (let y = 0; y < canvas.height; y += 2) {
     for (let x = 0; x < canvas.width; x += 2) {
-      if (pixels[(y * canvas.width + x) * 4 + 3] > 120) points.push([x + Math.random(), y + Math.random()])
+      if (pixels[(y * canvas.width + x) * 4 + 3] > 120) points.push([x + Math.random(), y + Math.random(), letterAt(x, y)])
     }
   }
   for (let i = points.length - 1; i > 0; i--) {
@@ -399,7 +424,7 @@ function letterPoints(el: HTMLElement, box: DOMRect, most: number) {
   return points.slice(0, most)
 }
 
-function Fireflies({ opened, names, onDone }: { opened: boolean; names?: string; onDone: () => void }) {
+function Fireflies({ opened, names, writing, onDone }: { opened: boolean; names?: string; writing: Writing; onDone: () => void }) {
   const { data } = useQuery(publicContentQuery)
   const date = data?.event.date
   const venue = data?.content.location?.name
@@ -524,14 +549,16 @@ function Fireflies({ opened, names, onDone }: { opened: boolean; names?: string;
             radius = 1.6 + m.size * 3.2
           } else {
             // A firefly: it flies to its stretch of the names, then along it.
-            const along = Math.min(1, Math.max(0, (since - ARRIVE) / GLIDE))
+            const start = m.start ?? ARRIVE
+            const span = m.span ?? GLIDE
+            const along = Math.min(1, Math.max(0, (since - start) / span))
             const lo = m.lo ?? m.x
             const goalX = lo + ((m.hi ?? lo) - lo) * along
             const goalY = (m.mid ?? m.y) + Math.sin(time * 5 + m.phase) * 7
             const pull = 6 + 54 * Math.min(1, since / ARRIVE) ** 2
             m.vx += ((goalX - m.x) * pull - m.vx * Math.sqrt(pull) * 1.6) * dt
             m.vy += ((goalY - m.y) * pull - m.vy * Math.sqrt(pull) * 1.6) * dt
-            alpha = 0.6 * Math.max(0, 1 - Math.max(0, since - ARRIVE - GLIDE) / 0.6)
+            alpha = 0.6 * Math.max(0, 1 - Math.max(0, since - start - span) / 0.6)
             radius = m.size * (6 - 2.8 * Math.min(1, since / ARRIVE))
           }
         } else {
@@ -623,19 +650,37 @@ function Fireflies({ opened, names, onDone }: { opened: boolean; names?: string;
       const all = motes.current
       const left = box.left - stage.left
       const top = box.top - stage.top
-      // The fireflies share the names from left to right, each taking the
-      // stretch nearest to it, and drop its sparks as they fly along it.
+      // The fireflies share the names from left to right and drop their sparks
+      // as they fly along their part: a letter each, one after the other, or
+      // equal stretches of the line all at once.
       const flies = [...all].sort((a, b) => a.x - b.x)
       points.sort((a, b) => a[0] - b[0])
-      const share = Math.ceil(points.length / flies.length) || 1
-      flies.forEach((fly, i) => {
-        const own = points.slice(i * share, (i + 1) * share)
-        const lo = left + (own[0]?.[0] ?? box.width / 2)
-        const hi = left + (own[own.length - 1]?.[0] ?? box.width / 2)
-        fly.lo = lo
-        fly.hi = hi
-        fly.mid = top + box.height / 2
-        for (const point of own) {
+      let parts: [number, number, number][][] = []
+      if (writing === 'letters') {
+        for (const point of points) (parts[point[2]] ??= []).push(point)
+        parts = parts.filter(Boolean)
+      } else {
+        const share = Math.ceil(points.length / flies.length) || 1
+        for (let i = 0; i < points.length; i += share) parts.push(points.slice(i, i + share))
+      }
+      const step = writing === 'letters' ? 1.9 / Math.max(1, parts.length) : 0
+      const span = writing === 'letters' ? Math.max(0.35, step * 2) : GLIDE
+      const crew: Mote[][] = parts.map(() => [])
+      flies.forEach((fly, i) => crew[Math.min(parts.length - 1, Math.floor((i * parts.length) / flies.length))]?.push(fly))
+      parts.forEach((own, i) => {
+        // A part without a firefly of its own borrows the nearest one.
+        const team = crew[i].length ? crew[i] : flies.slice(0, 1)
+        const lo = left + own[0][0]
+        const hi = left + own[own.length - 1][0]
+        const start = ARRIVE + i * step
+        for (const fly of crew[i]) {
+          fly.lo = lo
+          fly.hi = hi
+          fly.mid = top + box.height / 2
+          fly.start = start
+          fly.span = span
+        }
+        own.forEach((point, n) => {
           all.push({
             x: 0,
             y: 0,
@@ -650,10 +695,10 @@ function Fireflies({ opened, names, onDone }: { opened: boolean; names?: string;
             spin: 0,
             tx: left + point[0],
             ty: top + point[1],
-            wait: ARRIVE + GLIDE * (hi > lo ? (left + point[0] - lo) / (hi - lo) : Math.random()),
-            parent: fly,
+            wait: start + span * (hi > lo ? (left + point[0] - lo) / (hi - lo) : Math.random()),
+            parent: team[n % team.length],
           })
-        }
+        })
       })
       form.current = { at: performance.now(), x: box.left - stage.left + box.width / 2, y: box.top - stage.top + box.height / 2 }
       timer = window.setTimeout(() => setShown(true), REVEAL)
@@ -662,7 +707,7 @@ function Fireflies({ opened, names, onDone }: { opened: boolean; names?: string;
       gone = true
       clearTimeout(timer)
     }
-  }, [opened])
+  }, [opened, writing])
 
   const place = (e: PointerEvent<HTMLDivElement>) => {
     const box = e.currentTarget.getBoundingClientRect()
