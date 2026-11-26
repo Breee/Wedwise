@@ -311,10 +311,10 @@ function JoinPage() {
 // multiply and settle into the couple's names, which then become the real
 // lettering of the invitation.
 const SWARM = 28
+// Seconds a firefly takes to reach the names, and to fly along its stretch.
+const ARRIVE = 1.1
+const GLIDE = 1.5
 const REVEAL = 3400
-// How long the fireflies take to reach the names, and then to write them.
-const ARRIVE = 1.3
-const WRITE = 2
 
 type Mote = {
   x: number
@@ -330,8 +330,11 @@ type Mote = {
   spin: number
   tx: number
   ty: number
-  path: [number, number][]
-  at: number
+  wait: number
+  parent?: Mote
+  lo?: number
+  hi?: number
+  mid?: number
 }
 
 function lightSprite() {
@@ -349,7 +352,7 @@ function lightSprite() {
 }
 
 // Where the lettering of an element sits, as points relative to the box.
-function letterPoints(el: HTMLElement, box: DOMRect) {
+function letterPoints(el: HTMLElement, box: DOMRect, most: number) {
   const node = el.firstChild
   if (!node || node.nodeType !== Node.TEXT_NODE) return []
   const text = node.textContent ?? ''
@@ -377,7 +380,11 @@ function letterPoints(el: HTMLElement, box: DOMRect) {
       if (pixels[(y * canvas.width + x) * 4 + 3] > 120) points.push([x + Math.random(), y + Math.random()])
     }
   }
-  return points
+  for (let i = points.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[points[i], points[j]] = [points[j], points[i]]
+  }
+  return points.slice(0, most)
 }
 
 function Fireflies({ opened, names, onDone }: { opened: boolean; names?: string; onDone: () => void }) {
@@ -442,8 +449,7 @@ function Fireflies({ opened, names, onDone }: { opened: boolean; names?: string;
         spin,
         tx: 0,
         ty: 0,
-        path: [],
-        at: 0,
+        wait: 0,
       }
     })
 
@@ -463,9 +469,7 @@ function Fireflies({ opened, names, onDone }: { opened: boolean; names?: string;
 
       // Fading the last frame instead of clearing it leaves a short trail.
       c.globalCompositeOperation = 'destination-out'
-      // What the fireflies write stays, until the lettering takes over.
-      const fading = !shape || since < ARRIVE ? 13 : since < REVEAL / 1000 ? 0.15 : 1.2
-      c.fillStyle = `rgba(0,0,0,${1 - Math.exp(-dt * fading)})`
+      c.fillStyle = `rgba(0,0,0,${1 - Math.exp(-dt * 13)})`
       c.fillRect(0, 0, width, height)
       c.globalCompositeOperation = 'lighter'
 
@@ -488,30 +492,35 @@ function Fireflies({ opened, names, onDone }: { opened: boolean; names?: string;
         let alpha: number
         let radius: number
         if (shape) {
-          const first = m.path[0]
-          if (!first) continue
-          if (since < ARRIVE) {
-            // Each firefly flies to where its part of the names begins.
-            const pull = 6 + 34 * (since / ARRIVE) ** 2
-            m.vx += ((first[0] - m.x) * pull - m.vx * Math.sqrt(pull) * 1.6) * dt
-            m.vy += ((first[1] - m.y) * pull - m.vy * Math.sqrt(pull) * 1.6) * dt
-            m.size += (0.9 - m.size) * Math.min(1, dt * 2)
-            alpha = 0.7
-            radius = m.size * 5
-          } else {
-            // Then it writes: every point it passes keeps a little light.
-            const to = Math.min(m.path.length - 1, Math.floor(((since - ARRIVE) / WRITE) * m.path.length))
-            if (m.at > to) continue
-            c.globalAlpha = 0.5
-            for (; m.at <= to; m.at++) {
-              const [x, y] = m.path[m.at]
-              c.drawImage(sprite, x - 2.8, y - 2.8, 5.6, 5.6)
-              m.x = x
-              m.y = y
+          if (m.parent) {
+            // A spark: dropped by its firefly as that passes, it settles into the letter.
+            const age = since - m.wait
+            if (age < 0) continue
+            if (m.held) {
+              m.held = false
+              m.x = m.parent.x
+              m.y = m.parent.y
+              m.vx = m.parent.vx * 0.2 + (Math.random() - 0.5) * 40
+              m.vy = m.parent.vy * 0.2 + (Math.random() - 0.5) * 40
             }
-            c.globalAlpha = 0.06
-            c.drawImage(sprite, m.x - 7, m.y - 7, 14, 14)
-            continue
+            const pull = 14 + 26 * Math.min(1, age / 0.8)
+            m.vx += ((m.tx - m.x) * pull - m.vx * Math.sqrt(pull) * 1.6) * dt
+            m.vy += ((m.ty - m.y) * pull - m.vy * Math.sqrt(pull) * 1.6) * dt
+            // The lights dim while the lettering comes up underneath them.
+            const fade = Math.max(0, 1 - Math.max(0, since - REVEAL / 1000 + 0.2) / 2.2)
+            alpha = (0.45 + 0.2 * Math.sin(time * 4 + m.phase)) * fade * Math.min(1, age / 0.3)
+            radius = 1 + m.size * 2.4
+          } else {
+            // A firefly: it flies to its stretch of the names, then along it.
+            const along = Math.min(1, Math.max(0, (since - ARRIVE) / GLIDE))
+            const lo = m.lo ?? m.x
+            const goalX = lo + ((m.hi ?? lo) - lo) * along
+            const goalY = (m.mid ?? m.y) + Math.sin(time * 5 + m.phase) * 7
+            const pull = 6 + 54 * Math.min(1, since / ARRIVE) ** 2
+            m.vx += ((goalX - m.x) * pull - m.vx * Math.sqrt(pull) * 1.6) * dt
+            m.vy += ((goalY - m.y) * pull - m.vy * Math.sqrt(pull) * 1.6) * dt
+            alpha = 0.6 * Math.max(0, 1 - Math.max(0, since - ARRIVE - GLIDE) / 0.6)
+            radius = m.size * (6 - 2.8 * Math.min(1, since / ARRIVE))
           }
         } else {
           const dx = (hand.all ? midX : hand.x) - m.x
@@ -587,7 +596,7 @@ function Fireflies({ opened, names, onDone }: { opened: boolean; names?: string;
     }
   }, [])
 
-  // The fireflies leave for the names and write them.
+  // The lights leave the finger and take the shape of the names.
   useEffect(() => {
     if (!opened) return
     let timer = 0
@@ -598,20 +607,41 @@ function Fireflies({ opened, names, onDone }: { opened: boolean; names?: string;
       if (gone || !el || !text) return
       const stage = el.getBoundingClientRect()
       const box = text.getBoundingClientRect()
-      const points = letterPoints(text, box)
-        .map(([x, y]): [number, number] => [box.left - stage.left + x, box.top - stage.top + y])
-        .sort((a, b) => a[0] - b[0])
-      // Only the fireflies on the screen write the names: each takes a strip
-      // of the lettering, from left to right, and works down it line by line.
-      const all = [...motes.current].sort((a, b) => a.x - b.x)
-      const share = Math.ceil(points.length / all.length)
-      all.forEach((m, i) => {
-        const strip = points.slice(i * share, (i + 1) * share)
-        m.path = strip.sort((a, b) => {
-          const row = Math.floor(a[1] / 2) - Math.floor(b[1] / 2)
-          return row || (Math.floor(a[1] / 2) % 2 ? b[0] - a[0] : a[0] - b[0])
-        })
-        m.at = 0
+      const points = letterPoints(text, box, stage.width < 640 ? 900 : 1500)
+      const all = motes.current
+      const left = box.left - stage.left
+      const top = box.top - stage.top
+      // The fireflies share the names from left to right, each taking the
+      // stretch nearest to it, and drop its sparks as they fly along it.
+      const flies = [...all].sort((a, b) => a.x - b.x)
+      points.sort((a, b) => a[0] - b[0])
+      const share = Math.ceil(points.length / flies.length) || 1
+      flies.forEach((fly, i) => {
+        const own = points.slice(i * share, (i + 1) * share)
+        const lo = left + (own[0]?.[0] ?? box.width / 2)
+        const hi = left + (own[own.length - 1]?.[0] ?? box.width / 2)
+        fly.lo = lo
+        fly.hi = hi
+        fly.mid = top + box.height / 2
+        for (const point of own) {
+          all.push({
+            x: 0,
+            y: 0,
+            vx: 0,
+            vy: 0,
+            turn: 0,
+            phase: Math.random() * Math.PI * 2,
+            pace: 1,
+            size: 0.75,
+            held: true,
+            orbit: 0,
+            spin: 0,
+            tx: left + point[0],
+            ty: top + point[1],
+            wait: ARRIVE + GLIDE * (hi > lo ? (left + point[0] - lo) / (hi - lo) : Math.random()),
+            parent: fly,
+          })
+        }
       })
       form.current = { at: performance.now(), x: box.left - stage.left + box.width / 2, y: box.top - stage.top + box.height / 2 }
       timer = window.setTimeout(() => setShown(true), REVEAL)
