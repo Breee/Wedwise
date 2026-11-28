@@ -186,6 +186,7 @@ func validContent() map[string]any {
 		"displayFont":   "playfair",
 		"inviteWriting": "sweep",
 		"replyPeople":   "dialog",
+		"inviteMessage": " {anrede} kommt vorbei: {link} ",
 		"names":         []string{" Anna ", "Ben", ""},
 		"date":          "2028-05-20",
 		"schedule": []map[string]any{
@@ -370,6 +371,7 @@ func TestContentUpdate_Couple(t *testing.T) {
 			DisplayFont   string `json:"displayFont"`
 			InviteWriting string `json:"inviteWriting"`
 			ReplyPeople   string `json:"replyPeople"`
+			InviteMessage string `json:"inviteMessage"`
 			Schedule      []struct {
 				Title string `json:"title"`
 				Order int    `json:"order"`
@@ -398,6 +400,9 @@ func TestContentUpdate_Couple(t *testing.T) {
 	}
 	if body.Content.ReplyPeople != "dialog" {
 		t.Fatalf("reply people not persisted: %q", body.Content.ReplyPeople)
+	}
+	if body.Content.InviteMessage != "{anrede} kommt vorbei: {link}" {
+		t.Fatalf("invite message not persisted: %q", body.Content.InviteMessage)
 	}
 	if body.Content.InviteWriting != "sweep" {
 		t.Fatalf("invite writing not persisted: %q", body.Content.InviteWriting)

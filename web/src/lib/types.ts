@@ -122,6 +122,7 @@ export interface Content {
   privacy?: string
   inviteWriting?: '' | 'letters' | 'sweep'
   replyPeople?: '' | 'list' | 'dialog'
+  inviteMessage?: string
   displayFont?: '' | 'playfair' | 'garamond' | 'fraunces' | 'lora'
   updatedAt?: string
 }
@@ -220,8 +221,15 @@ export interface ResponseWithAttendees extends Response {
   attendees: Attendee[]
 }
 
+export interface InvitePerson {
+  name: string
+  isChild: boolean
+  age: number
+}
+
 export interface InviteLinkStatus {
   guests: string[]
+  persons: InvitePerson[]
   salutation: '' | 'liebe' | 'lieber'
   pinRequired: boolean
   unlocked: boolean
@@ -232,6 +240,7 @@ export interface InviteLink {
   token: string
   code: string
   guests: string[]
+  persons: InvitePerson[]
   salutation: '' | 'liebe' | 'lieber'
   hasPin: boolean
   active: boolean

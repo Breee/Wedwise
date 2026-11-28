@@ -26,7 +26,7 @@ type pinRequest struct {
 }
 
 type nameRequest struct {
-	Guests     []string `json:"guests"`
+	Persons    []Person `json:"persons"`
 	Salutation string   `json:"salutation"`
 }
 
@@ -63,9 +63,20 @@ func (h *Handler) list(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) create(w http.ResponseWriter, r *http.Request) {
-	link, err := h.store.Create(r.Context())
+	// Without a body this is an open link, with persons an invitation.
+	var req nameRequest
+	if r.ContentLength != 0 && !httpx.DecodeJSON(w, r, &req) {
+		return
+	}
+	var link Link
+	var err error
+	if len(req.Persons) > 0 {
+		link, err = h.store.CreateFor(r.Context(), req.Persons, req.Salutation)
+	} else {
+		link, err = h.store.Create(r.Context())
+	}
 	if err != nil {
-		httpx.Internal(w, err)
+		writeError(w, err)
 		return
 	}
 	httpx.WriteJSON(w, http.StatusCreated, link)
@@ -93,7 +104,7 @@ func (h *Handler) setName(w http.ResponseWriter, r *http.Request) {
 	if !httpx.DecodeJSON(w, r, &req) {
 		return
 	}
-	link, err := h.store.SetGuests(r.Context(), id, req.Guests, req.Salutation)
+	link, err := h.store.SetPersons(r.Context(), id, req.Persons, req.Salutation)
 	h.respond(w, link, err)
 }
 

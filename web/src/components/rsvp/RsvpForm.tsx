@@ -8,7 +8,7 @@ import { toast } from 'sonner'
 import { api, errorMessage } from '@/lib/api'
 import { meQuery, publicContentQuery, rsvpQuery } from '@/lib/queries'
 import { DIET_OPTIONS, guestNames } from '@/lib/format'
-import type { Attendee, ContributionRequest, GuestView, RsvpStatus, RsvpSubmit } from '@/lib/types'
+import type { Attendee, ContributionRequest, GuestView, InvitePerson, RsvpStatus, RsvpSubmit } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -45,6 +45,7 @@ export type FormProps = {
   link?: string
   /** Persons the invite link names; they prefill a new response. */
   guests?: string[]
+  persons?: InvitePerson[]
   onDone: (view: GuestView) => void
 }
 
@@ -85,7 +86,9 @@ function readDraft(key: string, base: string): Draft | null {
   return null
 }
 
-export function RsvpForm({ initial, link, guests, onDone }: FormProps) {
+const invited = (p: InvitePerson): Attendee => ({ ...newAttendee(p.name), isChild: p.isChild, age: p.age, photoOk: !p.isChild })
+
+export function RsvpForm({ initial, link, guests, persons, onDone }: FormProps) {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { data: site } = useQuery(publicContentQuery)
@@ -98,7 +101,7 @@ export function RsvpForm({ initial, link, guests, onDone }: FormProps) {
 
   const [contactName, setContactName] = useState(draft?.contactName ?? initial?.contactName ?? (guests?.length ? guestNames(guests) : ''))
   const [status, setStatus] = useState<RsvpStatus>(draft?.status ?? initial?.status ?? 'yes')
-  const [attendees, setAttendees] = useState<Attendee[]>(draft?.attendees ?? (initial?.attendees?.length ? initial.attendees : guests?.length ? guests.map(newAttendee) : [newAttendee()]))
+  const [attendees, setAttendees] = useState<Attendee[]>(draft?.attendees ?? (initial?.attendees?.length ? initial.attendees : persons?.length ? persons.map(invited) : [newAttendee()]))
   const [message, setMessage] = useState(draft?.message ?? initial?.message ?? '')
   const [genres, setGenres] = useState<string[]>(draft?.genres ?? splitList(initial?.musicGenres ?? ''))
   const [song, setSong] = useState(draft?.song ?? initial?.musicSong ?? '')
@@ -585,7 +588,7 @@ export function RsvpForm({ initial, link, guests, onDone }: FormProps) {
 // "Kind, 5 Jahre · Vegetarisch · Nüsse"
 function personSummary(a: Attendee) {
   return [
-    a.isChild && (a.age ? t('Kind, {age} Jahre', { age: a.age }) : t('Kind')),
+    a.isChild && (a.age === 1 ? t('Kind, 1 Jahr') : a.age ? t('Kind, {age} Jahre', { age: a.age }) : t('Kind')),
     (a.diet || 'none') !== 'none' && DIET_OPTIONS.find((o) => o.value === a.diet)?.label,
     a.allergies.trim(),
   ]

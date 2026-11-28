@@ -44,7 +44,10 @@ third-party SaaS required.
   and share them. Each link also has a six-character code that guests can
   type in at `/join-us`, and can carry the names of the people it is for:
   the invitation greets them ("Liebe Anna und Ben,") and the reply form starts
-  with their names filled in. Opening the invitation is a night scene where
+  with their names filled in, children with their age. Such invitations can
+  be added one by one or pasted as a list (one line per invitation, e.g.
+  `ron,harry,somekid(kid,1y)`); each accepts one reply and has a message to
+  copy, built from a template under "Inhalte" → "Begrüßung". Opening the invitation is a night scene where
   fireflies write the couple's names. Under "Inhalte" → "Design" the heading
   font and the way the names are written can be picked, with a live preview.
   The reply form can list all persons on one page or open

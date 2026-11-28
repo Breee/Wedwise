@@ -38,7 +38,7 @@ export function Invitation({ link, lit }: { link: string; lit?: boolean }) {
         ) : done ? (
           <Done view={done} onEdit={() => setDone(null)} />
         ) : (
-          <RsvpForm key={own.data?.id ?? 0} link={link} guests={status.guests} initial={saved ?? own.data ?? undefined} onDone={finish} />
+          <RsvpForm key={own.data?.id ?? 0} link={link} guests={status.guests} persons={status.persons} initial={saved ?? own.data ?? undefined} onDone={finish} />
         )}
       </section>
     </>

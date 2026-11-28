@@ -8,6 +8,7 @@ import (
 	"crypto/rand"
 	"database/sql"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math/big"
@@ -38,7 +39,16 @@ const (
 
 	// MaxResponseLimit is the highest cap that can be set on a link.
 	MaxResponseLimit = 10000
+	maxChildAge      = 17
 )
+
+// Person is someone a link invites.
+type Person struct {
+	Name    string `json:"name"`
+	IsChild bool   `json:"isChild"`
+	// Age is only kept for children; 0 means not given.
+	Age int `json:"age"`
+}
 
 // Link is a shareable invite link.
 type Link struct {
@@ -46,7 +56,9 @@ type Link struct {
 	Token string `json:"token"`
 	// Code is the short code guests can type in instead of opening the link.
 	Code string `json:"code"`
-	// Name says whom the link is for; the invitation greets them with it.
+	// Persons says whom the link is for. A link with persons is an invitation.
+	Persons []Person `json:"persons"`
+	// Guests are the names of the persons; the invitation greets them.
 	Guests []string `json:"guests"`
 	// Salutation picks "Liebe" or "Lieber" for a single guest: "", "liebe" or "lieber".
 	Salutation string `json:"salutation"`
@@ -198,34 +210,70 @@ func (s *Store) GetByCode(ctx context.Context, code string) (Link, error) {
 	return s.queryOne(ctx, "SELECT "+columns+" FROM invite_links l WHERE l.code_hash = ?", tokens.Hash(code))
 }
 
-// SetGuests sets or, with no names, removes whom the link is for. The names
-// are stored one per line.
-func (s *Store) SetGuests(ctx context.Context, id int64, guests []string, salutation string) (Link, error) {
-	if salutation != "" && salutation != "liebe" && salutation != "lieber" {
-		return Link{}, fmt.Errorf("%w: unknown salutation", ErrValidation)
+// CreateFor inserts an invitation: a link for the given persons that takes
+// one response.
+func (s *Store) CreateFor(ctx context.Context, persons []Person, salutation string) (Link, error) {
+	sealed, err := s.sealPersons(persons, salutation)
+	if err != nil {
+		return Link{}, err
 	}
-	var names []string
-	for _, guest := range guests {
-		guest = strings.Join(strings.Fields(guest), " ")
-		if guest == "" {
-			continue
-		}
-		if len([]rune(guest)) > maxNameLen {
-			return Link{}, fmt.Errorf("%w: name must be at most %d characters", ErrValidation, maxNameLen)
-		}
-		names = append(names, guest)
+	if sealed == "" {
+		return Link{}, fmt.Errorf("%w: an invitation needs a person", ErrValidation)
 	}
-	if len(names) > MaxGuests {
-		return Link{}, fmt.Errorf("%w: at most %d persons", ErrValidation, MaxGuests)
+	link, err := s.Create(ctx)
+	if err != nil {
+		return Link{}, err
 	}
-	sealed := ""
-	if len(names) > 0 {
-		var err error
-		if sealed, err = s.vault.Seal(strings.Join(names, "\n")); err != nil {
-			return Link{}, fmt.Errorf("seal invite name: %w", err)
-		}
+	return s.update(ctx, link.ID, "name_enc = ?, salutation = ?, max_responses = 1", sealed, salutation)
+}
+
+// SetPersons sets or, with no names, removes whom the link is for.
+func (s *Store) SetPersons(ctx context.Context, id int64, persons []Person, salutation string) (Link, error) {
+	sealed, err := s.sealPersons(persons, salutation)
+	if err != nil {
+		return Link{}, err
 	}
 	return s.update(ctx, id, "name_enc = ?, salutation = ?", sealed, salutation)
+}
+
+// sealPersons checks the persons and seals them as JSON; persons without a
+// name are left out.
+func (s *Store) sealPersons(persons []Person, salutation string) (string, error) {
+	if salutation != "" && salutation != "liebe" && salutation != "lieber" {
+		return "", fmt.Errorf("%w: unknown salutation", ErrValidation)
+	}
+	var named []Person
+	for _, p := range persons {
+		p.Name = strings.Join(strings.Fields(p.Name), " ")
+		if p.Name == "" {
+			continue
+		}
+		if len([]rune(p.Name)) > maxNameLen {
+			return "", fmt.Errorf("%w: name must be at most %d characters", ErrValidation, maxNameLen)
+		}
+		if p.Age < 0 || p.Age > maxChildAge {
+			return "", fmt.Errorf("%w: age must be between 0 and %d", ErrValidation, maxChildAge)
+		}
+		if !p.IsChild {
+			p.Age = 0
+		}
+		named = append(named, p)
+	}
+	if len(named) > MaxGuests {
+		return "", fmt.Errorf("%w: at most %d persons", ErrValidation, MaxGuests)
+	}
+	if len(named) == 0 {
+		return "", nil
+	}
+	raw, err := json.Marshal(named)
+	if err != nil {
+		return "", fmt.Errorf("encode invite persons: %w", err)
+	}
+	sealed, err := s.vault.Seal(string(raw))
+	if err != nil {
+		return "", fmt.Errorf("seal invite persons: %w", err)
+	}
+	return sealed, nil
 }
 
 // SetPIN sets or, with an empty pin, removes the PIN of a link.
@@ -336,9 +384,18 @@ func (s *Store) scan(row scanner) (Link, error) {
 	// have to regenerate it to see the URL again.
 	l.Token = s.vault.OpenOrEmpty(sealed)
 	l.Code = s.vault.OpenOrEmpty(code)
+	l.Persons = []Person{}
 	l.Guests = []string{}
-	if names := s.vault.OpenOrEmpty(name); names != "" {
-		l.Guests = strings.Split(names, "\n")
+	// Older links hold one name per line instead of JSON.
+	if names := s.vault.OpenOrEmpty(name); strings.HasPrefix(names, "[") {
+		_ = json.Unmarshal([]byte(names), &l.Persons)
+	} else if names != "" {
+		for _, n := range strings.Split(names, "\n") {
+			l.Persons = append(l.Persons, Person{Name: n})
+		}
+	}
+	for _, p := range l.Persons {
+		l.Guests = append(l.Guests, p.Name)
 	}
 	l.HasPIN = l.pinHash != ""
 	return l, err

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"strings"
 	"time"
+	"unicode/utf8"
 )
 
 // ErrValidation is returned when input validation fails.
@@ -43,6 +44,8 @@ const (
 	keyDisplayFont          = "theme.displayFont"
 	keyInviteWriting        = "invite.writing"
 	keyReplyPeople          = "reply.people"
+	keyInviteMessage        = "invite.message"
+	maxInviteMessage        = 2000
 	keyNames                = "names"
 	keyDate                 = "date"
 	maxNames                = 4
@@ -82,6 +85,7 @@ func (s *Store) Get(ctx context.Context) (Content, error) {
 		DisplayFont:   blocks[keyDisplayFont],
 		InviteWriting: blocks[keyInviteWriting],
 		ReplyPeople:   blocks[keyReplyPeople],
+		InviteMessage: blocks[keyInviteMessage],
 		Date:          blocks[keyDate],
 		UpdatedAt:     updatedAt,
 	}
@@ -146,6 +150,7 @@ func (s *Store) Replace(ctx context.Context, updated Content) (Content, error) {
 		keyDisplayFont:         normalized.DisplayFont,
 		keyInviteWriting:       normalized.InviteWriting,
 		keyReplyPeople:         normalized.ReplyPeople,
+		keyInviteMessage:       normalized.InviteMessage,
 		keyNames:               encodeBlock(normalized.Names),
 		keyDate:                normalized.Date,
 		keyTravel:              encodeBlock(normalized.Travel),
@@ -292,6 +297,10 @@ func normalize(input Content) (Content, error) {
 	case "", "list", "dialog":
 	default:
 		return Content{}, fmt.Errorf("%w: replyPeople must be list or dialog", ErrValidation)
+	}
+	input.InviteMessage = strings.TrimSpace(input.InviteMessage)
+	if utf8.RuneCountInString(input.InviteMessage) > maxInviteMessage {
+		return Content{}, fmt.Errorf("%w: inviteMessage is too long", ErrValidation)
 	}
 	switch input.DisplayFont {
 	case "", "playfair", "garamond", "fraunces", "lora":

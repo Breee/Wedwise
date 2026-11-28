@@ -16,6 +16,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { DEFAULT_MESSAGE } from '@/lib/invitation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -211,6 +212,17 @@ function ContentPage() {
             <CardContent className="space-y-2">
               <Textarea rows={4} value={draft.privacy ?? ''} onChange={(e) => set('privacy', e.target.value)} />
               <p className="text-xs text-muted-foreground">{t('Optional. Erscheint im Fußbereich der Seite.')}</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>{t('Einladungsnachricht')}</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              <Textarea rows={4} maxLength={2000} value={draft.inviteMessage ?? ''} placeholder={DEFAULT_MESSAGE} onChange={(e) => set('inviteMessage', e.target.value)} />
+              <p className="text-xs text-muted-foreground">
+                {t('Diesen Text kopiert ihr unter „Einladungslinks“ für jede Einladung. Platzhalter: {anrede} für „Liebe Anna und Ben,“, {namen}, {link} und {code}. Leer lassen für den Text in Grau.')}
+              </p>
             </CardContent>
           </Card>
         </TabsContent>

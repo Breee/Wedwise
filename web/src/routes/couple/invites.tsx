@@ -2,19 +2,22 @@ import { useState } from 'react'
 import { copyText, reportLinkCopy } from '@/lib/clipboard'
 import { t } from '@/lib/i18n'
 import { createFileRoute } from '@tanstack/react-router'
-import { useMutation, useQueryClient, useSuspenseQuery } from '@tanstack/react-query'
-import { Copy, Eye, EyeOff, Gauge, KeyRound, Plus, RefreshCw, Share2, Trash2, UserRound } from 'lucide-react'
+import { useMutation, useQuery, useQueryClient, useSuspenseQuery } from '@tanstack/react-query'
+import { ClipboardList, Copy, Eye, EyeOff, Gauge, KeyRound, MessageSquareText, Plus, RefreshCw, Share2, Trash2, UserPlus, UserRound } from 'lucide-react'
 import { toast } from 'sonner'
 import { api, errorMessage } from '@/lib/api'
-import { inviteLinksQuery } from '@/lib/queries'
+import { inviteLinksQuery, publicContentQuery } from '@/lib/queries'
+import { codeUrl, inviteMessage, MAX_PERSONS, parseLine, sameGuests } from '@/lib/invitation'
 import { formatDateTime, greeting, guestNames } from '@/lib/format'
-import type { InviteLink } from '@/lib/types'
+import type { InviteLink, InvitePerson } from '@/lib/types'
 import { PageHeader } from '@/components/admin/PageHeader'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
+import { Textarea } from '@/components/ui/textarea'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import {
   Dialog,
@@ -31,14 +34,15 @@ export const Route = createFileRoute('/couple/invites')({
 })
 
 const linkUrl = (token: string) => `${window.location.origin}/rsvp/${token}`
-const codeUrl = (code: string) => `${window.location.origin}/join-us?code=${code}`
 
 function InvitesPage() {
   const queryClient = useQueryClient()
   const { data: links } = useSuspenseQuery(inviteLinksQuery)
   const [pinTarget, setPinTarget] = useState<InviteLink | null>(null)
   const [limitTarget, setLimitTarget] = useState<InviteLink | null>(null)
-  const [nameTarget, setNameTarget] = useState<InviteLink | null>(null)
+  const [nameTarget, setNameTarget] = useState<InviteLink | 'new' | null>(null)
+  const [pasting, setPasting] = useState(false)
+  const template = useQuery(publicContentQuery).data?.content.inviteMessage
   const [revealed, setRevealed] = useState<number | null>(null)
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: inviteLinksQuery.queryKey })
@@ -77,15 +81,28 @@ function InvitesPage() {
     copyText(codeUrl(l.code), t('Link kopiert.'))
   }
 
+  const copyMessage = (l: InviteLink) => {
+    reportLinkCopy('invite-link', l.id)
+    copyText(inviteMessage(template, l), t('Nachricht kopiert.'))
+  }
+
   return (
     <>
       <PageHeader
         title={t('Einladungslinks')}
-        description={t('Einen Link für alle oder mehrere Links für verschiedene Gruppen – optional mit PIN.')}
+        description={t('Eine Einladung für bestimmte Personen, oder ein offener Link für alle – optional mit PIN.')}
         action={
-          <Button onClick={() => create.mutate()} disabled={create.isPending}>
-            <Plus className="size-4" /> {t('Neuer Link')}
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button onClick={() => setNameTarget('new')}>
+              <UserPlus className="size-4" /> {t('Einladung hinzufügen')}
+            </Button>
+            <Button variant="outline" onClick={() => setPasting(true)}>
+              <ClipboardList className="size-4" /> {t('Liste einfügen')}
+            </Button>
+            <Button variant="outline" onClick={() => create.mutate()} disabled={create.isPending}>
+              <Plus className="size-4" /> {t('Offener Link')}
+            </Button>
+          </div>
         }
       />
       <Table className="block sm:table">
@@ -110,7 +127,12 @@ function InvitesPage() {
           {links.map((l) => (
             <TableRow key={l.id} className={`mb-3 flex flex-wrap items-center gap-x-4 gap-y-1 rounded-lg border bg-card p-3 sm:mb-0 sm:table-row sm:rounded-none sm:bg-transparent sm:p-0 ${l.active ? '' : 'opacity-60'}`}>
               <TableCell className="w-full min-w-0 p-0 sm:w-auto sm:p-2">
-                {l.guests.length > 0 && <p className="font-medium">{guestNames(l.guests)}</p>}
+                {l.guests.length > 0 && (
+                  <p className="flex flex-wrap items-center gap-2 font-medium">
+                    {guestNames(l.guests)}
+                    {l.responses > 0 ? <Badge>{t('Antwort da')}</Badge> : <Badge variant="outline">{t('Offen')}</Badge>}
+                  </p>
+                )}
                 {l.token ? (
                   <div className="flex items-center gap-1 font-mono text-xs">
                     <span className="truncate">{revealed === l.id ? linkUrl(l.token) : `${window.location.origin}/rsvp/••••••••••••`}</span>
@@ -146,7 +168,13 @@ function InvitesPage() {
                 <Switch checked={l.active} onCheckedChange={(active) => setActive.mutate({ id: l.id, active })} aria-label={t('Aktiv')} />
               </TableCell>
               <TableCell className="ml-auto p-0 text-right sm:p-2">
-                <div className="flex justify-end gap-1">
+                <div className="flex flex-wrap justify-end gap-1">
+                  {l.guests.length > 0 && l.token && l.code && (
+                    <Button variant="ghost" size="icon" className="h-10 w-auto gap-1.5 px-2 sm:size-9 sm:px-0" title={t('Nachricht kopieren')} onClick={() => copyMessage(l)}>
+                      <MessageSquareText className="size-4" />
+                      <span className="text-xs sm:hidden">{t('Nachricht')}</span>
+                    </Button>
+                  )}
                   <Button variant="ghost" size="icon" className="h-10 w-auto gap-1.5 px-2 sm:size-9 sm:px-0" title={t('Für wen ist der Link?')} onClick={() => setNameTarget(l)}>
                     <UserRound className="size-4" />
                     <span className="text-xs sm:hidden">{t('Name')}</span>
@@ -187,17 +215,25 @@ function InvitesPage() {
       </Table>
       <PinDialog link={pinTarget} onClose={() => setPinTarget(null)} onSaved={refresh} />
       {limitTarget && <LimitDialog key={limitTarget.id} link={limitTarget} onClose={() => setLimitTarget(null)} onSaved={refresh} />}
-      {nameTarget && <NameDialog key={nameTarget.id} link={nameTarget} onClose={() => setNameTarget(null)} onSaved={refresh} />}
+      {nameTarget && <NameDialog key={nameTarget === 'new' ? 0 : nameTarget.id} link={nameTarget === 'new' ? null : nameTarget} onClose={() => setNameTarget(null)} onSaved={refresh} />}
+      {pasting && <PasteDialog links={links} onClose={() => setPasting(false)} onSaved={refresh} />}
     </>
   )
 }
 
-function NameDialog({ link, onClose, onSaved }: { link: InviteLink; onClose: () => void; onSaved: () => void }) {
-  const [guests, setGuests] = useState(link.guests.length ? link.guests : [''])
-  const [salutation, setSalutation] = useState(link.salutation || 'liebe')
-  const named = guests.filter((g) => g.trim())
+const blank = (): InvitePerson => ({ name: '', isChild: false, age: 0 })
+
+function NameDialog({ link, onClose, onSaved }: { link: InviteLink | null; onClose: () => void; onSaved: () => void }) {
+  const [persons, setPersons] = useState<InvitePerson[]>(link?.persons.length ? link.persons : [blank()])
+  const [salutation, setSalutation] = useState(link?.salutation || 'liebe')
+  const named = persons.filter((p) => p.name.trim())
+  const names = named.map((p) => p.name.trim())
+  const change = (i: number, patch: Partial<InvitePerson>) => setPersons((l) => l.map((p, j) => (j === i ? { ...p, ...patch } : p)))
   const save = useMutation({
-    mutationFn: () => api.put(`/invite-links/${link.id}/name`, { guests: named, salutation: named.length === 1 ? salutation : '' }),
+    mutationFn: () => {
+      const body = { persons: named, salutation: named.length === 1 ? salutation : '' }
+      return link ? api.put(`/invite-links/${link.id}/name`, body) : api.post('/invite-links', body)
+    },
     onSuccess: () => {
       onSaved()
       onClose()
@@ -216,30 +252,52 @@ function NameDialog({ link, onClose, onSaved }: { link: InviteLink; onClose: () 
           className="space-y-4"
         >
           <DialogHeader>
-            <DialogTitle>{t('Für wen ist der Link?')}</DialogTitle>
-            <DialogDescription>{t('Die Einladung begrüßt die Gäste mit Namen, und das Antwortformular ist schon mit ihnen ausgefüllt. Leer lassen für keine Begrüßung.')}</DialogDescription>
+            <DialogTitle>{link ? t('Für wen ist der Link?') : t('Einladung hinzufügen')}</DialogTitle>
+            <DialogDescription>
+              {link
+                ? t('Die Einladung begrüßt die Gäste mit Namen, und das Antwortformular ist schon mit ihnen ausgefüllt. Leer lassen für keine Begrüßung.')
+                : t('Die Personen bekommen einen eigenen Link für eine Antwort. Die Einladung begrüßt sie mit Namen.')}
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-2">
-            {guests.map((guest, i) => (
-              <div key={i} className="flex items-center gap-2">
+            {persons.map((person, i) => (
+              <div key={i} className="flex flex-wrap items-center gap-x-3 gap-y-1">
                 <Input
-                  value={guest}
-                  onChange={(e) => setGuests((l) => l.map((g, j) => (j === i ? e.target.value : g)))}
+                  className="min-w-0 flex-1 basis-40"
+                  value={person.name}
+                  onChange={(e) => change(i, { name: e.target.value })}
                   maxLength={80}
-                  autoFocus={i === guests.length - 1}
+                  autoFocus={i === persons.length - 1}
                   autoComplete="off"
                   aria-label={t('Person {n}', { n: i + 1 })}
                   placeholder={t('Vorname')}
                 />
-                {guests.length > 1 && (
-                  <Button type="button" variant="ghost" size="icon" className="size-11 shrink-0 md:size-9" aria-label={t('Person entfernen')} onClick={() => setGuests((l) => l.filter((_, j) => j !== i))}>
+                <Label className="flex min-h-11 items-center gap-2 font-normal md:min-h-9">
+                  <Checkbox checked={person.isChild} onCheckedChange={(v) => change(i, { isChild: v === true, age: 0 })} />
+                  {t('Kind')}
+                </Label>
+                {person.isChild && (
+                  <Input
+                    className="w-20"
+                    type="number"
+                    inputMode="numeric"
+                    min={0}
+                    max={17}
+                    value={person.age || ''}
+                    onChange={(e) => change(i, { age: Math.min(17, Math.max(0, Number(e.target.value) || 0)) })}
+                    aria-label={t('Alter')}
+                    placeholder={t('Alter')}
+                  />
+                )}
+                {persons.length > 1 && (
+                  <Button type="button" variant="ghost" size="icon" className="size-11 shrink-0 md:size-9" aria-label={t('Person entfernen')} onClick={() => setPersons((l) => l.filter((_, j) => j !== i))}>
                     <Trash2 className="size-4" />
                   </Button>
                 )}
               </div>
             ))}
-            {guests.length < 10 && (
-              <Button type="button" variant="outline" size="sm" onClick={() => setGuests((l) => [...l, ''])}>
+            {persons.length < MAX_PERSONS && (
+              <Button type="button" variant="outline" size="sm" onClick={() => setPersons((l) => [...l, blank()])}>
                 <Plus className="size-4" />
                 {t('Weitere Person')}
               </Button>
@@ -249,15 +307,97 @@ function NameDialog({ link, onClose, onSaved }: { link: InviteLink; onClose: () 
             <div className="flex gap-2" role="group" aria-label={t('Anrede')}>
               {(['liebe', 'lieber'] as const).map((s) => (
                 <Button key={s} type="button" variant={salutation === s ? 'default' : 'outline'} size="sm" aria-pressed={salutation === s} onClick={() => setSalutation(s)}>
-                  {s === 'liebe' ? t('Liebe {names},', { names: named[0].trim() }) : t('Lieber {names},', { names: named[0].trim() })}
+                  {s === 'liebe' ? t('Liebe {names},', { names: names[0] }) : t('Lieber {names},', { names: names[0] })}
                 </Button>
               ))}
             </div>
           )}
-          {named.length > 0 && <p className="text-sm text-muted-foreground">{greeting(named.map((g) => g.trim()), salutation)}</p>}
+          {named.length > 0 && <p className="text-sm text-muted-foreground">{greeting(names, salutation)}</p>}
           <DialogFooter>
-            <Button type="submit" disabled={save.isPending}>
+            <Button type="submit" disabled={save.isPending || (!link && named.length === 0)}>
               {t('Speichern')}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function PasteDialog({ links, onClose, onSaved }: { links: InviteLink[]; onClose: () => void; onSaved: () => void }) {
+  const [text, setText] = useState('')
+  const [again, setAgain] = useState<Record<number, boolean>>({})
+  const known = new Set(links.filter((l) => l.guests.length).map((l) => sameGuests(l.guests)))
+  const lines = text.split('\n').filter((l) => l.trim()).map(parseLine)
+  const errors: Record<string, string> = {
+    name: t('Hier fehlt ein Name.'),
+    many: t('Höchstens zehn Personen pro Einladung.'),
+    note: t('Die Angabe in Klammern ist nicht lesbar.'),
+  }
+  const wanted = lines.filter((l, i) => !l.error && (again[i] || !known.has(sameGuests(l.persons.map((p) => p.name)))))
+  const save = useMutation({
+    mutationFn: async () => {
+      for (const line of wanted) await api.post('/invite-links', { persons: line.persons, salutation: line.salutation })
+    },
+    onSuccess: () => {
+      toast.success(t('{n} Einladungen angelegt.', { n: wanted.length }))
+      onClose()
+    },
+    onError: (e) => toast.error(errorMessage(e)),
+    onSettled: onSaved,
+  })
+
+  return (
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-h-[90svh] overflow-y-auto">
+        <form
+          onSubmit={(e) => {
+            e.preventDefault()
+            save.mutate()
+          }}
+          className="space-y-4"
+        >
+          <DialogHeader>
+            <DialogTitle>{t('Liste einfügen')}</DialogTitle>
+            <DialogDescription>{t('Eine Zeile pro Einladung, die Personen mit Komma getrennt. In Klammern: (kind), (kind, 4) für das Alter, (m) für „Lieber“.')}</DialogDescription>
+          </DialogHeader>
+          <Textarea rows={6} value={text} onChange={(e) => setText(e.target.value)} autoFocus aria-label={t('Liste')} placeholder={'Anna, Ben\nJack (m)\nRon, Harry, Lily (kind, 4)'} />
+          {lines.length > 0 && (
+            <ul className="divide-y rounded-lg border text-sm">
+              {lines.map((line, i) => {
+                const names = line.persons.map((p) => p.name)
+                const twice = !line.error && known.has(sameGuests(names))
+                return (
+                  <li key={i} className="space-y-1 px-3 py-2">
+                    {line.error ? (
+                      <p className="text-destructive">
+                        {line.text.trim()}: {errors[line.error]}
+                      </p>
+                    ) : (
+                      <p>
+                        {greeting(names, line.salutation)}
+                        {line.persons.some((p) => p.isChild) && (
+                          <span className="text-muted-foreground">
+                            {' '}
+                            {line.persons.filter((p) => p.isChild).map((p) => (p.age === 1 ? t('{name}: Kind, 1 Jahr', { name: p.name }) : p.age ? t('{name}: Kind, {age} Jahre', { name: p.name, age: p.age }) : t('{name}: Kind', { name: p.name }))).join(' · ')}
+                          </span>
+                        )}
+                      </p>
+                    )}
+                    {twice && (
+                      <Label className="flex min-h-11 items-center gap-2 font-normal text-muted-foreground md:min-h-8">
+                        <Checkbox checked={again[i] === true} onCheckedChange={(v) => setAgain((a) => ({ ...a, [i]: v === true }))} />
+                        {t('Gibt es schon. Trotzdem noch einmal anlegen')}
+                      </Label>
+                    )}
+                  </li>
+                )
+              })}
+            </ul>
+          )}
+          <DialogFooter>
+            <Button type="submit" disabled={save.isPending || wanted.length === 0}>
+              {t('{n} Einladungen anlegen', { n: wanted.length })}
             </Button>
           </DialogFooter>
         </form>

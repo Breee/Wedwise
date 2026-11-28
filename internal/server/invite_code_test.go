@@ -66,27 +66,48 @@ func TestInviteCodeOpensLink(t *testing.T) {
 	}
 
 	namePath := fmt.Sprintf("/api/invite-links/%d/name", link.ID)
-	resp = app.do("PUT", namePath, map[string]any{"guests": []string{"Anna", "Ben"}}, witness)
+	resp = app.do("PUT", namePath, map[string]any{"persons": []map[string]any{{"name": "Anna"}, {"name": "Ben"}}}, witness)
 	resp.Body.Close()
 	if resp.StatusCode != http.StatusForbidden {
 		t.Fatalf("witness sets name: got %d, want 403", resp.StatusCode)
 	}
-	resp = app.do("PUT", namePath, map[string]any{"guests": []string{strings.Repeat("x", 81)}}, couple)
+	resp = app.do("PUT", namePath, map[string]any{"persons": []map[string]any{{"name": strings.Repeat("x", 81)}}}, couple)
 	resp.Body.Close()
 	if resp.StatusCode != http.StatusBadRequest {
 		t.Fatalf("long name: got %d, want 400", resp.StatusCode)
 	}
-	resp = app.do("PUT", namePath, map[string]any{"guests": []string{" Anna ", "", "Ben"}, "salutation": "liebe"}, couple)
+	resp = app.do("PUT", namePath, map[string]any{"persons": []map[string]any{{"name": " Anna "}, {"name": ""}, {"name": "Ben", "isChild": true, "age": 4}}, "salutation": "liebe"}, couple)
 	resp.Body.Close()
 	resp = app.do("GET", "/api/rsvp/links/"+link.Token, nil, nil)
 	var status struct {
 		Guests     []string `json:"guests"`
 		Salutation string   `json:"salutation"`
+		Persons    []struct {
+			Name    string `json:"name"`
+			IsChild bool   `json:"isChild"`
+			Age     int    `json:"age"`
+		} `json:"persons"`
 	}
 	_ = json.NewDecoder(resp.Body).Decode(&status)
 	resp.Body.Close()
 	if strings.Join(status.Guests, "|") != "Anna|Ben" || status.Salutation != "liebe" {
 		t.Fatalf("guests: %+v", status)
+	}
+	if len(status.Persons) != 2 || !status.Persons[1].IsChild || status.Persons[1].Age != 4 {
+		t.Fatalf("persons: %+v", status.Persons)
+	}
+
+	// An invitation is a link made for its persons; it takes one response.
+	resp = app.do("POST", "/api/invite-links/", map[string]any{"persons": []map[string]any{{"name": "Jack"}}, "salutation": "lieber"}, couple)
+	var invitation struct {
+		Guests       []string `json:"guests"`
+		MaxResponses int      `json:"maxResponses"`
+		Code         string   `json:"code"`
+	}
+	_ = json.NewDecoder(resp.Body).Decode(&invitation)
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusCreated || strings.Join(invitation.Guests, "|") != "Jack" || invitation.MaxResponses != 1 || invitation.Code == "" {
+		t.Fatalf("invitation: %d %+v", resp.StatusCode, invitation)
 	}
 
 	// A new link retires the old code; a switched-off link does not open.
