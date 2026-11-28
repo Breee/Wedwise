@@ -115,6 +115,13 @@ export function RsvpForm({ initial, link, guests, persons, onDone }: FormProps) 
   const known = Boolean(guests?.length && contactName.trim())
   const dialogs = site?.content.replyPeople === 'dialog'
   const [editing, setEditing] = useState<number | null>(null)
+  // Persons whose window was opened; the others still invite to state food and allergies.
+  const [seen, setSeen] = useState<number[]>([])
+  const [asking, setAsking] = useState(false)
+  const openPerson = (i: number) => {
+    setSeen((l) => (l.includes(i) ? l : [...l, i]))
+    setEditing(i)
+  }
   // A person added without a name was not meant.
   const closePerson = () => {
     if (editing !== null && attendees.length > 1 && !attendees[editing]?.name.trim()) {
@@ -233,6 +240,10 @@ export function RsvpForm({ initial, link, guests, persons, onDone }: FormProps) 
             toast.error(t('Bitte für jede Person einen Namen eintragen.'))
             return
           }
+          if (page === 'people' && dialogs && seen.length === 0 && !attendees.some(hasFood)) {
+            setAsking(true)
+            return
+          }
           if (last) submit.mutate()
           else go(at + 1)
         }}
@@ -308,10 +319,10 @@ export function RsvpForm({ initial, link, guests, persons, onDone }: FormProps) 
                 <ul className="divide-y rounded-lg border bg-background/60">
                   {attendees.map((a, i) => (
                     <li key={i}>
-                      <button type="button" className="flex min-h-14 w-full items-center gap-3 px-3 py-2 text-left" onClick={() => setEditing(i)}>
+                      <button type="button" className="flex min-h-14 w-full items-center gap-3 px-3 py-2 text-left" onClick={() => openPerson(i)}>
                         <span className="min-w-0 flex-1">
                           <span className={`block truncate font-medium ${a.name.trim() ? '' : 'text-destructive'}`}>{a.name.trim() || t('Name fehlt')}</span>
-                          <span className="block truncate text-sm text-muted-foreground">{personSummary(a)}</span>
+                          <span className="block truncate text-sm text-muted-foreground">{personSummary(a, seen.includes(i))}</span>
                         </span>
                         <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
                       </button>
@@ -340,7 +351,7 @@ export function RsvpForm({ initial, link, guests, persons, onDone }: FormProps) 
                   onClick={() => {
                     const next = attendees.length
                     setAttendees((l) => [...l, newAttendee()])
-                    if (dialogs) setEditing(next)
+                    if (dialogs) openPerson(next)
                     else requestAnimationFrame(() => document.getElementById(`name-${next}`)?.focus())
                   }}
                 >
@@ -378,6 +389,7 @@ export function RsvpForm({ initial, link, guests, persons, onDone }: FormProps) 
                           variant="ghost"
                           onClick={() => {
                             setAttendees((l) => l.filter((_, k) => k !== editing))
+                            setSeen((l) => l.filter((k) => k !== editing).map((k) => (k > editing ? k - 1 : k)))
                             setEditing(null)
                           }}
                         >
@@ -389,6 +401,36 @@ export function RsvpForm({ initial, link, guests, persons, onDone }: FormProps) 
                   </DialogContent>
                 </Dialog>
               )}
+              <Dialog open={asking} onOpenChange={setAsking}>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>{t('Hat jemand Allergien oder isst besonders?')}</DialogTitle>
+                    <DialogDescription>{t('Zum Beispiel vegetarisch, vegan oder ohne Nüsse.')}</DialogDescription>
+                  </DialogHeader>
+                  <DialogFooter>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        setAsking(false)
+                        openPerson(0)
+                      }}
+                    >
+                      {t('Ja, eintragen')}
+                    </Button>
+                    <Button
+                      type="button"
+                      onClick={() => {
+                        setAsking(false)
+                        setSeen(attendees.map((_, i) => i))
+                        go(at + 1)
+                      }}
+                    >
+                      {t('Nein, weiter')}
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
             </CardContent>
           </Card>
         )}
@@ -585,12 +627,15 @@ export function RsvpForm({ initial, link, guests, persons, onDone }: FormProps) 
   )
 }
 
-// "Kind, 5 Jahre · Vegetarisch · Nüsse"
-function personSummary(a: Attendee) {
+const hasFood = (a: Attendee) => (a.diet || 'none') !== 'none' || a.allergies.trim() !== ''
+
+// "Kind, 5 Jahre · Vegetarisch · Nüsse"; without food details it says so, or invites to give them.
+function personSummary(a: Attendee, seen: boolean) {
   return [
     a.isChild && (a.age === 1 ? t('Kind, 1 Jahr') : a.age ? t('Kind, {age} Jahre', { age: a.age }) : t('Kind')),
     (a.diet || 'none') !== 'none' && DIET_OPTIONS.find((o) => o.value === a.diet)?.label,
     a.allergies.trim(),
+    !hasFood(a) && (seen ? t('Isst alles') : t('Essen und Allergien angeben')),
   ]
     .filter(Boolean)
     .join(' · ')

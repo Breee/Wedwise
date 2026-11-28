@@ -677,4 +677,10 @@ export const en: Record<string, string> = {
   'Gibt es schon. Trotzdem noch einmal anlegen': 'Already exists. Create it again anyway',
   'Einladungsnachricht': 'Invitation message',
   'Diesen Text kopiert ihr unter „Einladungslinks“ für jede Einladung. Platzhalter: {anrede} für „Liebe Anna und Ben,“, {namen}, {link} und {code}. Leer lassen für den Text in Grau.': 'You copy this text under “Invitation links” for each invitation. Placeholders: {anrede} for “Liebe Anna und Ben,”, {namen}, {link} and {code}. Leave empty for the text in grey.',
+  'Isst alles': 'Eats everything',
+  'Essen und Allergien angeben': 'Add food and allergies',
+  'Hat jemand Allergien oder isst besonders?': 'Does anyone have allergies or a special diet?',
+  'Zum Beispiel vegetarisch, vegan oder ohne Nüsse.': 'For example vegetarian, vegan or no nuts.',
+  'Ja, eintragen': 'Yes, add them',
+  'Nein, weiter': 'No, continue',
 }
