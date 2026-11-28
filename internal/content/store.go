@@ -293,10 +293,14 @@ func normalize(input Content) (Content, error) {
 	default:
 		return Content{}, fmt.Errorf("%w: inviteWriting must be letters or sweep", ErrValidation)
 	}
+	// The window mode was replaced by the step mode.
+	if input.ReplyPeople == "dialog" {
+		input.ReplyPeople = ""
+	}
 	switch input.ReplyPeople {
-	case "", "list", "dialog":
+	case "", "list", "steps":
 	default:
-		return Content{}, fmt.Errorf("%w: replyPeople must be list or dialog", ErrValidation)
+		return Content{}, fmt.Errorf("%w: replyPeople must be list or steps", ErrValidation)
 	}
 	input.InviteMessage = strings.TrimSpace(input.InviteMessage)
 	if utf8.RuneCountInString(input.InviteMessage) > maxInviteMessage {

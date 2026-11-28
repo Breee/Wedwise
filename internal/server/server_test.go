@@ -185,7 +185,7 @@ func validContent() map[string]any {
 		"privacy":       "Nur wir sehen eure Angaben.",
 		"displayFont":   "playfair",
 		"inviteWriting": "sweep",
-		"replyPeople":   "dialog",
+		"replyPeople":   "steps",
 		"inviteMessage": " {anrede} kommt vorbei: {link} ",
 		"names":         []string{" Anna ", "Ben", ""},
 		"date":          "2028-05-20",
@@ -398,7 +398,7 @@ func TestContentUpdate_Couple(t *testing.T) {
 	if body.Event.Date != "2028-05-20" || len(body.Event.Couple) != 2 || body.Event.Couple[0].Name != "Anna" || body.Event.Couple[1].Name != "Ben" {
 		t.Fatalf("names and date from the editor must replace the configured ones: %+v", body.Event)
 	}
-	if body.Content.ReplyPeople != "dialog" {
+	if body.Content.ReplyPeople != "steps" {
 		t.Fatalf("reply people not persisted: %q", body.Content.ReplyPeople)
 	}
 	if body.Content.InviteMessage != "{anrede} kommt vorbei: {link}" {

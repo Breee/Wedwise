@@ -3,7 +3,7 @@ import { t } from '@/lib/i18n'
 import { Link, useNavigate } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { motion } from 'motion/react'
-import { CheckCircle2, ChevronRight, Clock, KeyRound, Minus, Plus, X } from 'lucide-react'
+import { CheckCircle2, Clock, KeyRound, Minus, Plus, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { api, errorMessage } from '@/lib/api'
 import { meQuery, publicContentQuery, rsvpQuery } from '@/lib/queries'
@@ -15,7 +15,6 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { GENRES, NEEDS_OPTIONS, genreIcon, SongSearch, type Track, formatNeeds, joinList, parseNeeds, splitList } from '@/components/rsvp/music'
@@ -56,7 +55,7 @@ const emptyContribution: ContributionRequest = { title: '', description: '', nee
 
 // A half-filled form survives a reload: the draft stays in this tab until the
 // reply is sent or the tab is closed.
-const DRAFT_VERSION = 2
+const DRAFT_VERSION = 3
 
 type Draft = {
   version: number
@@ -73,6 +72,8 @@ type Draft = {
   wantsContribution: boolean
   contribution: ContributionRequest
   needs: { selected: string[]; other: string }
+  plain: boolean | null
+  late: number[]
 }
 
 function readDraft(key: string, base: string): Draft | null {
@@ -113,39 +114,46 @@ export function RsvpForm({ initial, link, guests, persons, onDone }: FormProps) 
   const attending = status === 'yes'
   // A link made for named guests already says who answers and how many they are.
   const known = Boolean(guests?.length && contactName.trim())
-  const dialogs = site?.content.replyPeople === 'dialog'
-  const [editing, setEditing] = useState<number | null>(null)
-  // Persons whose window was opened; the others still invite to state food and allergies.
-  const [seen, setSeen] = useState<number[]>([])
-  const [asking, setAsking] = useState(false)
-  const openPerson = (i: number) => {
-    setSeen((l) => (l.includes(i) ? l : [...l, i]))
-    setEditing(i)
+  // Step mode asks one thing per page, person by person.
+  const steps = site?.content.replyPeople === 'steps'
+  // Whether everyone eats everything, which skips the question per person.
+  const [plain, setPlain] = useState<boolean | null>(draft?.plain ?? null)
+  // Persons added at "Fehlt noch jemand?"; they are asked for their name first.
+  const [late, setLate] = useState<number[]>(draft?.late ?? [])
+  const [allergic, setAllergic] = useState<number | null>(null)
+  const removeAttendee = (i: number) => {
+    setAttendees((l) => l.filter((_, k) => k !== i))
+    setLate((l) => l.filter((k) => k !== i).map((k) => (k > i ? k - 1 : k)))
   }
-  // A person added without a name was not meant.
-  const closePerson = () => {
-    if (editing !== null && attendees.length > 1 && !attendees[editing]?.name.trim()) {
-      setAttendees((l) => l.filter((_, k) => k !== editing))
-    }
-    setEditing(null)
-  }
-  const pages = (attending
-    ? (['who', 'status', 'count', 'people', 'contribution', 'plan', 'music', 'song', 'message'] as const)
-    : (['who', 'status', 'message'] as const)
-  ).filter((p) => (!known || (p !== 'who' && p !== 'count')) && (p !== 'plan' || wantsContribution))
+  const asked = (a: Attendee, i: number) => [
+    ...(late.includes(i) ? [`name:${i}`] : []),
+    ...(plain && attendees.length > 1 ? [] : [`diet:${i}`]),
+    `allergy:${i}`,
+    ...(a.isChild ? [`age:${i}`, `photo:${i}`] : []),
+  ]
+  const pages: string[] = (attending
+    ? ['who', 'status', 'count', 'people', 'contribution', 'plan', 'music', 'song', 'message']
+    : ['who', 'status', 'message']
+  )
+    .filter((p) => (!known || (p !== 'who' && p !== 'count')) && (p !== 'plan' || wantsContribution))
+    .flatMap((p) => (p === 'people' && steps ? ['people', ...(attendees.length > 1 ? ['food'] : []), ...attendees.flatMap(asked), 'more'] : [p]))
   const [index, setIndex] = useState(draft?.index ?? 0)
   const sent = useRef(false)
   useEffect(() => {
     if (sent.current) return
-    const next: Draft = { version: DRAFT_VERSION, base: draftBase, index, contactName, status, attendees, message, genres, song, track, wantsContribution, contribution, needs }
+    const next: Draft = { version: DRAFT_VERSION, base: draftBase, index, contactName, status, attendees, message, genres, song, track, wantsContribution, contribution, needs, plain, late }
     try {
       sessionStorage.setItem(draftKey, JSON.stringify(next))
     } catch {
       // Without storage the form simply starts over after a reload.
     }
-  }, [draftKey, draftBase, index, contactName, status, attendees, message, genres, song, track, wantsContribution, contribution, needs])
+  }, [draftKey, draftBase, index, contactName, status, attendees, message, genres, song, track, wantsContribution, contribution, needs, plain, late])
   const at = Math.min(index, pages.length - 1)
   const page = pages[at]
+  const [kind, num] = page.split(':')
+  const pi = Number(num)
+  const person = num === undefined ? undefined : attendees[pi]
+  const who = person?.name.trim() || t('die Person')
   const last = at === pages.length - 1
   const formRef = useRef<HTMLFormElement>(null)
   // Brings the start of the form into view when it is scrolled away; never jumps to the page top.
@@ -168,7 +176,7 @@ export function RsvpForm({ initial, link, guests, persons, onDone }: FormProps) 
   const Step = (_: { n?: number }) => (
     <div className="space-y-2">
       <p className="text-xs font-medium tracking-[0.25em] text-primary uppercase">
-        {t('Schritt {n} von {count}', { n: at + 1, count: pages.length })}
+        {person ? `${who} · ${t('{n} von {count}', { n: pi + 1, count: attendees.length })}` : steps ? '\u00a0' : t('Schritt {n} von {count}', { n: at + 1, count: pages.length })}
       </p>
       <progress className="wed-progress" value={at + 1} max={pages.length} aria-hidden />
     </div>
@@ -240,10 +248,6 @@ export function RsvpForm({ initial, link, guests, persons, onDone }: FormProps) 
             toast.error(t('Bitte für jede Person einen Namen eintragen.'))
             return
           }
-          if (page === 'people' && dialogs && seen.length === 0 && !attendees.some(hasFood)) {
-            setAsking(true)
-            return
-          }
           if (last) submit.mutate()
           else go(at + 1)
         }}
@@ -312,125 +316,184 @@ export function RsvpForm({ initial, link, guests, persons, onDone }: FormProps) 
             <CardHeader>
               {Step({ n: 3 })}
               <CardTitle>{t('Wer kommt?')}</CardTitle>
-              <CardDescription>{t('Bitte alle Personen eintragen, auch Kinder.')}</CardDescription>
+              <CardDescription>{steps ? t('Entfernt, wer nicht kommen kann.') : t('Bitte alle Personen eintragen, auch Kinder.')}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              {dialogs && (
-                <ul className="divide-y rounded-lg border bg-background/60">
-                  {attendees.map((a, i) => (
-                    <li key={i}>
-                      <button type="button" className="flex min-h-14 w-full items-center gap-3 px-3 py-2 text-left" onClick={() => openPerson(i)}>
-                        <span className="min-w-0 flex-1">
-                          <span className={`block truncate font-medium ${a.name.trim() ? '' : 'text-destructive'}`}>{a.name.trim() || t('Name fehlt')}</span>
-                          <span className="block truncate text-sm text-muted-foreground">{personSummary(a, seen.includes(i))}</span>
-                        </span>
-                        <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-              {!dialogs && attendees.map((a, i) => (
+              {attendees.map((a, i) => (
                 <div key={i} className="space-y-2 rounded-lg border bg-background/60 p-3">
                   <div className="flex items-center gap-1">
                     <Input id={`name-${i}`} aria-label={t('{n}. Person', { n: i + 1 })} placeholder={`${t('{n}. Person', { n: i + 1 })} *`} value={a.name} onChange={(e) => updateAttendee(i, { name: e.target.value })} required autoCapitalize="words" enterKeyHint="done" />
+                    {steps && (
+                      <Label className="ml-2 flex min-h-11 shrink-0 items-center gap-2 font-normal">
+                        <Checkbox checked={a.isChild} onCheckedChange={(v) => updateAttendee(i, { isChild: v === true, photoOk: v !== true })} />
+                        {t('Kind')}
+                      </Label>
+                    )}
                     {attendees.length > 1 && (
-                      <Button type="button" variant="ghost" size="icon" className="-mr-2 size-11 shrink-0 text-muted-foreground sm:size-9" title={t('Entfernen')} aria-label={t('Entfernen')} onClick={() => setAttendees((l) => l.filter((_, k) => k !== i))}>
+                      <Button type="button" variant="ghost" size="icon" className="-mr-2 size-11 shrink-0 text-muted-foreground sm:size-9" title={t('Entfernen')} aria-label={t('Entfernen')} onClick={() => removeAttendee(i)}>
                         <X className="size-4" />
                       </Button>
                     )}
                   </div>
-                  <PersonDetails attendee={a} index={i} update={(patch) => updateAttendee(i, patch)} />
+                  {!steps && <PersonDetails attendee={a} index={i} update={(patch) => updateAttendee(i, patch)} />}
                 </div>
               ))}
+              {attendees.length < MAX_ATTENDEES && (
+                <div className="space-y-2">
+                  {steps && <p className="font-medium">{t('Fehlt jemand?')}</p>}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => {
+                      const next = attendees.length
+                      setAttendees((l) => [...l, newAttendee()])
+                      requestAnimationFrame(() => document.getElementById(`name-${next}`)?.focus())
+                    }}
+                  >
+                    <Plus className="size-4" /> {t('Person hinzufügen')}
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {page === 'food' && (
+          <Card>
+            <CardHeader>
+              {Step({})}
+              <CardTitle>{t('Essen alle alles?')}</CardTitle>
+              <CardDescription>{t('Also niemand vegetarisch, vegan oder Ähnliches. Nach Allergien fragen wir gleich noch.')}</CardDescription>
+            </CardHeader>
+            <CardContent className="grid gap-3">
+              <Button type="button" variant={plain === true ? 'default' : 'outline'} className={choice} aria-pressed={plain === true} onClick={() => { setPlain(true); setAttendees((l) => l.map((a) => ({ ...a, diet: 'none' }))); go(at + 1) }}>
+                {t('Ja, alle')}
+              </Button>
+              <Button type="button" variant={plain === false ? 'default' : 'outline'} className={choice} aria-pressed={plain === false} onClick={() => { setPlain(false); go(at + 1) }}>
+                {t('Nein, nicht alle')}
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
+        {kind === 'name' && person && (
+          <Card>
+            <CardHeader>
+              {Step({})}
+              <CardTitle>{t('Wer fehlt noch?')}</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <Input id="late-name" aria-label={t('Name')} placeholder={`${t('Name')} *`} value={person.name} onChange={(e) => updateAttendee(pi, { name: e.target.value })} required autoCapitalize="words" enterKeyHint="next" />
+              <div className="grid grid-cols-2 gap-3">
+                <Button type="button" variant={person.isChild ? 'outline' : 'default'} className="h-12" aria-pressed={!person.isChild} onClick={() => updateAttendee(pi, { isChild: false, photoOk: true })}>
+                  {t('Erwachsen')}
+                </Button>
+                <Button type="button" variant={person.isChild ? 'default' : 'outline'} className="h-12" aria-pressed={person.isChild} onClick={() => updateAttendee(pi, { isChild: true, photoOk: false })}>
+                  {t('Kind')}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {kind === 'diet' && person && (
+          <Card>
+            <CardHeader>
+              {Step({})}
+              <CardTitle>{t('Was isst {name}?', { name: who })}</CardTitle>
+            </CardHeader>
+            <CardContent className="grid gap-3">
+              {DIET_OPTIONS.map((o) => {
+                const on = (person.diet || 'none') === o.value
+                return (
+                  <Button key={o.value} type="button" variant={on ? 'default' : 'outline'} className={choice} aria-pressed={on} onClick={() => { updateAttendee(pi, { diet: o.value as Attendee['diet'] }); go(at + 1) }}>
+                    {o.label}
+                  </Button>
+                )
+              })}
+            </CardContent>
+          </Card>
+        )}
+
+        {kind === 'allergy' && person && (
+          <Card>
+            <CardHeader>
+              {Step({})}
+              <CardTitle>{t('Hat {name} Allergien?', { name: who })}</CardTitle>
+            </CardHeader>
+            <CardContent className="grid gap-3">
+              <Button type="button" variant="outline" className={choice} onClick={() => { updateAttendee(pi, { allergies: '' }); setAllergic(null); go(at + 1) }}>
+                {t('Nein')}
+              </Button>
+              {allergic === pi || person.allergies ? (
+                <Input id="allergies" autoFocus aria-label={t('Allergien')} placeholder={t('Welche? Zum Beispiel Nüsse')} value={person.allergies} onChange={(e) => updateAttendee(pi, { allergies: e.target.value })} enterKeyHint="next" />
+              ) : (
+                <Button type="button" variant="outline" className={choice} onClick={() => setAllergic(pi)}>
+                  {t('Ja')}
+                </Button>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {kind === 'age' && person && (
+          <Card>
+            <CardHeader>
+              {Step({})}
+              <CardTitle>{t('Wie alt ist {name}?', { name: who })}</CardTitle>
+            </CardHeader>
+            <CardContent className="flex items-center gap-3">
+              <Input id="age" type="number" inputMode="numeric" min={0} max={17} required className="w-24" aria-label={t('Alter')} value={person.age || ''} onChange={(e) => updateAttendee(pi, { age: Math.min(17, Math.max(0, Number(e.target.value) || 0)) })} enterKeyHint="next" />
+              <span>{t('Jahre')}</span>
+            </CardContent>
+          </Card>
+        )}
+
+        {kind === 'photo' && person && (
+          <Card>
+            <CardHeader>
+              {Step({})}
+              <CardTitle>{t('Dürfen Fotos von {name} gemacht werden?', { name: who })}</CardTitle>
+              <CardDescription>{t('Die Fotos bleiben eine private Erinnerung für uns und werden nicht veröffentlicht. Beides ist völlig in Ordnung.')}</CardDescription>
+            </CardHeader>
+            <CardContent className="grid gap-3">
+              <Button type="button" variant={person.photoOk ? 'default' : 'outline'} className={choice} aria-pressed={person.photoOk} onClick={() => { updateAttendee(pi, { photoOk: true }); go(at + 1) }}>
+                {t('Ja')}
+              </Button>
+              <Button type="button" variant={person.photoOk ? 'outline' : 'default'} className={choice} aria-pressed={!person.photoOk} onClick={() => { updateAttendee(pi, { photoOk: false }); go(at + 1) }}>
+                {t('Nein')}
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
+        {page === 'more' && (
+          <Card>
+            <CardHeader>
+              {Step({})}
+              <CardTitle>{t('Fehlt noch jemand?')}</CardTitle>
+              <CardDescription>{attendees.map((a) => a.name.trim()).filter(Boolean).join(', ')}</CardDescription>
+            </CardHeader>
+            <CardContent className="grid gap-3">
               {attendees.length < MAX_ATTENDEES && (
                 <Button
                   type="button"
                   variant="outline"
-                  className="w-full"
+                  className={choice}
                   onClick={() => {
-                    const next = attendees.length
+                    setLate((l) => [...l, attendees.length])
                     setAttendees((l) => [...l, newAttendee()])
-                    if (dialogs) openPerson(next)
-                    else requestAnimationFrame(() => document.getElementById(`name-${next}`)?.focus())
+                    go(at)
+                    requestAnimationFrame(() => document.getElementById('late-name')?.focus())
                   }}
                 >
                   <Plus className="size-4" /> {t('Person hinzufügen')}
                 </Button>
               )}
-              {dialogs && editing !== null && attendees[editing] && (
-                <Dialog open onOpenChange={(open) => !open && closePerson()}>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>{t('{n}. Person', { n: editing + 1 })}</DialogTitle>
-                      <DialogDescription className="sr-only">{t('Bitte alle Personen eintragen, auch Kinder.')}</DialogDescription>
-                    </DialogHeader>
-                    <div className="space-y-2">
-                      <Input
-                        id={`name-${editing}`}
-                        aria-label={t('Name')}
-                        placeholder={`${t('Name')} *`}
-                        value={attendees[editing].name}
-                        onChange={(e) => updateAttendee(editing, { name: e.target.value })}
-                        onKeyDown={(e) => {
-                          if (e.key !== 'Enter') return
-                          e.preventDefault()
-                          e.currentTarget.blur()
-                        }}
-                        autoCapitalize="words"
-                        enterKeyHint="done"
-                      />
-                      <PersonDetails attendee={attendees[editing]} index={editing} update={(patch) => updateAttendee(editing, patch)} />
-                    </div>
-                    <DialogFooter>
-                      {attendees.length > 1 && (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          onClick={() => {
-                            setAttendees((l) => l.filter((_, k) => k !== editing))
-                            setSeen((l) => l.filter((k) => k !== editing).map((k) => (k > editing ? k - 1 : k)))
-                            setEditing(null)
-                          }}
-                        >
-                          {t('Entfernen')}
-                        </Button>
-                      )}
-                      <Button type="button" onClick={closePerson}>{t('Fertig')}</Button>
-                    </DialogFooter>
-                  </DialogContent>
-                </Dialog>
-              )}
-              <Dialog open={asking} onOpenChange={setAsking}>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>{t('Hat jemand Allergien oder isst besonders?')}</DialogTitle>
-                    <DialogDescription>{t('Zum Beispiel vegetarisch, vegan oder ohne Nüsse.')}</DialogDescription>
-                  </DialogHeader>
-                  <DialogFooter>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => {
-                        setAsking(false)
-                        openPerson(0)
-                      }}
-                    >
-                      {t('Ja, eintragen')}
-                    </Button>
-                    <Button
-                      type="button"
-                      onClick={() => {
-                        setAsking(false)
-                        setSeen(attendees.map((_, i) => i))
-                        go(at + 1)
-                      }}
-                    >
-                      {t('Nein, weiter')}
-                    </Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
+              <Button type="button" variant="outline" className={choice} onClick={() => go(at + 1)}>
+                {t('Nein, weiter')}
+              </Button>
             </CardContent>
           </Card>
         )}
@@ -612,7 +675,16 @@ export function RsvpForm({ initial, link, guests, persons, onDone }: FormProps) 
         <div className="sticky bottom-0 z-10 -mx-4 mt-auto bg-background/95 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur sm:static sm:mx-0 sm:bg-transparent sm:p-0 sm:pt-2 sm:backdrop-blur-none">
           <div className="flex gap-3">
             {at > 0 && (
-              <Button type="button" size="lg" variant="outline" onClick={() => go(at - 1)}>
+              <Button
+                type="button"
+                size="lg"
+                variant="outline"
+                onClick={() => {
+                  // A person added without a name was not meant.
+                  if (kind === 'name' && !person?.name.trim()) removeAttendee(pi)
+                  else go(at - 1)
+                }}
+              >
                 {t('Zurück')}
               </Button>
             )}
@@ -627,19 +699,7 @@ export function RsvpForm({ initial, link, guests, persons, onDone }: FormProps) 
   )
 }
 
-const hasFood = (a: Attendee) => (a.diet || 'none') !== 'none' || a.allergies.trim() !== ''
-
-// "Kind, 5 Jahre · Vegetarisch · Nüsse"; without food details it says so, or invites to give them.
-function personSummary(a: Attendee, seen: boolean) {
-  return [
-    a.isChild && (a.age === 1 ? t('Kind, 1 Jahr') : a.age ? t('Kind, {age} Jahre', { age: a.age }) : t('Kind')),
-    (a.diet || 'none') !== 'none' && DIET_OPTIONS.find((o) => o.value === a.diet)?.label,
-    a.allergies.trim(),
-    !hasFood(a) && (seen ? t('Isst alles') : t('Essen und Allergien angeben')),
-  ]
-    .filter(Boolean)
-    .join(' · ')
-}
+const choice = 'h-14 w-full justify-start px-4 text-base'
 
 const check = 'flex min-h-10 items-center gap-2 font-normal sm:min-h-8'
 

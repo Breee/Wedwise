@@ -98,7 +98,7 @@ type Content struct {
 	Privacy       string          `json:"privacy"`       // optional privacy note shown in the footer
 	DisplayFont   string          `json:"displayFont"`   // heading font: empty for the theme's own
 	InviteMessage string          `json:"inviteMessage"` // template for the message that carries an invitation link
-	ReplyPeople   string          `json:"replyPeople"`   // persons in the reply form: list (default) or dialog
+	ReplyPeople   string          `json:"replyPeople"`   // persons in the reply form: list (default) or steps
 	InviteWriting string          `json:"inviteWriting"` // how the fireflies write the names: letters (default) or sweep
 	UpdatedAt     time.Time       `json:"updatedAt"`
 }

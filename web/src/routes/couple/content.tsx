@@ -136,11 +136,11 @@ function ContentPage() {
               </div>
               <div className="grid gap-2">
                 <Label>{t('Personen in der Antwort')}</Label>
-                <Select value={draft.replyPeople || 'list'} onValueChange={(v) => set('replyPeople', v as 'list' | 'dialog')}>
+                <Select value={draft.replyPeople === 'steps' ? 'steps' : 'list'} onValueChange={(v) => set('replyPeople', v as 'list' | 'steps')}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="list">{t('Alle auf einer Seite')}</SelectItem>
-                    <SelectItem value="dialog">{t('Jede Person in einem eigenen Fenster')}</SelectItem>
+                    <SelectItem value="steps">{t('Schritt für Schritt, eine Frage pro Seite')}</SelectItem>
                   </SelectContent>
                 </Select>
                 <p className="text-sm text-muted-foreground">{t('So tragen Gäste ein, wer kommt.')}</p>

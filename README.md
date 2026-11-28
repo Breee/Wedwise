@@ -51,7 +51,7 @@ third-party SaaS required.
   fireflies write the couple's names. Under "Inhalte" → "Design" the heading
   font and the way the names are written can be picked, with a live preview.
   The reply form can list all persons on one page or open
-  each person in its own window. Guests answer per household and get a private link to
+  one question per page. Guests answer per household and get a private link to
   edit their answer later.
 - 🎁 **Contributions** — guests can offer a programme item. Only witnesses and
   admins see these (Kanban board, schedule planning); the couple only sees
