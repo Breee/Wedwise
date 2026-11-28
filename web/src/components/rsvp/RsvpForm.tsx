@@ -127,8 +127,7 @@ export function RsvpForm({ initial, link, guests, persons, onDone }: FormProps) 
   }
   const asked = (a: Attendee, i: number) => [
     ...(late.includes(i) ? [`name:${i}`] : []),
-    ...(plain && attendees.length > 1 ? [] : [`diet:${i}`]),
-    `allergy:${i}`,
+    ...(plain && attendees.length > 1 && !late.includes(i) ? [] : [`diet:${i}`, `allergy:${i}`]),
     ...(a.isChild ? [`age:${i}`, `photo:${i}`] : []),
   ]
   const pages: string[] = (attending
@@ -248,6 +247,10 @@ export function RsvpForm({ initial, link, guests, persons, onDone }: FormProps) 
             toast.error(t('Bitte für jede Person einen Namen eintragen.'))
             return
           }
+          if (page === 'food' && plain === null) {
+            toast.error(t('Bitte wählt eine Antwort.'))
+            return
+          }
           if (last) submit.mutate()
           else go(at + 1)
         }}
@@ -363,14 +366,14 @@ export function RsvpForm({ initial, link, guests, persons, onDone }: FormProps) 
           <Card>
             <CardHeader>
               {Step({})}
-              <CardTitle>{t('Essen alle alles?')}</CardTitle>
-              <CardDescription>{t('Also niemand vegetarisch, vegan oder Ähnliches. Nach Allergien fragen wir gleich noch.')}</CardDescription>
+              <CardTitle>{t('Essen alle alles, ohne Allergien?')}</CardTitle>
+              <CardDescription>{t('Also niemand vegetarisch, vegan oder mit einer Allergie. Sonst fragen wir für jede Person einzeln.')}</CardDescription>
             </CardHeader>
             <CardContent className="grid gap-3">
-              <Button type="button" variant={plain === true ? 'default' : 'outline'} className={choice} aria-pressed={plain === true} onClick={() => { setPlain(true); setAttendees((l) => l.map((a) => ({ ...a, diet: 'none' }))); go(at + 1) }}>
+              <Button type="button" variant={plain === true ? 'default' : 'outline'} className={choice} aria-pressed={plain === true} onClick={() => { setPlain(true); setAttendees((l) => l.map((a, i) => (late.includes(i) ? a : { ...a, diet: 'none', allergies: '' }))) }}>
                 {t('Ja, alle')}
               </Button>
-              <Button type="button" variant={plain === false ? 'default' : 'outline'} className={choice} aria-pressed={plain === false} onClick={() => { setPlain(false); go(at + 1) }}>
+              <Button type="button" variant={plain === false ? 'default' : 'outline'} className={choice} aria-pressed={plain === false} onClick={() => setPlain(false)}>
                 {t('Nein, nicht alle')}
               </Button>
             </CardContent>
@@ -404,10 +407,10 @@ export function RsvpForm({ initial, link, guests, persons, onDone }: FormProps) 
               <CardTitle>{t('Was isst {name}?', { name: who })}</CardTitle>
             </CardHeader>
             <CardContent className="grid gap-3">
-              {DIET_OPTIONS.map((o) => {
+              {DIET_OPTIONS.filter((o) => o.value !== 'other' || person.diet === 'other').map((o) => {
                 const on = (person.diet || 'none') === o.value
                 return (
-                  <Button key={o.value} type="button" variant={on ? 'default' : 'outline'} className={choice} aria-pressed={on} onClick={() => { updateAttendee(pi, { diet: o.value as Attendee['diet'] }); go(at + 1) }}>
+                  <Button key={o.value} type="button" variant={on ? 'default' : 'outline'} className={choice} aria-pressed={on} onClick={() => updateAttendee(pi, { diet: o.value as Attendee['diet'] })}>
                     {o.label}
                   </Button>
                 )
@@ -423,15 +426,14 @@ export function RsvpForm({ initial, link, guests, persons, onDone }: FormProps) 
               <CardTitle>{t('Hat {name} Allergien?', { name: who })}</CardTitle>
             </CardHeader>
             <CardContent className="grid gap-3">
-              <Button type="button" variant="outline" className={choice} onClick={() => { updateAttendee(pi, { allergies: '' }); setAllergic(null); go(at + 1) }}>
+              <Button type="button" variant={allergic === pi || person.allergies ? 'outline' : 'default'} className={choice} aria-pressed={!(allergic === pi || person.allergies)} onClick={() => { updateAttendee(pi, { allergies: '' }); setAllergic(null) }}>
                 {t('Nein')}
               </Button>
-              {allergic === pi || person.allergies ? (
+              <Button type="button" variant={allergic === pi || person.allergies ? 'default' : 'outline'} className={choice} aria-pressed={Boolean(allergic === pi || person.allergies)} onClick={() => setAllergic(pi)}>
+                {t('Ja')}
+              </Button>
+              {(allergic === pi || person.allergies) && (
                 <Input id="allergies" autoFocus aria-label={t('Allergien')} placeholder={t('Welche? Zum Beispiel Nüsse')} value={person.allergies} onChange={(e) => updateAttendee(pi, { allergies: e.target.value })} enterKeyHint="next" />
-              ) : (
-                <Button type="button" variant="outline" className={choice} onClick={() => setAllergic(pi)}>
-                  {t('Ja')}
-                </Button>
               )}
             </CardContent>
           </Card>
@@ -458,10 +460,10 @@ export function RsvpForm({ initial, link, guests, persons, onDone }: FormProps) 
               <CardDescription>{t('Die Fotos bleiben eine private Erinnerung für uns und werden nicht veröffentlicht. Beides ist völlig in Ordnung.')}</CardDescription>
             </CardHeader>
             <CardContent className="grid gap-3">
-              <Button type="button" variant={person.photoOk ? 'default' : 'outline'} className={choice} aria-pressed={person.photoOk} onClick={() => { updateAttendee(pi, { photoOk: true }); go(at + 1) }}>
+              <Button type="button" variant={person.photoOk ? 'default' : 'outline'} className={choice} aria-pressed={person.photoOk} onClick={() => updateAttendee(pi, { photoOk: true })}>
                 {t('Ja')}
               </Button>
-              <Button type="button" variant={person.photoOk ? 'outline' : 'default'} className={choice} aria-pressed={!person.photoOk} onClick={() => { updateAttendee(pi, { photoOk: false }); go(at + 1) }}>
+              <Button type="button" variant={person.photoOk ? 'outline' : 'default'} className={choice} aria-pressed={!person.photoOk} onClick={() => updateAttendee(pi, { photoOk: false })}>
                 {t('Nein')}
               </Button>
             </CardContent>
@@ -491,9 +493,6 @@ export function RsvpForm({ initial, link, guests, persons, onDone }: FormProps) 
                   <Plus className="size-4" /> {t('Person hinzufügen')}
                 </Button>
               )}
-              <Button type="button" variant="outline" className={choice} onClick={() => go(at + 1)}>
-                {t('Nein, weiter')}
-              </Button>
             </CardContent>
           </Card>
         )}
@@ -759,7 +758,7 @@ function PersonDetails({ attendee: a, index: i, update }: { attendee: Attendee; 
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {DIET_OPTIONS.map((o) => (
+              {DIET_OPTIONS.filter((o) => o.value !== 'other' || a.diet === 'other').map((o) => (
                 <SelectItem key={o.value} value={o.value}>
                   {o.label}
                 </SelectItem>
